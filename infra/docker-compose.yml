@@ -1,0 +1,13 @@
+name: tta-portal
+
+services:
+  tta-portal:
+    image: ghcr.io/litt1estar/tta-portal:latest
+    restart: unless-stopped
+    expose:
+      - "80"
+
+networks:
+  default:
+    name: cmm_default
+    external: true
