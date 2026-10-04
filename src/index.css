@@ -1,0 +1,186 @@
+/* Thailand Teaching Academy Award 13th - Core Design System */
+
+:root {
+  --primary: #FF5F1C;
+  --primary-hover: #E84D0D;
+  --primary-glow: rgba(255, 95, 28, 0.35);
+  --primary-subtle: #FFF4EE;
+  
+  --amber: #FF8D20;
+  --yellow: #FFC525;
+  --yellow-bg: #FFF8DB;
+  --yellow-text: #8A5A00;
+  
+  --navy: #16182A;
+  --navy-surface: #1E2138;
+  --navy-border: rgba(255, 255, 255, 0.1);
+
+  --blue: #2A9FF7;
+  --blue-bg: #EAF5FE;
+  --blue-text: #0A65B0;
+
+  --bg-main: #F6F6F9;
+  --bg-white: #FFFFFF;
+  --border-light: #ECECF1;
+  --border-hover: #D5D7E0;
+  
+  --text-dark: #1B1D29;
+  --text-muted: #6B6F80;
+  --text-light: #9A9DAD;
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-full: 9999px;
+
+  --shadow-subtle: 0 2px 8px rgba(27, 29, 41, 0.04);
+  --shadow-card: 0 4px 20px -2px rgba(27, 29, 41, 0.06), 0 2px 6px -1px rgba(27, 29, 41, 0.03);
+  --shadow-hover: 0 16px 36px -4px rgba(27, 29, 41, 0.12), 0 6px 12px -2px rgba(27, 29, 41, 0.04);
+  --shadow-orange: 0 12px 28px -6px rgba(255, 95, 28, 0.35);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-main);
+  color: var(--text-dark);
+  font-family: 'Plus Jakarta Sans', 'Anuphan', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  outline: none;
+}
+
+button:not(:disabled):active {
+  transform: scale(0.98);
+}
+
+input, textarea, select {
+  outline: none;
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--text-light);
+}
+
+a {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.18s;
+}
+
+a:hover {
+  color: var(--primary-hover);
+}
+
+::selection {
+  background: rgba(255, 141, 32, 0.25);
+  color: var(--text-dark);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #ECECF1;
+}
+::-webkit-scrollbar-thumb {
+  background: #C4C6D0;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #A0A3B1;
+}
+
+/* Animations */
+@keyframes ttaa-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.7) translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ttaa-turn {
+  0%, 40% { transform: rotate(0deg); }
+  50%, 90% { transform: rotate(90deg); }
+  100% { transform: rotate(0deg); }
+}
+
+@keyframes ttaa-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes ttaa-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.08); opacity: 0.85; }
+}
+
+@keyframes ttaa-shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+
+@keyframes ttaa-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-pop {
+  animation: ttaa-pop 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-float {
+  animation: ttaa-float 5s ease-in-out infinite;
+}
+
+.animate-shake {
+  animation: ttaa-shake 0.4s ease-in-out;
+}
+
+.animate-slide-up {
+  animation: ttaa-slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Container */
+.app-container {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+@media (max-width: 768px) {
+  .app-container {
+    padding: 0 16px;
+  }
+}
