@@ -3,8 +3,8 @@ export const DEMO_PASSWORD = 'ttaa2026';
 export const ACCOUNTS = {
   'rep.rtc': {
     username: 'rep.rtc',
-    name: 'Nid Suwannee',
-    university: 'Rajanakarin Teachers College',
+    name: 'กฤติน ประกอบดี',
+    university: 'มหาวิทยาลัยเทคโนโลยีประจอมเกล้าธนบุรี',
     role: 'ผู้ประสานงานมหาวิทยาลัย'
   },
   'rep.svu': {
