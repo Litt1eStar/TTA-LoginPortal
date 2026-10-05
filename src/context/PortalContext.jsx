@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ACCOUNTS, DEMO_PASSWORD } from '../data/accounts';
 import { TRACKS } from '../data/tracks';
 import { createSeedSubmissions } from '../data/seedData';
@@ -9,10 +10,12 @@ const PortalContext = createContext(null);
 
 const STORAGE_KEY_AUTH = 'ttaa13_auth';
 const STORAGE_KEY_SUBMISSIONS = 'ttaa13_submissions';
-const STORAGE_KEY_VIEW = 'ttaa13_view';
 const STORAGE_KEY_TRACK = 'ttaa13_track';
 
 export const PortalProvider = ({ children }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
   // Auth state
   const [user, setUser] = useState(() => {
     try {
@@ -24,13 +27,13 @@ export const PortalProvider = ({ children }) => {
   });
 
   const [loginStyle, setLoginStyle] = useState('mosaic'); // 'mosaic' | 'classic'
-  const [currentView, setCurrentView] = useState(() => {
-    try {
-      return localStorage.getItem(STORAGE_KEY_VIEW) || 'dashboard';
-    } catch {
-      return 'dashboard';
-    }
-  });
+
+  // Derive current view from current route path
+  const currentView = location.pathname.startsWith('/submit')
+    ? 'submit'
+    : location.pathname.startsWith('/history')
+    ? 'history'
+    : 'dashboard';
 
   const [activeTrackId, setActiveTrackId] = useState(() => {
     try {
@@ -71,13 +74,6 @@ export const PortalProvider = ({ children }) => {
     }
   }, [submissions]);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY_VIEW, currentView);
-    } catch (e) {
-      console.error(e);
-    }
-  }, [currentView]);
 
   useEffect(() => {
     try {
@@ -119,25 +115,28 @@ export const PortalProvider = ({ children }) => {
     }
 
     setUser(account);
-    setCurrentView('dashboard');
     showToast(`ยินดีต้อนรับ คุณ${account.name}`);
     return { success: true };
   };
 
   const logout = () => {
     setUser(null);
-    setCurrentView('dashboard');
     showToast('ออกจากระบบเรียบร้อยแล้ว');
+    navigate('/login');
   };
 
   // Track & View navigation
   const openTrack = (trackId) => {
     setActiveTrackId(trackId);
-    setCurrentView('submit');
+    navigate(`/submit/${trackId}`);
   };
 
   const setView = (v) => {
-    setCurrentView(v);
+    if (v === 'submit') {
+      navigate(`/submit/${activeTrackId || 'theory'}`);
+    } else {
+      navigate(`/${v}`);
+    }
   };
 
   // Submissions operations

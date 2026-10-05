@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { usePortal } from '../../context/PortalContext';
 import { TRACKS } from '../../data/tracks';
 import { daysUntil, fmtDate } from '../../utils/formatters';
@@ -12,8 +13,25 @@ import { ConfirmSubmitModal } from './ConfirmSubmitModal';
 import { LockSimple, WarningCircle, CheckCircle } from '@phosphor-icons/react';
 
 export const SubmitView = () => {
-  const { activeTrackId, submissions, saveDraft, confirmSubmit, showToast } = usePortal();
-  const activeTrack = TRACKS.find(t => t.id === activeTrackId) || TRACKS[0];
+  const { trackId } = useParams();
+  const navigate = useNavigate();
+  const { activeTrackId, setActiveTrackId, submissions, saveDraft, confirmSubmit, showToast } = usePortal();
+
+  // If a valid trackId is in URL, keep activeTrackId in sync
+  useEffect(() => {
+    if (trackId) {
+      const match = TRACKS.find(t => t.id === trackId);
+      if (match && match.id !== activeTrackId) {
+        setActiveTrackId(match.id);
+      } else if (!match) {
+        // Fallback to activeTrackId if invalid param is typed
+        navigate(`/submit/${activeTrackId || 'theory'}`, { replace: true });
+      }
+    }
+  }, [trackId, activeTrackId, setActiveTrackId, navigate]);
+
+  const currentTrackId = (trackId && TRACKS.some(t => t.id === trackId)) ? trackId : activeTrackId;
+  const activeTrack = TRACKS.find(t => t.id === currentTrackId) || TRACKS[0];
   const sub = submissions[activeTrack.id] || { members: [], files: [], links: {} };
 
   const [formErrors, setFormErrors] = useState({});

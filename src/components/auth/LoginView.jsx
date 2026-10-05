@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { usePortal } from '../../context/PortalContext';
 import { MosaicHero } from './MosaicHero';
 import { Eye, EyeSlash, LockKey, User, Sparkle, WarningCircle } from '@phosphor-icons/react';
 import { DEMO_PASSWORD } from '../../data/accounts';
 
 export const LoginView = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const { login } = usePortal();
 
   const [username, setUsername] = useState('rep.rtc');
@@ -37,6 +40,9 @@ export const LoginView = () => {
       if (!res.success) {
         setError(res.error);
         triggerShake();
+      } else {
+        const destination = location.state?.from?.pathname || '/dashboard';
+        navigate(destination, { replace: true });
       }
     }, 450);
   };

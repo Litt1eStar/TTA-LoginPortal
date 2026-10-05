@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { usePortal } from '../../context/PortalContext';
 import { initials } from '../../utils/formatters';
 import {
@@ -10,14 +11,34 @@ import {
 } from '@phosphor-icons/react';
 
 export const Navbar = () => {
-  const { user, logout, currentView, setView, resetAllDataToDefault } = usePortal();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user, logout, activeTrackId, resetAllDataToDefault } = usePortal();
 
   if (!user) return null;
 
   const navItems = [
-    { id: 'dashboard', label: 'หน้าหลัก', icon: SquaresFour },
-    { id: 'submit', label: 'ส่งผลงาน', icon: PaperPlaneTilt },
-    { id: 'history', label: 'ประวัติการส่ง', icon: ClockCounterClockwise }
+    {
+      id: 'dashboard',
+      path: '/dashboard',
+      label: 'หน้าหลัก',
+      icon: SquaresFour,
+      isActive: location.pathname === '/dashboard' || location.pathname === '/'
+    },
+    {
+      id: 'submit',
+      path: `/submit/${activeTrackId || 'theory'}`,
+      label: 'ส่งผลงาน',
+      icon: PaperPlaneTilt,
+      isActive: location.pathname.startsWith('/submit')
+    },
+    {
+      id: 'history',
+      path: '/history',
+      label: 'ประวัติการส่ง',
+      icon: ClockCounterClockwise,
+      isActive: location.pathname === '/history'
+    }
   ];
 
   return (
@@ -38,7 +59,7 @@ export const Navbar = () => {
       }}>
         {/* Brand & Logo */}
         <div
-          onClick={() => setView('dashboard')}
+          onClick={() => navigate('/dashboard')}
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -72,11 +93,11 @@ export const Navbar = () => {
         }}>
           {navItems.map(item => {
             const Icon = item.icon;
-            const isActive = currentView === item.id;
+            const isActive = item.isActive;
             return (
               <button
                 key={item.id}
-                onClick={() => setView(item.id)}
+                onClick={() => navigate(item.path)}
                 style={{
                   display: 'flex',
                   alignItems: 'center',

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Routes, Route, Navigate, useLocation, Outlet } from 'react-router-dom';
 import { usePortal } from './context/PortalContext';
 import { LoginView } from './components/auth/LoginView';
 import { Navbar } from './components/layout/Navbar';
@@ -8,16 +9,13 @@ import { DashboardView } from './components/dashboard/DashboardView';
 import { SubmitView } from './components/submit/SubmitView';
 import { HistoryView } from './components/history/HistoryView';
 
-export function AppContent() {
-  const { isAuthenticated, currentView } = usePortal();
+// Protected Route Guard & Layout
+function ProtectedLayout() {
+  const { isAuthenticated } = usePortal();
+  const location = useLocation();
 
   if (!isAuthenticated) {
-    return (
-      <main>
-        <LoginView />
-        <Toast />
-      </main>
-    );
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   return (
@@ -26,9 +24,7 @@ export function AppContent() {
       <Navbar />
 
       <main style={{ flex: 1 }}>
-        {currentView === 'dashboard' && <DashboardView />}
-        {currentView === 'submit' && <SubmitView />}
-        {currentView === 'history' && <HistoryView />}
+        <Outlet />
       </main>
 
       <Toast />
@@ -36,6 +32,52 @@ export function AppContent() {
   );
 }
 
+// Public-only Route Guard (Login page)
+function PublicLoginRoute() {
+  const { isAuthenticated } = usePortal();
+  const location = useLocation();
+
+  if (isAuthenticated) {
+    const from = location.state?.from?.pathname || '/dashboard';
+    return <Navigate to={from} replace />;
+  }
+
+  return (
+    <main>
+      <LoginView />
+      <Toast />
+    </main>
+  );
+}
+
+// Redirect /submit to active track (e.g. /submit/theory)
+function SubmitRedirect() {
+  const { activeTrackId } = usePortal();
+  return <Navigate to={`/submit/${activeTrackId || 'theory'}`} replace />;
+}
+
 export default function App() {
-  return <AppContent />;
+  const { isAuthenticated } = usePortal();
+
+  return (
+    <Routes>
+      {/* Login path: /login */}
+      <Route path="/login" element={<PublicLoginRoute />} />
+
+      {/* Authenticated routes */}
+      <Route element={<ProtectedLayout />}>
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/dashboard" element={<DashboardView />} />
+        <Route path="/submit" element={<SubmitRedirect />} />
+        <Route path="/submit/:trackId" element={<SubmitView />} />
+        <Route path="/history" element={<HistoryView />} />
+      </Route>
+
+      {/* Fallback route */}
+      <Route
+        path="*"
+        element={<Navigate to={isAuthenticated ? '/dashboard' : '/login'} replace />}
+      />
+    </Routes>
+  );
 }
