@@ -29,7 +29,7 @@ export const MosaicHero = () => {
 
   const tiles = [
     { type: 'shape', shape: 'qbr', bg: G },
-    { type: 'icon', bg: B, Icon: ChalkboardTeacher, color: '#FFFFFF' },
+    { type: 'icon', bg: GH, Icon: ChalkboardTeacher, color: '#FFFFFF' },
     { type: 'shape', shape: 'circle', bg: YE },
     { type: 'shape', shape: 'leaf', bg: Y },
 
@@ -83,11 +83,11 @@ export const MosaicHero = () => {
                   gridColumn: '1 / -1',
                   aspectRatio: '2 / 1',
                   background: '#FFFFFF',
-                  borderRadius: '28px 140px 28px 28px',
+                  borderRadius: '28px 20px 20px 28px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  padding: '7% 5.5% 7% 8%',
+                  padding: '6% 6% 6% 7%',
                   boxShadow: '0 24px 60px -20px rgba(255, 95, 28, 0.6)',
                   animation: `ttaa-pop 0.8s cubic-bezier(0.16, 1, 0.3, 1) ${delay}ms both`
                 }}
