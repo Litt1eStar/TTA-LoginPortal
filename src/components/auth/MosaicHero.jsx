@@ -87,7 +87,7 @@ export const MosaicHero = () => {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  padding: '7% 10% 7% 8%',
+                  padding: '7% 5.5% 7% 8%',
                   boxShadow: '0 24px 60px -20px rgba(255, 95, 28, 0.6)',
                   animation: `ttaa-pop 0.8s cubic-bezier(0.16, 1, 0.3, 1) ${delay}ms both`
                 }}

@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { usePortal } from '../../context/PortalContext';
 import { MosaicHero } from './MosaicHero';
-import { ClassicHero } from './ClassicHero';
 import { Eye, EyeSlash, LockKey, User, Sparkle, WarningCircle } from '@phosphor-icons/react';
 import { DEMO_PASSWORD } from '../../data/accounts';
 
 export const LoginView = () => {
-  const { login, loginStyle, setLoginStyle } = usePortal();
+  const { login } = usePortal();
 
   const [username, setUsername] = useState('rep.rtc');
   const [password, setPassword] = useState('');
@@ -56,7 +55,7 @@ export const LoginView = () => {
       background: '#F6F6F9'
     }}>
       {/* Left Visual Column */}
-      {loginStyle === 'mosaic' ? <MosaicHero /> : <ClassicHero />}
+      <MosaicHero />
 
       {/* Right Login Form Column */}
       <div style={{
@@ -64,73 +63,12 @@ export const LoginView = () => {
         padding: 'clamp(32px, 6vw, 64px) clamp(24px, 5vw, 56px)',
         display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'space-between',
+        justifyContent: 'center',
         background: '#FFFFFF',
         minHeight: '580px'
       }}>
-        {/* Style Switcher Header */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '32px'
-        }}>
-          <div style={{
-            fontSize: '12.5px',
-            fontWeight: 700,
-            color: '#FF5F1C',
-            textTransform: 'uppercase',
-            letterSpacing: '0.8px',
-            background: 'rgba(255, 95, 28, 0.08)',
-            padding: '5px 12px',
-            borderRadius: '20px'
-          }}>
-            TTAA 13th Coordinator
-          </div>
-
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            background: '#F6F6F9',
-            padding: '3px',
-            borderRadius: '20px',
-            gap: '2px'
-          }}>
-            <button
-              type="button"
-              onClick={() => setLoginStyle('mosaic')}
-              style={{
-                padding: '4px 12px',
-                borderRadius: '16px',
-                fontSize: '12px',
-                fontWeight: loginStyle === 'mosaic' ? 700 : 500,
-                color: loginStyle === 'mosaic' ? '#1B1D29' : '#6B6F80',
-                background: loginStyle === 'mosaic' ? '#FFFFFF' : 'transparent',
-                boxShadow: loginStyle === 'mosaic' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none'
-              }}
-            >
-              Mosaic
-            </button>
-            <button
-              type="button"
-              onClick={() => setLoginStyle('classic')}
-              style={{
-                padding: '4px 12px',
-                borderRadius: '16px',
-                fontSize: '12px',
-                fontWeight: loginStyle === 'classic' ? 700 : 500,
-                color: loginStyle === 'classic' ? '#1B1D29' : '#6B6F80',
-                background: loginStyle === 'classic' ? '#FFFFFF' : 'transparent',
-                boxShadow: loginStyle === 'classic' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none'
-              }}
-            >
-              Classic
-            </button>
-          </div>
-        </div>
-
         {/* Center Form */}
-        <div style={{ maxWidth: '420px', width: '100%', margin: '0 auto' }}>
+        <div style={{ maxWidth: '420px', width: '100%', margin: 'auto auto' }}>
           <div style={{ marginBottom: '28px' }}>
             <h1 style={{
               fontSize: '28px',
