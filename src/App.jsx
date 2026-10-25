@@ -8,6 +8,7 @@ import { Toast } from './components/layout/Toast';
 import { DashboardView } from './components/dashboard/DashboardView';
 import { SubmitView } from './components/submit/SubmitView';
 import { HistoryView } from './components/history/HistoryView';
+import { CertificatesView } from './components/certificates/CertificatesView';
 
 // Protected Route Guard & Layout
 function ProtectedLayout() {
@@ -71,6 +72,7 @@ export default function App() {
         <Route path="/submit" element={<SubmitRedirect />} />
         <Route path="/submit/:trackId" element={<SubmitView />} />
         <Route path="/history" element={<HistoryView />} />
+        <Route path="/certificates" element={<CertificatesView />} />
       </Route>
 
       {/* Fallback route */}

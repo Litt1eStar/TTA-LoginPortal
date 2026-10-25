@@ -1,106 +1,60 @@
 import React from 'react';
 import { usePortal } from '../../context/PortalContext';
+import { WarningCircle } from '@phosphor-icons/react';
 
-export const ProjectInfoSection = ({ trackId, isLocked, error }) => {
+export const ProjectInfoSection = ({ trackId, isLocked, error, number }) => {
   const { submissions, updateField } = usePortal();
   const sub = submissions[trackId] || {};
 
   return (
-    <div style={{
-      background: '#FFFFFF',
-      borderRadius: '24px',
-      border: '1px solid #ECECF1',
-      padding: '24px',
-      boxShadow: '0 2px 10px rgba(27, 29, 41, 0.03)',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '18px'
-    }}>
+    <div className="card" id="section-projectName">
       <div>
-        <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#1B1D29' }}>
-          ข้อมูลผลงาน (Project Information)
+        <h3 className="section-title">
+          {number && <span className="section-num">{number}</span>}
+          ข้อมูลผลงาน
         </h3>
-        <p style={{ fontSize: '13px', color: '#6B6F80', marginTop: '2px' }}>
-          ระบุชื่อผลงานและบทคัดย่อสรุปเนื้อหาสำคัญสำหรับคณะกรรมการพิจารณา
-        </p>
+        <p className="section-desc">ชื่อผลงานและสรุปเนื้อหาสำหรับคณะกรรมการ</p>
       </div>
 
-      {/* Project Name */}
       <div>
-        <label style={{ display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#1B1D29', marginBottom: '8px' }}>
-          ชื่อผลงาน (Project Title) <span style={{ color: '#FF5F1C' }}>*</span>
+        <label className="field-label" htmlFor="p-name">
+          ชื่อผลงาน <span className="required">*</span>
         </label>
         <input
+          id="p-name"
           type="text"
+          className={`input ${error ? 'has-error' : ''}`}
           disabled={isLocked}
           value={sub.projectName || ''}
           onChange={(e) => updateField(trackId, 'projectName', e.target.value)}
-          placeholder="เช่น สื่อการสอนนวัตกรรมดิจิทัลเพื่อพัฒนาทักษะแห่งศตวรรษที่ 21"
-          style={{
-            width: '100%',
-            padding: '13px 16px',
-            borderRadius: '12px',
-            border: error ? '1.5px solid #FF5F1C' : '1.5px solid #E0E1E8',
-            fontSize: '14.5px',
-            color: '#1B1D29',
-            background: isLocked ? '#F6F6F9' : '#FAFAFC',
-            cursor: isLocked ? 'not-allowed' : 'text'
-          }}
+          placeholder="เช่น เรียนรู้ไฟฟ้าใน 60 วินาที"
         />
-        {error && (
-          <div style={{ fontSize: '12.5px', color: '#FF5F1C', marginTop: '6px', fontWeight: 600 }}>
-            {error}
-          </div>
-        )}
+        {error && <div className="field-error"><WarningCircle size={16} weight="fill" />{error}</div>}
       </div>
 
-      {/* Summary */}
       <div>
-        <label style={{ display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#1B1D29', marginBottom: '8px' }}>
-          บทคัดย่อ / สรุปสาระสำคัญ (Executive Summary)
-        </label>
+        <label className="field-label" htmlFor="p-summary">สรุปผลงาน</label>
         <textarea
+          id="p-summary"
           rows={4}
+          className="textarea"
           disabled={isLocked}
           value={sub.summary || ''}
           onChange={(e) => updateField(trackId, 'summary', e.target.value)}
-          placeholder="สรุปแนวคิด วัตถุประสงค์ วิธีการดำเนินงาน และประโยชน์ที่ได้รับ..."
-          style={{
-            width: '100%',
-            padding: '13px 16px',
-            borderRadius: '12px',
-            border: '1.5px solid #E0E1E8',
-            fontSize: '14px',
-            color: '#1B1D29',
-            background: isLocked ? '#F6F6F9' : '#FAFAFC',
-            resize: 'vertical',
-            lineHeight: 1.5,
-            cursor: isLocked ? 'not-allowed' : 'text'
-          }}
+          placeholder="แนวคิด วัตถุประสงค์ และประโยชน์ที่ได้รับ"
         />
       </div>
 
-      {/* Notes */}
       <div>
-        <label style={{ display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#1B1D29', marginBottom: '8px' }}>
-          หมายเหตุเพิ่มเติมถึงคณะกรรมการ (Notes)
-        </label>
+        <label className="field-label" htmlFor="p-notes">หมายเหตุถึงคณะกรรมการ</label>
         <input
+          id="p-notes"
           type="text"
+          className="input"
           disabled={isLocked}
           value={sub.notes || ''}
           onChange={(e) => updateField(trackId, 'notes', e.target.value)}
-          placeholder="ข้อมูลเฉพาะ อุปกรณ์ที่ต้องใช้ หรือคำแนะนำในการทดสอบ (ถ้ามี)"
-          style={{
-            width: '100%',
-            padding: '13px 16px',
-            borderRadius: '12px',
-            border: '1.5px solid #E0E1E8',
-            fontSize: '14px',
-            color: '#1B1D29',
-            background: isLocked ? '#F6F6F9' : '#FAFAFC',
-            cursor: isLocked ? 'not-allowed' : 'text'
-          }}
+          placeholder="ถ้ามี"
         />
       </div>
     </div>

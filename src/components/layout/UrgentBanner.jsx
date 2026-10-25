@@ -18,7 +18,7 @@ export const UrgentBanner = () => {
       background: 'linear-gradient(90deg, #FF5F1C 0%, #FF8D20 100%)',
       color: '#FFFFFF',
       padding: '10px 20px',
-      fontSize: '13.5px',
+      fontSize: '15px',
       fontWeight: 500,
       display: 'flex',
       alignItems: 'center',
@@ -37,7 +37,7 @@ export const UrgentBanner = () => {
           alignItems: 'center',
           gap: '5px',
           fontWeight: 700,
-          fontSize: '12px'
+          fontSize: '13px'
         }}>
           <WarningCircle size={15} weight="fill" />
           <span>แจ้งเตือนสำคัญ</span>
@@ -53,7 +53,7 @@ export const UrgentBanner = () => {
             padding: '4px 12px',
             borderRadius: '16px',
             fontWeight: 700,
-            fontSize: '12px',
+            fontSize: '13px',
             display: 'inline-flex',
             alignItems: 'center',
             gap: '4px'

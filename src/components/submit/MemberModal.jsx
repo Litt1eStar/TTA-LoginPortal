@@ -1,9 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { usePortal } from '../../context/PortalContext';
-import { X, ChalkboardTeacher, Student, Plus } from '@phosphor-icons/react';
+import { TITLE_PREFIXES, DEPARTMENTS } from '../../data/referenceData';
+import { X, ChalkboardTeacher, Student, Plus, Buildings, WarningCircle } from '@phosphor-icons/react';
+
+const FieldError = ({ msg }) => msg ? (
+  <div className="field-error"><WarningCircle size={16} weight="fill" />{msg}</div>
+) : null;
 
 export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student', initialMember = null }) => {
-  const { addOrUpdateMember, submissions } = usePortal();
+  const { addOrUpdateMember, submissions, user } = usePortal();
   const sub = submissions[trackId] || { members: [] };
 
   const [type, setType] = useState(initialType);
@@ -12,7 +17,7 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
   const [studentId, setStudentId] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [deptOrFaculty, setDeptOrFaculty] = useState('');
+  const [dept, setDept] = useState('');
   const [year, setYear] = useState('3');
   const [isLeader, setIsLeader] = useState(false);
   const [errors, setErrors] = useState({});
@@ -25,17 +30,18 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
       setStudentId(initialMember.studentId || '');
       setEmail(initialMember.email || '');
       setPhone(initialMember.phone || '');
-      setDeptOrFaculty(initialMember.dept || initialMember.faculty || '');
+      // Older records may hold a free-text value; only keep it if it's a valid option
+      setDept(DEPARTMENTS.includes(initialMember.dept) ? initialMember.dept : '');
       setYear(initialMember.year || '3');
       setIsLeader(!!initialMember.isLeader);
     } else {
       setType(initialType);
-      setTitle(initialType === 'advisor' ? 'ดร.' : '');
+      setTitle(initialType === 'advisor' ? 'ดร.' : 'นาย');
       setFullName('');
       setStudentId('');
       setEmail('');
       setPhone('');
-      setDeptOrFaculty('');
+      setDept('');
       setYear('3');
       setIsLeader(false);
     }
@@ -45,21 +51,19 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
   if (!isOpen) return null;
 
   const isEditing = !!initialMember;
+  const isAdvisor = type === 'advisor';
 
   const validate = () => {
     const errs = {};
     if (!fullName.trim()) errs.fullName = 'กรุณากรอกชื่อ-นามสกุล';
-    if (!email.trim()) errs.email = 'กรุณากรอกอีเมล';
-    else if (!/^\S+@\S+\.\S+$/.test(email.trim())) errs.email = 'รูปแบบอีเมลไม่ถูกต้อง';
-    else {
-      const emailDup = sub.members.some(m => m.id !== (initialMember?.id) && m.email.toLowerCase() === email.trim().toLowerCase());
-      if (emailDup) errs.email = 'อีเมลนี้ถูกใช้งานโดยสมาชิกคนอื่นในทีมแล้ว';
+    if (!dept) errs.dept = 'กรุณาเลือกหน่วยงาน';
+    if (email.trim()) {
+      if (!/^\S+@\S+\.\S+$/.test(email.trim())) errs.email = 'รูปแบบอีเมลไม่ถูกต้อง';
+      else {
+        const emailDup = sub.members.some(m => m.id !== (initialMember?.id) && (m.email || '').toLowerCase() === email.trim().toLowerCase());
+        if (emailDup) errs.email = 'อีเมลนี้มีสมาชิกคนอื่นในทีมใช้แล้ว';
+      }
     }
-
-    if (type === 'student' && !studentId.trim()) {
-      errs.studentId = 'กรุณากรอกรหัสนักศึกษา';
-    }
-
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -67,23 +71,20 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
   const handleSave = (addAnother = false) => {
     if (!validate()) return;
 
-    const data = {
+    addOrUpdateMember(trackId, {
       id: initialMember?.id,
       type,
-      title: type === 'advisor' ? title : '',
+      title,
       fullName: fullName.trim(),
-      studentId: type === 'student' ? studentId.trim() : '',
+      studentId: isAdvisor ? '' : studentId.trim(),
       email: email.trim(),
       phone: phone.trim(),
-      dept: type === 'advisor' ? deptOrFaculty.trim() : '',
-      faculty: type === 'student' ? deptOrFaculty.trim() : '',
-      year: type === 'student' ? year : '',
-      isLeader: type === 'student' ? isLeader : false
-    };
+      dept,
+      year: isAdvisor ? '' : year,
+      isLeader: isAdvisor ? false : isLeader
+    });
 
-    addOrUpdateMember(trackId, data);
-
-    if (addAnother && type === 'student') {
+    if (addAnother && !isAdvisor) {
       setFullName('');
       setStudentId('');
       setEmail('');
@@ -95,417 +96,209 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
     }
   };
 
+  const clearError = (key) => errors[key] && setErrors(prev => ({ ...prev, [key]: '' }));
+
+  const typeTab = (value, Icon, label) => (
+    <button
+      type="button"
+      onClick={() => setType(value)}
+      style={{
+        padding: '10px',
+        borderRadius: '10px',
+        fontWeight: 700,
+        fontSize: '15px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '8px',
+        background: type === value ? '#FFFFFF' : 'transparent',
+        color: type === value ? 'var(--text-dark)' : 'var(--text-muted)',
+        boxShadow: type === value ? '0 1px 4px rgba(0,0,0,0.08)' : 'none'
+      }}
+    >
+      <Icon size={18} weight="bold" />
+      <span>{label}</span>
+    </button>
+  );
+
   return (
-    <div style={{
-      position: 'fixed',
-      inset: 0,
-      background: 'rgba(22, 24, 42, 0.65)',
-      backdropFilter: 'blur(4px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 999,
-      padding: '16px'
-    }}>
-      <div
-        className="animate-slide-up"
-        style={{
-          background: '#FFFFFF',
-          borderRadius: '24px',
-          width: 'min(100%, 520px)',
-          boxShadow: '0 24px 60px -12px rgba(22, 24, 42, 0.35)',
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-          maxHeight: '90vh'
-        }}
-      >
+    <div className="modal-overlay">
+      <div className="modal animate-slide-up" role="dialog" aria-modal="true">
         {/* Header */}
-        <div style={{
-          padding: '20px 24px',
-          borderBottom: '1px solid #ECECF1',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between'
-        }}>
+        <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{
-              width: '40px',
-              height: '40px',
+              width: '42px',
+              height: '42px',
               borderRadius: '12px',
-              background: type === 'advisor' ? '#FFF8DB' : '#EAF5FE',
-              color: type === 'advisor' ? '#D99A00' : '#2A9FF7',
+              background: isAdvisor ? 'var(--yellow-bg)' : 'var(--blue-bg)',
+              color: isAdvisor ? '#B07A00' : 'var(--blue-text)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center'
             }}>
-              {type === 'advisor' ? <ChalkboardTeacher size={22} weight="duotone" /> : <Student size={22} weight="duotone" />}
+              {isAdvisor ? <ChalkboardTeacher size={22} weight="duotone" /> : <Student size={22} weight="duotone" />}
             </div>
-            <div>
-              <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#1B1D29' }}>
-                {isEditing ? 'แก้ไขข้อมูล' : 'เพิ่ม'}{type === 'advisor' ? 'อาจารย์ที่ปรึกษา' : 'นักศึกษา'}
-              </h3>
-              <p style={{ fontSize: '12.5px', color: '#6B6F80' }}>
-                {type === 'advisor' ? 'อาจารย์ผู้ดูแลผลงาน 1 ท่านต่อหมวดหมู่' : 'สมาชิกทีมนักศึกษาผู้จัดทำผลงาน'}
-              </p>
-            </div>
+            <h3 className="modal-title">
+              {isEditing ? 'แก้ไข' : 'เพิ่ม'}{isAdvisor ? 'อาจารย์ที่ปรึกษา' : 'ผู้แข่งขัน'}
+            </h3>
           </div>
-
-          <button
-            onClick={onClose}
-            style={{
-              background: 'transparent',
-              color: '#6B6F80',
-              padding: '6px',
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
+          <button type="button" className="icon-btn" onClick={onClose} aria-label="ปิด">
             <X size={20} weight="bold" />
           </button>
         </div>
 
-        {/* Body Form */}
-        <div style={{ padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {/* Member type switcher (only if not editing) */}
+        {/* Body */}
+        <div className="modal-body">
           {!isEditing && (
             <div style={{
               display: 'grid',
               gridTemplateColumns: '1fr 1fr',
-              background: '#F6F6F9',
+              background: 'var(--bg-main)',
               padding: '4px',
               borderRadius: '14px',
               gap: '4px'
             }}>
-              <button
-                type="button"
-                onClick={() => setType('student')}
-                style={{
-                  padding: '9px',
-                  borderRadius: '10px',
-                  fontWeight: 700,
-                  fontSize: '13.5px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
-                  background: type === 'student' ? '#FFFFFF' : 'transparent',
-                  color: type === 'student' ? '#1B1D29' : '#6B6F80',
-                  boxShadow: type === 'student' ? '0 1px 4px rgba(0,0,0,0.08)' : 'none'
-                }}
-              >
-                <Student size={17} weight="bold" />
-                <span>นักศึกษา</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setType('advisor')}
-                style={{
-                  padding: '9px',
-                  borderRadius: '10px',
-                  fontWeight: 700,
-                  fontSize: '13.5px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
-                  background: type === 'advisor' ? '#FFFFFF' : 'transparent',
-                  color: type === 'advisor' ? '#1B1D29' : '#6B6F80',
-                  boxShadow: type === 'advisor' ? '0 1px 4px rgba(0,0,0,0.08)' : 'none'
-                }}
-              >
-                <ChalkboardTeacher size={17} weight="bold" />
-                <span>อาจารย์ที่ปรึกษา</span>
-              </button>
+              {typeTab('student', Student, 'ผู้แข่งขัน')}
+              {typeTab('advisor', ChalkboardTeacher, 'อาจารย์ที่ปรึกษา')}
             </div>
           )}
 
-          {/* Academic Title for Advisor */}
-          {type === 'advisor' && (
+          {/* Title + name */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(120px, 1fr) 2.2fr', gap: '12px' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#1B1D29', marginBottom: '6px' }}>
-                คำนำหน้าทางวิชาการ (Academic Title)
-              </label>
-              <select
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '11px 14px',
-                  borderRadius: '12px',
-                  border: '1.5px solid #E0E1E8',
-                  fontSize: '14px',
-                  color: '#1B1D29',
-                  background: '#FAFAFC'
-                }}
-              >
-                <option value="ดร.">ดร. (Dr.)</option>
-                <option value="ผศ.">ผศ. (Asst. Prof.)</option>
-                <option value="ผศ.ดร.">ผศ.ดร. (Asst. Prof. Dr.)</option>
-                <option value="รศ.">รศ. (Assoc. Prof.)</option>
-                <option value="รศ.ดร.">รศ.ดร. (Assoc. Prof. Dr.)</option>
-                <option value="ศ.">ศ. (Prof.)</option>
-                <option value="ศ.ดร.">ศ.ดร. (Prof. Dr.)</option>
-                <option value="อาจารย์">อาจารย์ (Lecturer)</option>
+              <label className="field-label" htmlFor="m-title">คำนำหน้า</label>
+              <select id="m-title" className="select" value={title} onChange={(e) => setTitle(e.target.value)}>
+                {title && !TITLE_PREFIXES.includes(title) && <option value={title}>{title}</option>}
+                {TITLE_PREFIXES.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
-          )}
+            <div>
+              <label className="field-label" htmlFor="m-name">
+                ชื่อ-นามสกุล <span className="required">*</span>
+              </label>
+              <input
+                id="m-name"
+                type="text"
+                className={`input ${errors.fullName ? 'has-error' : ''}`}
+                value={fullName}
+                onChange={(e) => { setFullName(e.target.value); clearError('fullName'); }}
+                placeholder="เช่น สมชาย ใจดี"
+              />
+              <FieldError msg={errors.fullName} />
+            </div>
+          </div>
 
-          {/* Full Name */}
+          {/* University (read-only from account) */}
           <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#1B1D29', marginBottom: '6px' }}>
-              ชื่อ - นามสกุล <span style={{ color: '#FF5F1C' }}>*</span>
+            <label className="field-label">มหาวิทยาลัย</label>
+            <div className="readonly-field" title="กำหนดจากบัญชีผู้ใช้ แก้ไขไม่ได้">
+              <Buildings size={20} weight="duotone" color="var(--primary)" />
+              <span>{user?.university || '—'}</span>
+            </div>
+          </div>
+
+          {/* Department dropdown */}
+          <div>
+            <label className="field-label" htmlFor="m-dept">
+              หน่วยงาน <span className="required">*</span>
             </label>
-            <input
-              type="text"
-              value={fullName}
-              onChange={(e) => {
-                setFullName(e.target.value);
-                if (errors.fullName) setErrors(prev => ({ ...prev, fullName: '' }));
-              }}
-              placeholder="เช่น สมชาย ใจดี"
-              style={{
-                width: '100%',
-                padding: '11px 14px',
-                borderRadius: '12px',
-                border: errors.fullName ? '1.5px solid #FF5F1C' : '1.5px solid #E0E1E8',
-                fontSize: '14px',
-                color: '#1B1D29',
-                background: '#FAFAFC'
-              }}
-            />
-            {errors.fullName && (
-              <div style={{ fontSize: '12px', color: '#FF5F1C', marginTop: '4px', fontWeight: 600 }}>
-                {errors.fullName}
-              </div>
-            )}
+            <select
+              id="m-dept"
+              className={`select ${errors.dept ? 'has-error' : ''}`}
+              value={dept}
+              onChange={(e) => { setDept(e.target.value); clearError('dept'); }}
+            >
+              <option value="" disabled>— เลือกหน่วยงาน —</option>
+              {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
+            <FieldError msg={errors.dept} />
           </div>
 
-          {/* Student ID (only for students) */}
-          {type === 'student' && (
-            <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#1B1D29', marginBottom: '6px' }}>
-                รหัสนักศึกษา (Student ID) <span style={{ color: '#FF5F1C' }}>*</span>
-              </label>
-              <input
-                type="text"
-                value={studentId}
-                onChange={(e) => {
-                  setStudentId(e.target.value);
-                  if (errors.studentId) setErrors(prev => ({ ...prev, studentId: '' }));
-                }}
-                placeholder="เช่น 6401234567"
-                style={{
-                  width: '100%',
-                  padding: '11px 14px',
-                  borderRadius: '12px',
-                  border: errors.studentId ? '1.5px solid #FF5F1C' : '1.5px solid #E0E1E8',
-                  fontSize: '14px',
-                  color: '#1B1D29',
-                  background: '#FAFAFC'
-                }}
-              />
-              {errors.studentId && (
-                <div style={{ fontSize: '12px', color: '#FF5F1C', marginTop: '4px', fontWeight: 600 }}>
-                  {errors.studentId}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Email & Phone Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#1B1D29', marginBottom: '6px' }}>
-                อีเมล (Email) <span style={{ color: '#FF5F1C' }}>*</span>
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  if (errors.email) setErrors(prev => ({ ...prev, email: '' }));
-                }}
-                placeholder="name@university.ac.th"
-                style={{
-                  width: '100%',
-                  padding: '11px 14px',
-                  borderRadius: '12px',
-                  border: errors.email ? '1.5px solid #FF5F1C' : '1.5px solid #E0E1E8',
-                  fontSize: '14px',
-                  color: '#1B1D29',
-                  background: '#FAFAFC'
-                }}
-              />
-              {errors.email && (
-                <div style={{ fontSize: '12px', color: '#FF5F1C', marginTop: '4px', fontWeight: 600 }}>
-                  {errors.email}
-                </div>
-              )}
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#1B1D29', marginBottom: '6px' }}>
-                เบอร์โทรศัพท์ (Phone)
-              </label>
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="081-234-5678"
-                style={{
-                  width: '100%',
-                  padding: '11px 14px',
-                  borderRadius: '12px',
-                  border: '1.5px solid #E0E1E8',
-                  fontSize: '14px',
-                  color: '#1B1D29',
-                  background: '#FAFAFC'
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Faculty / Dept & Year */}
-          <div style={{ display: 'grid', gridTemplateColumns: type === 'student' ? '2fr 1fr' : '1fr', gap: '12px' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#1B1D29', marginBottom: '6px' }}>
-                {type === 'advisor' ? 'คณะ / ภาควิชา (Department)' : 'คณะ / สาขาวิชา (Faculty / Major)'}
-              </label>
-              <input
-                type="text"
-                value={deptOrFaculty}
-                onChange={(e) => setDeptOrFaculty(e.target.value)}
-                placeholder={type === 'advisor' ? 'เช่น คณะครุศาสตร์' : 'เช่น วิศวกรรมคอมพิวเตอร์'}
-                style={{
-                  width: '100%',
-                  padding: '11px 14px',
-                  borderRadius: '12px',
-                  border: '1.5px solid #E0E1E8',
-                  fontSize: '14px',
-                  color: '#1B1D29',
-                  background: '#FAFAFC'
-                }}
-              />
-            </div>
-
-            {type === 'student' && (
+          {/* Student ID + year */}
+          {!isAdvisor && (
+            <div className="grid-2">
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#1B1D29', marginBottom: '6px' }}>
-                  ชั้นปี (Year)
-                </label>
-                <select
-                  value={year}
-                  onChange={(e) => setYear(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '11px 14px',
-                    borderRadius: '12px',
-                    border: '1.5px solid #E0E1E8',
-                    fontSize: '14px',
-                    color: '#1B1D29',
-                    background: '#FAFAFC'
-                  }}
-                >
-                  <option value="1">ปี 1</option>
-                  <option value="2">ปี 2</option>
-                  <option value="3">ปี 3</option>
-                  <option value="4">ปี 4</option>
-                  <option value="5">ปี 5</option>
+                <label className="field-label" htmlFor="m-sid">รหัสนักศึกษา</label>
+                <input
+                  id="m-sid"
+                  type="text"
+                  className="input"
+                  value={studentId}
+                  onChange={(e) => setStudentId(e.target.value)}
+                  placeholder="เช่น 6401234567"
+                />
+              </div>
+              <div>
+                <label className="field-label" htmlFor="m-year">ชั้นปี</label>
+                <select id="m-year" className="select" value={year} onChange={(e) => setYear(e.target.value)}>
+                  {['1', '2', '3', '4', '5'].map(y => <option key={y} value={y}>ปี {y}</option>)}
                   <option value="อื่นๆ">อื่นๆ</option>
                 </select>
               </div>
-            )}
+            </div>
+          )}
+
+          {/* Contact */}
+          <div className="grid-2">
+            <div>
+              <label className="field-label" htmlFor="m-email">อีเมล</label>
+              <input
+                id="m-email"
+                type="email"
+                className={`input ${errors.email ? 'has-error' : ''}`}
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); clearError('email'); }}
+                placeholder="name@university.ac.th"
+              />
+              <FieldError msg={errors.email} />
+            </div>
+            <div>
+              <label className="field-label" htmlFor="m-phone">เบอร์โทรศัพท์</label>
+              <input
+                id="m-phone"
+                type="tel"
+                className="input"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="081-234-5678"
+              />
+            </div>
           </div>
 
-          {/* Leader checkbox for student */}
-          {type === 'student' && (
+          {!isAdvisor && (
             <label style={{
               display: 'flex',
               alignItems: 'center',
               gap: '10px',
               padding: '12px 14px',
               borderRadius: '12px',
-              background: '#F6F6F9',
+              background: 'var(--bg-main)',
               cursor: 'pointer',
-              userSelect: 'none'
+              userSelect: 'none',
+              fontSize: '15px'
             }}>
               <input
                 type="checkbox"
                 checked={isLeader}
                 onChange={(e) => setIsLeader(e.target.checked)}
-                style={{ width: '18px', height: '18px', accentColor: '#FF5F1C' }}
+                style={{ width: '20px', height: '20px', accentColor: 'var(--primary)' }}
               />
-              <span style={{ fontSize: '13.5px', fontWeight: 600, color: '#1B1D29' }}>
-                กำหนดให้นักศึกษาคนนี้เป็น <strong>หัวหน้าทีม (Team Leader)</strong>
-              </span>
+              <span>ให้คนนี้เป็น <strong>หัวหน้าทีม</strong></span>
             </label>
           )}
         </div>
 
-        {/* Footer actions */}
-        <div style={{
-          padding: '16px 24px',
-          borderTop: '1px solid #ECECF1',
-          background: '#FAFAFC',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'flex-end',
-          gap: '10px'
-        }}>
-          <button
-            type="button"
-            onClick={onClose}
-            style={{
-              padding: '10px 16px',
-              borderRadius: '12px',
-              background: '#FFFFFF',
-              border: '1px solid #E0E1E8',
-              color: '#6B6F80',
-              fontWeight: 600,
-              fontSize: '13.5px'
-            }}
-          >
-            ยกเลิก
-          </button>
-
-          {!isEditing && type === 'student' && (
-            <button
-              type="button"
-              onClick={() => handleSave(true)}
-              style={{
-                padding: '10px 16px',
-                borderRadius: '12px',
-                background: '#FFF1EB',
-                border: '1px solid rgba(255, 95, 28, 0.3)',
-                color: '#C2410C',
-                fontWeight: 700,
-                fontSize: '13.5px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              <Plus size={15} weight="bold" />
+        {/* Footer */}
+        <div className="modal-footer">
+          <button type="button" className="btn" onClick={onClose}>ยกเลิก</button>
+          {!isEditing && !isAdvisor && (
+            <button type="button" className="btn btn-danger" onClick={() => handleSave(true)}>
+              <Plus size={16} weight="bold" />
               <span>บันทึกและเพิ่มอีกคน</span>
             </button>
           )}
-
-          <button
-            type="button"
-            onClick={() => handleSave(false)}
-            style={{
-              padding: '10px 20px',
-              borderRadius: '12px',
-              background: 'linear-gradient(135deg, #FF5F1C 0%, #FF8D20 100%)',
-              color: '#FFFFFF',
-              fontWeight: 700,
-              fontSize: '13.5px',
-              boxShadow: '0 4px 12px rgba(255, 95, 28, 0.35)'
-            }}
-          >
+          <button type="button" className="btn btn-primary" onClick={() => handleSave(false)}>
             {isEditing ? 'บันทึกการแก้ไข' : 'บันทึก'}
           </button>
         </div>

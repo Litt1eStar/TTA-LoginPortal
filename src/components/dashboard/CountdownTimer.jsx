@@ -62,7 +62,7 @@ export const CountdownTimer = () => {
           alignItems: 'center',
           gap: '8px',
           color: '#1B1D29',
-          fontSize: '17px',
+          fontSize: '18px',
           fontWeight: 800,
           letterSpacing: '-0.2px'
         }}>
@@ -77,7 +77,7 @@ export const CountdownTimer = () => {
           <span>เวลาที่เหลือก่อนปิดรับผลงาน</span>
         </div>
         <div style={{
-          fontSize: '13.5px',
+          fontSize: '15px',
           fontWeight: 600,
           color: '#1B1D29',
           marginTop: '4px',
@@ -121,7 +121,7 @@ export const CountdownTimer = () => {
               {b.val}
             </span>
             <span style={{
-              fontSize: '12px',
+              fontSize: '13px',
               fontWeight: 700,
               color: '#1B1D29',
               marginTop: '4px'
@@ -135,7 +135,7 @@ export const CountdownTimer = () => {
       {/* Bottom status and action */}
       <div style={{ position: 'relative', zIndex: 1 }}>
         <div style={{
-          fontSize: '14.5px',
+          fontSize: '16px',
           fontWeight: 700,
           color: '#1B1D29',
           marginBottom: '14px'
@@ -151,7 +151,7 @@ export const CountdownTimer = () => {
             border: 'none',
             borderRadius: '12px',
             padding: '11px 20px',
-            fontSize: '14px',
+            fontSize: '15px',
             fontWeight: 700,
             display: 'inline-flex',
             alignItems: 'center',

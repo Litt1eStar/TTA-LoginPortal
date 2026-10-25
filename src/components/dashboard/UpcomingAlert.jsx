@@ -23,13 +23,13 @@ export const UpcomingAlert = () => {
         boxShadow: '0 8px 24px -4px rgba(22, 24, 42, 0.25)'
       }}>
         <div>
-          <div style={{ fontSize: '13px', color: '#FFC525', fontWeight: 700, marginBottom: '4px' }}>
+          <div style={{ fontSize: '14px', color: '#FFC525', fontWeight: 700, marginBottom: '4px' }}>
             ยอดเยี่ยม! คุณส่งผลงานครบแล้ว
           </div>
           <h3 style={{ fontSize: '20px', fontWeight: 800 }}>
             ส่งผลงานครบทั้ง 10 ประเภทเรียบร้อย
           </h3>
-          <p style={{ fontSize: '13.5px', color: 'rgba(255,255,255,0.7)', marginTop: '4px' }}>
+          <p style={{ fontSize: '15px', color: 'rgba(255,255,255,0.7)', marginTop: '4px' }}>
             คุณสามารถตรวจสอบหลักฐานและใบเสร็จการส่งได้ที่หน้าประวัติการส่ง
           </p>
         </div>
@@ -69,19 +69,17 @@ export const UpcomingAlert = () => {
         </div>
         <div>
           <div style={{
-            fontSize: '12px',
+            fontSize: '14px',
             fontWeight: 700,
             color: '#FF8D20',
-            textTransform: 'uppercase',
-            letterSpacing: '0.6px',
             marginBottom: '4px'
           }}>
-            รายการถัดไปที่ต้องดำเนินการ
+            ประเภทถัดไปที่ต้องส่ง
           </div>
-          <h3 style={{ fontSize: '19px', fontWeight: 800, letterSpacing: '-0.2px' }}>
-            {upcoming.th} ({upcoming.en})
+          <h3 style={{ fontSize: '20px', fontWeight: 700 }}>
+            {upcoming.full}
           </h3>
-          <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.65)', marginTop: '2px' }}>
+          <div style={{ fontSize: '15px', color: 'rgba(255,255,255,0.8)', marginTop: '2px' }}>
             กำหนดส่งภายใน {fmtDate(upcoming.deadline)} · เหลืออีก {daysLeft} วัน
           </div>
         </div>
@@ -95,7 +93,7 @@ export const UpcomingAlert = () => {
           padding: '12px 22px',
           borderRadius: '14px',
           fontWeight: 700,
-          fontSize: '14px',
+          fontSize: '15px',
           display: 'inline-flex',
           alignItems: 'center',
           gap: '8px',

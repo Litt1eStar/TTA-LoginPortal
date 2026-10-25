@@ -2,6 +2,7 @@ import React from 'react';
 import { usePortal } from '../../context/PortalContext';
 import { TRACKS } from '../../data/tracks';
 import { fmtDateTime, statusMeta, teamLabel } from '../../utils/formatters';
+import { submissionSummary } from '../../utils/requirements';
 import {
   ClockCounterClockwise,
   Receipt,
@@ -33,16 +34,12 @@ export const HistoryView = () => {
         gap: '16px'
       }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#FF5F1C', marginBottom: '4px' }}>
+          <div className="page-kicker">
             <ClockCounterClockwise size={18} weight="bold" />
-            <span style={{ fontSize: '13px', fontWeight: 700, textTransform: 'uppercase' }}>
-              Submission History & Receipts
-            </span>
+            <span>ประวัติการส่ง</span>
           </div>
-          <h1 style={{ fontSize: '26px', fontWeight: 800, color: '#1B1D29', letterSpacing: '-0.3px' }}>
-            ประวัติการส่งผลงานและใบเสร็จยืนยัน
-          </h1>
-          <p style={{ fontSize: '14px', color: '#6B6F80', marginTop: '4px' }}>
+          <h1 className="page-title">ประวัติการส่งผลงาน</h1>
+          <p style={{ fontSize: '15px', color: '#4F5366', marginTop: '4px' }}>
             สถาบัน: <strong>{user?.university}</strong> · บัญชีผู้ประสานงาน: <strong>{user?.name}</strong>
           </p>
         </div>
@@ -59,9 +56,9 @@ export const HistoryView = () => {
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '780px' }}>
             <thead>
-              <tr style={{ background: '#FAFAFC', borderBottom: '1px solid #ECECF1', color: '#6B6F80', fontSize: '12.5px' }}>
+              <tr style={{ background: '#FAFAFC', borderBottom: '1px solid #ECECF1', color: '#4F5366', fontSize: '14px' }}>
                 <th style={{ padding: '16px 20px', fontWeight: 700 }}>หมวดหมู่</th>
-                <th style={{ padding: '16px 20px', fontWeight: 700 }}>ชื่อผลงาน</th>
+                <th style={{ padding: '16px 20px', fontWeight: 700 }}>รายละเอียด</th>
                 <th style={{ padding: '16px 20px', fontWeight: 700 }}>สถานะ</th>
                 <th style={{ padding: '16px 20px', fontWeight: 700 }}>ทีมผู้จัดทำ</th>
                 <th style={{ padding: '16px 20px', fontWeight: 700 }}>หลักฐาน / ใบเสร็จ</th>
@@ -81,6 +78,7 @@ export const HistoryView = () => {
 
                 const filesCount = (sub.files || []).filter(f => f.status === 'done').length;
                 const linksCount = ['video', 'github', 'drive'].filter(k => sub.links && sub.links[k]).length;
+                const summary = submissionSummary(t, sub);
 
                 return (
                   <tr
@@ -94,27 +92,27 @@ export const HistoryView = () => {
                   >
                     {/* Track Title */}
                     <td style={{ padding: '18px 20px' }}>
-                      <div style={{ fontSize: '14.5px', fontWeight: 800, color: '#1B1D29' }}>
+                      <div style={{ fontSize: '16px', fontWeight: 800, color: '#1B1D29' }}>
                         {t.th}
                       </div>
-                      <div style={{ fontSize: '12px', color: '#6B6F80' }}>
-                        {t.en}
+                      <div style={{ fontSize: '13px', color: '#4F5366' }}>
+                        {t.full !== t.th ? t.full : ''}
                       </div>
                     </td>
 
                     {/* Project Name */}
                     <td style={{ padding: '18px 20px', maxWidth: '240px' }}>
                       <div style={{
-                        fontSize: '14px',
-                        fontWeight: sub.projectName ? 700 : 500,
-                        color: sub.projectName ? '#1B1D29' : '#9A9DAD',
+                        fontSize: '15px',
+                        fontWeight: summary ? 700 : 500,
+                        color: summary ? '#1B1D29' : '#9A9DAD',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap'
                       }}>
-                        {sub.projectName ? sub.projectName : 'ยังไม่มีผลงาน'}
+                        {summary || 'ยังไม่มีข้อมูล'}
                       </div>
-                      <div style={{ fontSize: '11.5px', color: '#6B6F80', marginTop: '2px' }}>
+                      <div style={{ fontSize: '13px', color: '#4F5366', marginTop: '2px' }}>
                         {timestamp}
                       </div>
                     </td>
@@ -127,7 +125,7 @@ export const HistoryView = () => {
                         gap: '6px',
                         padding: '4px 10px',
                         borderRadius: '12px',
-                        fontSize: '12px',
+                        fontSize: '13px',
                         fontWeight: 700,
                         background: meta.badgeBg,
                         color: meta.badgeColor,
@@ -139,7 +137,7 @@ export const HistoryView = () => {
                     </td>
 
                     {/* Team Count */}
-                    <td style={{ padding: '18px 20px', fontSize: '13px', color: '#4A4E5E', fontWeight: 600 }}>
+                    <td style={{ padding: '18px 20px', fontSize: '14px', color: '#4A4E5E', fontWeight: 600 }}>
                       {teamLabel(sub.members)}
                     </td>
 
@@ -155,19 +153,19 @@ export const HistoryView = () => {
                             color: '#0A65B0',
                             padding: '3px 8px',
                             borderRadius: '8px',
-                            fontSize: '12px',
+                            fontSize: '13px',
                             fontWeight: 700,
                             fontFamily: 'monospace'
                           }}>
                             <Receipt size={13} weight="bold" />
                             <span>#{sub.hash}</span>
                           </div>
-                          <div style={{ fontSize: '11.5px', color: '#6B6F80', marginTop: '4px' }}>
+                          <div style={{ fontSize: '13px', color: '#4F5366', marginTop: '4px' }}>
                             {filesCount} ไฟล์ · {linksCount} ลิงก์
                           </div>
                         </div>
                       ) : (
-                        <div style={{ fontSize: '12px', color: '#9A9DAD' }}>
+                        <div style={{ fontSize: '13px', color: '#6B6F80' }}>
                           {filesCount || linksCount ? `${filesCount} ไฟล์ · ${linksCount} ลิงก์` : '—'}
                         </div>
                       )}
@@ -183,7 +181,7 @@ export const HistoryView = () => {
                           color: isSubmitted ? '#4A4E5E' : '#C2410C',
                           padding: '7px 14px',
                           borderRadius: '10px',
-                          fontSize: '12.5px',
+                          fontSize: '14px',
                           fontWeight: 700,
                           display: 'inline-flex',
                           alignItems: 'center',

@@ -35,7 +35,7 @@ export const ProgressStats = () => {
       {/* Top greeting */}
       <div>
         <div style={{
-          fontSize: '13px',
+          fontSize: '14px',
           fontWeight: 700,
           color: '#FF5F1C',
           marginBottom: '4px',
@@ -56,10 +56,10 @@ export const ProgressStats = () => {
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '8px' }}>
           <div>
-            <div style={{ fontSize: '12px', fontWeight: 700, color: '#6B6F80' }}>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: '#4F5366' }}>
               ความคืบหน้ารวม
             </div>
-            <div style={{ fontSize: '18px', fontWeight: 800, color: '#1B1D29' }}>
+            <div style={{ fontSize: '20px', fontWeight: 800, color: '#1B1D29' }}>
               ส่งแล้ว {submitted} จาก {total} ประเภท
             </div>
           </div>
@@ -100,11 +100,11 @@ export const ProgressStats = () => {
           padding: '10px',
           textAlign: 'center'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', color: '#0A65B0', fontSize: '12px', fontWeight: 700 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', color: '#0A65B0', fontSize: '13px', fontWeight: 700 }}>
             <CheckCircle size={14} weight="fill" />
             <span>ส่งแล้ว</span>
           </div>
-          <div style={{ fontSize: '18px', fontWeight: 800, color: '#0A65B0', marginTop: '2px' }}>
+          <div style={{ fontSize: '20px', fontWeight: 800, color: '#0A65B0', marginTop: '2px' }}>
             {submitted}
           </div>
         </div>
@@ -115,11 +115,11 @@ export const ProgressStats = () => {
           padding: '10px',
           textAlign: 'center'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', color: '#8A5A00', fontSize: '12px', fontWeight: 700 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', color: '#8A5A00', fontSize: '13px', fontWeight: 700 }}>
             <Clock size={14} weight="fill" />
             <span>ฉบับร่าง</span>
           </div>
-          <div style={{ fontSize: '18px', fontWeight: 800, color: '#8A5A00', marginTop: '2px' }}>
+          <div style={{ fontSize: '20px', fontWeight: 800, color: '#8A5A00', marginTop: '2px' }}>
             {draft}
           </div>
         </div>
@@ -130,11 +130,11 @@ export const ProgressStats = () => {
           padding: '10px',
           textAlign: 'center'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', color: '#6B6F80', fontSize: '12px', fontWeight: 700 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', color: '#4F5366', fontSize: '13px', fontWeight: 700 }}>
             <CircleDashed size={14} weight="bold" />
             <span>ยังไม่เริ่ม</span>
           </div>
-          <div style={{ fontSize: '18px', fontWeight: 800, color: '#4A4E5E', marginTop: '2px' }}>
+          <div style={{ fontSize: '20px', fontWeight: 800, color: '#4A4E5E', marginTop: '2px' }}>
             {notStarted}
           </div>
         </div>

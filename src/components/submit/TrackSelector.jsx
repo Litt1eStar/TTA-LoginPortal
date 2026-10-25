@@ -111,14 +111,14 @@ export const TrackSelector = () => {
               borderRadius: '12px',
               background: '#FFF1EB',
               color: '#FF5F1C',
-              fontSize: '12.5px',
+              fontSize: '14px',
               fontWeight: 700,
               whiteSpace: 'nowrap',
               flexShrink: 0
             }}
           >
-            <ListBullets size={15} weight="bold" />
-            <span>เลือกหมวด</span>
+            <ListBullets size={16} weight="bold" />
+            <span>ประเภท</span>
           </div>
         )}
 
@@ -181,7 +181,7 @@ export const TrackSelector = () => {
                   border: isActive ? '1.5px solid #FF5F1C' : '1.5px solid transparent',
                   background: isActive ? '#FF5F1C' : '#FAFAFC',
                   color: isActive ? '#FFFFFF' : '#1B1D29',
-                  fontSize: '13.5px',
+                  fontSize: '15px',
                   fontWeight: isActive ? 700 : 600,
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -194,11 +194,11 @@ export const TrackSelector = () => {
               >
                 <span>{t.th}</span>
                 {isSubmitted ? (
-                  <LockSimple size={13} weight="bold" color={isActive ? '#FFFFFF' : '#0A65B0'} />
+                  <LockSimple size={15} weight="bold" color={isActive ? '#FFFFFF' : '#0A65B0'} aria-label="ส่งแล้ว" />
                 ) : isDraft ? (
-                  <PencilSimple size={13} weight="bold" color={isActive ? '#FFFFFF' : '#D99A00'} />
+                  <PencilSimple size={15} weight="bold" color={isActive ? '#FFFFFF' : '#B07A00'} aria-label="ฉบับร่าง" />
                 ) : (
-                  <CircleDashed size={13} weight="bold" color={isActive ? '#FFFFFF' : '#A3A6B4'} />
+                  <CircleDashed size={15} weight="bold" color={isActive ? '#FFFFFF' : '#8A8D9C'} aria-label="ยังไม่เริ่ม" />
                 )}
               </button>
             );

@@ -1,6 +1,7 @@
 import React from 'react';
 import { usePortal } from '../../context/PortalContext';
 import { statusMeta, teamLabel, daysUntil } from '../../utils/formatters';
+import { submissionSummary } from '../../utils/requirements';
 import {
   ChalkboardTeacher,
   HandPointing,
@@ -40,6 +41,7 @@ export const TrackCard = ({ track }) => {
 
   const isSubmitted = sub.status === 'submitted';
   const isDraft = sub.status === 'draft';
+  const summary = submissionSummary(track, sub);
 
   return (
     <div
@@ -98,7 +100,7 @@ export const TrackCard = ({ track }) => {
             border: meta.badgeBorder,
             padding: '4px 10px',
             borderRadius: '12px',
-            fontSize: '12px',
+            fontSize: '13px',
             fontWeight: 700,
             display: 'flex',
             alignItems: 'center',
@@ -117,7 +119,7 @@ export const TrackCard = ({ track }) => {
         {/* Track Title */}
         <div>
           <h3 style={{
-            fontSize: '17px',
+            fontSize: '18px',
             fontWeight: 800,
             color: '#1B1D29',
             marginBottom: '2px',
@@ -128,22 +130,22 @@ export const TrackCard = ({ track }) => {
             <span>{track.th}</span>
             {isSubmitted && <LockSimple size={14} color="#6B6F80" />}
           </h3>
-          <div style={{ fontSize: '12.5px', color: '#6B6F80', fontWeight: 500 }}>
-            {track.en}
+          <div style={{ fontSize: '14px', color: '#4F5366', fontWeight: 500 }}>
+            {track.full !== track.th ? track.full : ''}
           </div>
         </div>
 
-        {/* Project Name preview */}
+        {/* Submission preview: project name (clip) or team summary */}
         <div style={{
           marginTop: '14px',
-          fontSize: '13.5px',
-          fontWeight: sub.projectName ? 700 : 500,
-          color: sub.projectName ? '#1B1D29' : '#9A9DAD',
+          fontSize: '15px',
+          fontWeight: summary ? 700 : 500,
+          color: summary ? '#1B1D29' : '#9A9DAD',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap'
         }}>
-          {sub.projectName ? `“${sub.projectName}”` : 'ยังไม่มีผลงาน'}
+          {summary || 'ยังไม่มีข้อมูล'}
         </div>
       </div>
 
@@ -155,9 +157,9 @@ export const TrackCard = ({ track }) => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        fontSize: '12.5px'
+        fontSize: '14px'
       }}>
-        <div style={{ color: '#6B6F80', fontWeight: 600 }}>
+        <div style={{ color: '#4F5366', fontWeight: 600 }}>
           {teamLabel(sub.members)}
         </div>
 

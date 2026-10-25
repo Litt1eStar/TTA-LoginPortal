@@ -7,7 +7,8 @@ import {
   PaperPlaneTilt,
   ClockCounterClockwise,
   SignOut,
-  ArrowsClockwise
+  ArrowsClockwise,
+  Certificate
 } from '@phosphor-icons/react';
 
 export const Navbar = () => {
@@ -38,6 +39,14 @@ export const Navbar = () => {
       label: 'ประวัติการส่ง',
       icon: ClockCounterClockwise,
       isActive: location.pathname === '/history'
+    },
+    {
+      // Logged-in only; coordinators download their university's certificates (FEEDBACK #5)
+      id: 'certificates',
+      path: '/certificates',
+      label: 'เกียรติบัตร',
+      icon: Certificate,
+      isActive: location.pathname === '/certificates'
     }
   ];
 
@@ -50,7 +59,7 @@ export const Navbar = () => {
       zIndex: 50,
       boxShadow: '0 1px 4px rgba(27, 29, 41, 0.04)'
     }}>
-      <div className="app-container" style={{
+      <div className="app-container nav-row" style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -69,17 +78,15 @@ export const Navbar = () => {
         >
           <img
             src="/assets/ttaa13-logo.png"
-            alt="Thailand Teaching Academy Award 13th"
+            alt="Thailand Teaching Academy Award 2027"
             style={{ height: '42px', width: 'auto', display: 'block' }}
           />
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: '15px', fontWeight: 800, color: '#1B1D29', letterSpacing: '-0.2px' }}>
-              ระบบผู้ประสานงาน
-            </span>
-            <span style={{ fontSize: '12px', fontWeight: 500, color: '#6B6F80' }}>
-              TTAA 13th Submission Portal
-            </span>
-          </div>
+          <span
+            className="nav-brand-text"
+            style={{ fontSize: '17px', fontWeight: 700, color: '#1B1D29', whiteSpace: 'nowrap' }}
+          >
+            ระบบส่งผลงาน TTA 2027
+          </span>
         </div>
 
         {/* Navigation Tabs */}
@@ -98,22 +105,25 @@ export const Navbar = () => {
               <button
                 key={item.id}
                 onClick={() => navigate(item.path)}
+                title={item.label}
+                aria-current={isActive ? 'page' : undefined}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: '8px',
-                  padding: '8px 16px',
+                  padding: '8px 14px',
                   borderRadius: '12px',
-                  fontSize: '14px',
+                  fontSize: '15px',
+                  whiteSpace: 'nowrap',
                   fontWeight: isActive ? 700 : 500,
-                  color: isActive ? '#1B1D29' : '#6B6F80',
+                  color: isActive ? '#1B1D29' : '#4F5366',
                   background: isActive ? '#FFFFFF' : 'transparent',
                   boxShadow: isActive ? '0 2px 6px rgba(27, 29, 41, 0.08)' : 'none',
                   transition: 'all 0.18s'
                 }}
               >
-                <Icon size={18} weight={isActive ? 'fill' : 'regular'} color={isActive ? '#FF5F1C' : '#6B6F80'} />
-                <span>{item.label}</span>
+                <Icon size={19} weight={isActive ? 'fill' : 'regular'} color={isActive ? '#FF5F1C' : '#4F5366'} />
+                <span className="nav-label">{item.label}</span>
               </button>
             );
           })}
@@ -122,15 +132,19 @@ export const Navbar = () => {
         {/* User Badge & Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {/* User profile */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            background: '#FAFAFC',
-            border: '1px solid #ECECF1',
-            padding: '6px 14px 6px 8px',
-            borderRadius: '24px'
-          }}>
+          <div
+            className="nav-user"
+            title={`${user.name} · ${user.university}`}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              background: '#FAFAFC',
+              border: '1px solid #ECECF1',
+              padding: '6px 14px 6px 6px',
+              borderRadius: '24px'
+            }}
+          >
             <div style={{
               width: '34px',
               height: '34px',
@@ -141,29 +155,29 @@ export const Navbar = () => {
               alignItems: 'center',
               justifyContent: 'center',
               fontWeight: 800,
-              fontSize: '13px',
+              fontSize: '14px',
               boxShadow: '0 2px 6px rgba(255, 95, 28, 0.3)'
             }}>
               {initials(user.name)}
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{ fontSize: '13.5px', fontWeight: 700, color: '#1B1D29', lineHeight: 1.2 }}>
-                {user.name}
-              </span>
-              <span style={{ fontSize: '11.5px', color: '#6B6F80', lineHeight: 1.2 }}>
-                {user.university}
-              </span>
-            </div>
+            <span
+              className="nav-user-text"
+              style={{ fontSize: '15px', fontWeight: 700, color: '#1B1D29', whiteSpace: 'nowrap' }}
+            >
+              {user.name}
+            </span>
           </div>
 
           {/* Reset Demo Data button */}
           <button
             onClick={resetAllDataToDefault}
             title="รีเซ็ตข้อมูลตัวอย่างกลับเป็นค่าเริ่มต้น"
+            aria-label="รีเซ็ตข้อมูลตัวอย่าง"
+            className="nav-reset"
             style={{
               background: 'transparent',
               border: '1px solid #ECECF1',
-              color: '#6B6F80',
+              color: '#4F5366',
               padding: '8px',
               borderRadius: '12px',
               display: 'flex',
@@ -187,12 +201,12 @@ export const Navbar = () => {
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              fontSize: '13px',
+              fontSize: '14px',
               fontWeight: 600
             }}
           >
             <SignOut size={16} weight="bold" />
-            <span>ออก</span>
+            <span className="nav-label" style={{ whiteSpace: 'nowrap' }}>ออกจากระบบ</span>
           </button>
         </div>
       </div>

@@ -38,12 +38,12 @@ export const DashboardView = () => {
             <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#1B1D29', letterSpacing: '-0.3px' }}>
               ประเภทการแข่งขัน (10 หมวดหมู่)
             </h2>
-            <p style={{ fontSize: '14px', color: '#6B6F80', marginTop: '2px' }}>
+            <p style={{ fontSize: '15px', color: '#4F5366', marginTop: '2px' }}>
               คลิกประเภทที่ต้องการเพื่อจัดการรายชื่อทีมและอัปโหลดผลงาน
             </p>
           </div>
-          <div style={{ fontSize: '13px', fontWeight: 600, color: '#6B6F80' }}>
-            Thailand Teaching Academy Award ครั้งที่ 13
+          <div style={{ fontSize: '14px', fontWeight: 600, color: '#4F5366' }}>
+            Thailand Teaching Academy Award 2027
           </div>
         </div>
 
