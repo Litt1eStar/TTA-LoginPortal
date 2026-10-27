@@ -1,8 +1,9 @@
 import React from 'react';
 import { usePortal } from '../../context/PortalContext';
+import { SectionNum } from './SectionNum';
 import { WarningCircle } from '@phosphor-icons/react';
 
-export const ProjectInfoSection = ({ trackId, isLocked, error, number }) => {
+export const ProjectInfoSection = ({ trackId, isLocked, error, number, done }) => {
   const { submissions, updateField } = usePortal();
   const sub = submissions[trackId] || {};
 
@@ -10,7 +11,7 @@ export const ProjectInfoSection = ({ trackId, isLocked, error, number }) => {
     <div className="card" id="section-projectName">
       <div>
         <h3 className="section-title">
-          {number && <span className="section-num">{number}</span>}
+          <SectionNum number={number} done={done} />
           ข้อมูลผลงาน
         </h3>
         <p className="section-desc">ชื่อผลงานและสรุปเนื้อหาสำหรับคณะกรรมการ</p>

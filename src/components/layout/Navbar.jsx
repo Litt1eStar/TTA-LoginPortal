@@ -19,41 +19,31 @@ export const Navbar = () => {
   if (!user) return null;
 
   const navItems = [
-    {
-      id: 'dashboard',
-      path: '/dashboard',
-      label: 'หน้าหลัก',
-      icon: SquaresFour,
-      isActive: location.pathname === '/dashboard' || location.pathname === '/'
-    },
-    {
-      id: 'submit',
-      path: `/submit/${activeTrackId || 'theory'}`,
-      label: 'ส่งผลงาน',
-      icon: PaperPlaneTilt,
-      isActive: location.pathname.startsWith('/submit')
-    },
-    {
-      id: 'history',
-      path: '/history',
-      label: 'ประวัติการส่ง',
-      icon: ClockCounterClockwise,
-      isActive: location.pathname === '/history'
-    },
-    {
-      // Logged-in only; coordinators download their university's certificates (FEEDBACK #5)
-      id: 'certificates',
-      path: '/certificates',
-      label: 'เกียรติบัตร',
-      icon: Certificate,
-      isActive: location.pathname === '/certificates'
-    }
+    { id: 'dashboard', path: '/dashboard', label: 'หน้าหลัก', icon: SquaresFour, isActive: location.pathname === '/dashboard' || location.pathname === '/' },
+    { id: 'submit', path: `/submit/${activeTrackId || 'theory'}`, label: 'ส่งผลงาน', icon: PaperPlaneTilt, isActive: location.pathname.startsWith('/submit') },
+    { id: 'history', path: '/history', label: 'ประวัติการส่ง', icon: ClockCounterClockwise, isActive: location.pathname === '/history' },
+    // Logged-in only; coordinators download their university's certificates (FEEDBACK #5)
+    { id: 'certificates', path: '/certificates', label: 'เกียรติบัตร', icon: Certificate, isActive: location.pathname === '/certificates' }
   ];
+
+  const ghostBtn = {
+    background: '#FAFAFC',
+    border: '1px solid var(--border-light)',
+    color: 'var(--text-muted)',
+    height: '40px',
+    borderRadius: '12px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '6px',
+    fontSize: '14px',
+    fontWeight: 600
+  };
 
   return (
     <header style={{
       background: '#FFFFFF',
-      borderBottom: '1px solid #ECECF1',
+      borderBottom: '1px solid var(--border-light)',
       position: 'sticky',
       top: 0,
       zIndex: 50,
@@ -63,149 +53,109 @@ export const Navbar = () => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        height: '74px',
+        height: '72px',
         gap: '20px'
       }}>
-        {/* Brand & Logo */}
-        <div
+        {/* Brand: logo sits on a white tile so its navy lettering stays readable */}
+        <button
+          type="button"
           onClick={() => navigate('/dashboard')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '14px',
-            cursor: 'pointer'
-          }}
+          aria-label="ไปหน้าหลัก"
+          style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'transparent', padding: 0 }}
         >
-          <img
-            src="/assets/ttaa13-logo.png"
-            alt="Thailand Teaching Academy Award 2027"
-            style={{ height: '42px', width: 'auto', display: 'block' }}
-          />
+          <span style={{ background: '#FFFFFF', borderRadius: '12px', padding: '5px 8px', display: 'flex' }}>
+            <img
+              src="/assets/ttaa13-logo.png"
+              alt="Thailand Teaching Academy Award 2027"
+              style={{ height: '34px', width: 'auto', display: 'block' }}
+            />
+          </span>
           <span
             className="nav-brand-text"
-            style={{ fontSize: '17px', fontWeight: 700, color: '#1B1D29', whiteSpace: 'nowrap' }}
+            style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text-dark)', whiteSpace: 'nowrap' }}
           >
-            ระบบส่งผลงาน TTA 2027
+            TTA Portal
           </span>
-        </div>
+        </button>
 
-        {/* Navigation Tabs */}
-        <nav style={{
-          display: 'flex',
-          alignItems: 'center',
-          background: '#F6F6F9',
-          padding: '4px',
-          borderRadius: '16px',
-          gap: '4px'
-        }}>
-          {navItems.map(item => {
-            const Icon = item.icon;
-            const isActive = item.isActive;
-            return (
-              <button
-                key={item.id}
-                onClick={() => navigate(item.path)}
-                title={item.label}
-                aria-current={isActive ? 'page' : undefined}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '8px 14px',
-                  borderRadius: '12px',
-                  fontSize: '15px',
-                  whiteSpace: 'nowrap',
-                  fontWeight: isActive ? 700 : 500,
-                  color: isActive ? '#1B1D29' : '#4F5366',
-                  background: isActive ? '#FFFFFF' : 'transparent',
-                  boxShadow: isActive ? '0 2px 6px rgba(27, 29, 41, 0.08)' : 'none',
-                  transition: 'all 0.18s'
-                }}
-              >
-                <Icon size={19} weight={isActive ? 'fill' : 'regular'} color={isActive ? '#FF5F1C' : '#4F5366'} />
-                <span className="nav-label">{item.label}</span>
-              </button>
-            );
-          })}
+        {/* Navigation */}
+        <nav style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--bg-main)', padding: '4px', borderRadius: '999px' }}>
+          {navItems.map(({ id, path, label, icon: Icon, isActive }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => navigate(path)}
+              title={label}
+              aria-current={isActive ? 'page' : undefined}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '9px 16px',
+                borderRadius: '999px',
+                fontSize: '15px',
+                whiteSpace: 'nowrap',
+                fontWeight: isActive ? 700 : 500,
+                color: isActive ? 'var(--text-dark)' : 'var(--text-muted)',
+                background: isActive ? '#FFFFFF' : 'transparent',
+                boxShadow: isActive ? '0 2px 6px rgba(27, 29, 41, 0.1)' : 'none'
+              }}
+              onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = 'rgba(27,29,41,0.05)'; }}
+              onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
+            >
+              <Icon size={19} weight={isActive ? 'fill' : 'regular'} color={isActive ? 'var(--primary)' : 'currentColor'} />
+              <span className="nav-label">{label}</span>
+            </button>
+          ))}
         </nav>
 
-        {/* User Badge & Actions */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          {/* User profile */}
+        {/* User & actions */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div
             className="nav-user"
             title={`${user.name} · ${user.university}`}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              background: '#FAFAFC',
-              border: '1px solid #ECECF1',
-              padding: '6px 14px 6px 6px',
-              borderRadius: '24px'
-            }}
+            style={{ display: 'flex', alignItems: 'center', gap: '10px' }}
           >
             <div style={{
-              width: '34px',
-              height: '34px',
+              width: '36px',
+              height: '36px',
               borderRadius: '50%',
               background: 'linear-gradient(135deg, #FF5F1C 0%, #FF8D20 100%)',
               color: '#FFFFFF',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontWeight: 800,
-              fontSize: '14px',
-              boxShadow: '0 2px 6px rgba(255, 95, 28, 0.3)'
+              fontWeight: 700,
+              fontSize: '14px'
             }}>
               {initials(user.name)}
             </div>
             <span
               className="nav-user-text"
-              style={{ fontSize: '15px', fontWeight: 700, color: '#1B1D29', whiteSpace: 'nowrap' }}
+              style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-dark)', whiteSpace: 'nowrap' }}
             >
               {user.name}
             </span>
           </div>
 
-          {/* Reset Demo Data button */}
           <button
+            type="button"
+            className="nav-reset"
             onClick={resetAllDataToDefault}
             title="รีเซ็ตข้อมูลตัวอย่างกลับเป็นค่าเริ่มต้น"
             aria-label="รีเซ็ตข้อมูลตัวอย่าง"
-            className="nav-reset"
-            style={{
-              background: 'transparent',
-              border: '1px solid #ECECF1',
-              color: '#4F5366',
-              padding: '8px',
-              borderRadius: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
+            style={{ ...ghostBtn, width: '40px' }}
           >
             <ArrowsClockwise size={18} />
           </button>
 
-          {/* Logout button */}
           <button
+            type="button"
             onClick={logout}
             title="ออกจากระบบ"
-            style={{
-              background: '#FFF1EB',
-              border: '1px solid rgba(255, 95, 28, 0.2)',
-              color: '#C2410C',
-              padding: '8px 14px',
-              borderRadius: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '14px',
-              fontWeight: 600
-            }}
+            style={{ ...ghostBtn, padding: '0 14px' }}
           >
-            <SignOut size={16} weight="bold" />
+            <SignOut size={17} weight="bold" />
             <span className="nav-label" style={{ whiteSpace: 'nowrap' }}>ออกจากระบบ</span>
           </button>
         </div>

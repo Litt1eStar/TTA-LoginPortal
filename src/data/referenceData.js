@@ -1,5 +1,6 @@
 // Reference lists for the submission form.
 // Sources: ข้อมูลให้เบ้น.xlsx (titles, universities) and placeholders for data still pending.
+import { TRACKS, isGrouped, entryKey } from './tracks';
 
 // คำนำหน้า (from the sheet)
 export const TITLE_PREFIXES = [
@@ -34,6 +35,31 @@ export const PHOTO_RULES = {
   maxMB: 5
 };
 
-// Certificate download links per track id. Empty until certificates are ready.
-// Example: { theory: 'https://.../theory-certificates.zip' }
+// Certificate download links, keyed by the item keys in CERTIFICATE_SECTIONS.
+// Empty until certificates are ready.
+// Example: { 'theory.g0': 'https://.../theory-electrical.zip', singing: 'https://...' }
 export const CERTIFICATES = {};
+
+// Certificate topics, built from TRACKS so they always match the form's categories:
+// - theory / practice: one section each, one item per กลุ่มสาขาวิชา (key = entryKey, e.g. 'theory.g0')
+// - tracks sharing a `category` (การแข่งขันศิลปวัฒนธรรม): one section
+// - everything else: one untitled section
+export const CERTIFICATE_SECTIONS = (() => {
+  const sections = [];
+  const byTitle = {};
+  const others = { title: null, items: [] };
+  TRACKS.forEach(t => {
+    if (isGrouped(t)) {
+      sections.push({ title: t.full, items: t.subjectGroups.map((g, i) => ({ key: entryKey(t.id, i), label: g })) });
+    } else if (t.category) {
+      if (!byTitle[t.category]) {
+        byTitle[t.category] = { title: t.category, items: [] };
+        sections.push(byTitle[t.category]);
+      }
+      byTitle[t.category].items.push({ key: t.id, label: t.full });
+    } else {
+      others.items.push({ key: t.id, label: t.full });
+    }
+  });
+  return others.items.length ? [...sections, others] : sections;
+})();

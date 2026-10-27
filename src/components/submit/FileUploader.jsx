@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { usePortal } from '../../context/PortalContext';
+import { SectionNum } from './SectionNum';
 import { formatSize } from '../../utils/formatters';
 import {
   UploadSimple,
@@ -22,7 +23,7 @@ const fileIcon = (ext) => {
   }
 };
 
-export const FileUploader = ({ trackId, isLocked, error, number }) => {
+export const FileUploader = ({ trackId, isLocked, error, number, done }) => {
   const { submissions, addFiles, removeFile } = usePortal();
   const sub = submissions[trackId] || { files: [] };
   const [isDragging, setIsDragging] = useState(false);
@@ -44,7 +45,7 @@ export const FileUploader = ({ trackId, isLocked, error, number }) => {
     <div className="card" id="section-deliverables">
       <div>
         <h3 className="section-title">
-          {number && <span className="section-num">{number}</span>}
+          <SectionNum number={number} done={done} />
           ไฟล์ผลงาน
         </h3>
         <p className="section-desc">ไฟล์ PDF, ZIP, PPT หรือ PPTX ไม่เกิน 50 MB ต่อไฟล์</p>

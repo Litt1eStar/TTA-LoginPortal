@@ -23,7 +23,7 @@ export const getRequirements = (track, sub = {}) => {
     key: 'advisors',
     section: 'team',
     label: advisorLimit > 1
-      ? `ระบุอาจารย์ที่ปรึกษา (1–${advisorLimit} ท่าน)`
+      ? `ระบุอาจารย์ที่ปรึกษา (1-${advisorLimit} ท่าน)`
       : 'ระบุอาจารย์ที่ปรึกษา (1 ท่าน)',
     ok: advisors.length >= 1 && advisors.length <= advisorLimit,
     error: advisors.length === 0
@@ -56,22 +56,16 @@ export const getRequirements = (track, sub = {}) => {
       : 'กรุณาเพิ่มรายชื่อทีม'
   });
 
-  if (track.subjectGroups?.length) {
-    reqs.push({
-      key: 'subjectGroup',
-      section: 'subjectGroup',
-      label: 'เลือกกลุ่มสาขา',
-      ok: !!sub.subjectGroup,
-      error: 'กรุณาเลือกกลุ่มสาขา'
-    });
-  }
-
+  // Every person (advisors and competitors) needs their own photo
+  const missingPhoto = members.filter(m => !m.photo?.dataUrl);
   reqs.push({
-    key: 'photo',
-    section: 'photo',
-    label: 'อัปโหลดภาพถ่ายผู้สมัคร',
-    ok: !!sub.photo?.dataUrl,
-    error: 'กรุณาอัปโหลดภาพถ่ายผู้สมัคร'
+    key: 'photos',
+    section: 'team',
+    label: 'ทุกคนมีรูปถ่าย',
+    ok: members.length > 0 && missingPhoto.length === 0,
+    error: missingPhoto.length
+      ? `กรุณาอัปโหลดรูปถ่ายของ ${missingPhoto.map(m => m.fullName).join(', ')}`
+      : 'กรุณาเพิ่มรายชื่อทีม'
   });
 
   if (track.needsWorkInfo) {

@@ -4,7 +4,7 @@ export const daysUntil = (iso) => {
 };
 
 export const fmtDate = (iso) => {
-  if (!iso) return '—';
+  if (!iso) return '-';
   return new Date(iso).toLocaleDateString('th-TH', {
     day: 'numeric',
     month: 'short',
@@ -13,7 +13,7 @@ export const fmtDate = (iso) => {
 };
 
 export const fmtDateTime = (iso) => {
-  if (!iso) return '—';
+  if (!iso) return '-';
   return new Date(iso).toLocaleString('th-TH', {
     day: 'numeric',
     month: 'short',
@@ -24,7 +24,7 @@ export const fmtDateTime = (iso) => {
 };
 
 export const formatSize = (bytes) => {
-  if (!bytes) return '—';
+  if (!bytes) return '-';
   if (bytes < 1024) return bytes + ' B';
   if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
   return (bytes / 1048576).toFixed(1) + ' MB';

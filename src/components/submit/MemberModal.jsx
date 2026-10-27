@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { usePortal } from '../../context/PortalContext';
-import { TITLE_PREFIXES, DEPARTMENTS } from '../../data/referenceData';
-import { X, ChalkboardTeacher, Student, Plus, Buildings, WarningCircle } from '@phosphor-icons/react';
+import { TITLE_PREFIXES, DEPARTMENTS, PHOTO_RULES } from '../../data/referenceData';
+import { processPhoto } from '../../utils/photo';
+import { X, ChalkboardTeacher, Student, Plus, Buildings, WarningCircle, Camera, Trash } from '@phosphor-icons/react';
 
 const FieldError = ({ msg }) => msg ? (
   <div className="field-error"><WarningCircle size={16} weight="fill" />{msg}</div>
@@ -20,7 +21,9 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
   const [dept, setDept] = useState('');
   const [year, setYear] = useState('3');
   const [isLeader, setIsLeader] = useState(false);
+  const [photo, setPhoto] = useState(null);
   const [errors, setErrors] = useState({});
+  const photoInput = useRef(null);
 
   useEffect(() => {
     if (initialMember) {
@@ -34,6 +37,7 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
       setDept(DEPARTMENTS.includes(initialMember.dept) ? initialMember.dept : '');
       setYear(initialMember.year || '3');
       setIsLeader(!!initialMember.isLeader);
+      setPhoto(initialMember.photo || null);
     } else {
       setType(initialType);
       setTitle(initialType === 'advisor' ? 'ดร.' : 'นาย');
@@ -44,6 +48,7 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
       setDept('');
       setYear('3');
       setIsLeader(false);
+      setPhoto(null);
     }
     setErrors({});
   }, [initialMember, initialType, isOpen]);
@@ -81,7 +86,8 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
       phone: phone.trim(),
       dept,
       year: isAdvisor ? '' : year,
-      isLeader: isAdvisor ? false : isLeader
+      isLeader: isAdvisor ? false : isLeader,
+      photo
     });
 
     if (addAnother && !isAdvisor) {
@@ -90,6 +96,7 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
       setEmail('');
       setPhone('');
       setIsLeader(false);
+      setPhoto(null);
       setErrors({});
     } else {
       onClose();
@@ -97,6 +104,17 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
   };
 
   const clearError = (key) => errors[key] && setErrors(prev => ({ ...prev, [key]: '' }));
+
+  const handlePhoto = async (file) => {
+    if (!file) return;
+    const res = await processPhoto(file);
+    if (res.success) {
+      setPhoto(res.photo);
+      clearError('photo');
+    } else {
+      setErrors(prev => ({ ...prev, photo: res.error }));
+    }
+  };
 
   const typeTab = (value, Icon, label) => (
     <button
@@ -164,6 +182,58 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
             </div>
           )}
 
+          {/* Personal photo: each person uploads their own */}
+          <div>
+            <span className="field-label">
+              รูปถ่าย <span className="required">*</span>
+            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div style={{
+                width: '84px',
+                height: '104px',
+                borderRadius: '14px',
+                overflow: 'hidden',
+                flexShrink: 0,
+                background: 'var(--bg-main)',
+                border: photo ? '1px solid var(--border-light)' : '2px dashed #C4C6D0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--text-light)'
+              }}>
+                {photo
+                  ? <img src={photo.dataUrl} alt="รูปถ่าย" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : <Camera size={28} weight="duotone" />}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-start' }}>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <button type="button" className="btn btn-sm" onClick={() => photoInput.current?.click()}>
+                    <Camera size={16} weight="bold" />
+                    <span>{photo ? 'เปลี่ยนรูป' : 'อัปโหลดรูป'}</span>
+                  </button>
+                  {photo && (
+                    <button type="button" className="btn btn-sm btn-danger" onClick={() => setPhoto(null)}>
+                      <Trash size={16} weight="bold" />
+                      <span>ลบรูป</span>
+                    </button>
+                  )}
+                </div>
+                <span className="field-hint" style={{ marginTop: 0 }}>
+                  ไฟล์ {PHOTO_RULES.exts.join(', ').toUpperCase()} ไม่เกิน {PHOTO_RULES.maxMB} MB
+                </span>
+              </div>
+              <input
+                ref={photoInput}
+                type="file"
+                accept={PHOTO_RULES.exts.map(e => '.' + e).join(',')}
+                style={{ display: 'none' }}
+                aria-label="อัปโหลดรูปถ่าย"
+                onChange={(e) => { handlePhoto(e.target.files?.[0]); e.target.value = ''; }}
+              />
+            </div>
+            <FieldError msg={errors.photo} />
+          </div>
+
           {/* Title + name */}
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(120px, 1fr) 2.2fr', gap: '12px' }}>
             <div>
@@ -194,7 +264,7 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
             <label className="field-label">มหาวิทยาลัย</label>
             <div className="readonly-field" title="กำหนดจากบัญชีผู้ใช้ แก้ไขไม่ได้">
               <Buildings size={20} weight="duotone" color="var(--primary)" />
-              <span>{user?.university || '—'}</span>
+              <span>{user?.university || '-'}</span>
             </div>
           </div>
 
@@ -209,7 +279,7 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
               value={dept}
               onChange={(e) => { setDept(e.target.value); clearError('dept'); }}
             >
-              <option value="" disabled>— เลือกหน่วยงาน —</option>
+              <option value="" disabled>เลือกหน่วยงาน</option>
               {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
             <FieldError msg={errors.dept} />

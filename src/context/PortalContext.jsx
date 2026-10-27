@@ -1,17 +1,44 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ACCOUNTS, DEMO_PASSWORD } from '../data/accounts';
-import { getTrack } from '../data/tracks';
-import { PHOTO_RULES } from '../data/referenceData';
-import { createSeedSubmissions } from '../data/seedData';
+import { TRACKS, getTrack, entryKey, isGrouped } from '../data/tracks';
+import { createSeedSubmissions, emptySubmission } from '../data/seedData';
 import { generateReceiptHash, generateId } from '../utils/formatters';
+import { getRequirements } from '../utils/requirements';
 import confetti from 'canvas-confetti';
 
 const PortalContext = createContext(null);
 
 const STORAGE_KEY_AUTH = 'ttaa13_auth';
-const STORAGE_KEY_SUBMISSIONS = 'tta27_submissions_v2';
+const STORAGE_KEY_SUBMISSIONS = 'tta27_submissions_v5';
 const STORAGE_KEY_TRACK = 'ttaa13_track';
+
+// A locked (submitted) entry must pass every requirement. If one doesn't
+// (old data, or rules changed), unlock it as a draft so it can be completed.
+// Also makes sure every entry exists: each theory / practice กลุ่มสาขาวิชา is a
+// sub-type of its own, created blank automatically (like the culture sub-types).
+const normalizeSubmissions = (data) => {
+  const out = { ...data };
+  TRACKS.forEach(t => {
+    if (isGrouped(t)) {
+      delete out[t.id]; // old "which groups were chosen" marker, no longer used
+      t.subjectGroups.forEach((group, i) => {
+        const key = entryKey(t.id, i);
+        if (!out[key]) out[key] = emptySubmission({ subjectGroup: group });
+      });
+    } else if (!out[t.id]) {
+      out[t.id] = emptySubmission();
+    }
+  });
+  Object.entries(out).forEach(([key, sub]) => {
+    if (!sub || sub.status !== 'submitted') return;
+    const complete = getRequirements(getTrack(key), sub).every(r => r.ok);
+    if (complete) return;
+    const { hash, submittedAt, ...rest } = sub;
+    out[key] = { ...rest, status: 'draft', draftAt: submittedAt || rest.draftAt };
+  });
+  return out;
+};
 
 export const PortalProvider = ({ children }) => {
   const navigate = useNavigate();
@@ -47,13 +74,12 @@ export const PortalProvider = ({ children }) => {
   const [submissions, setSubmissions] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_SUBMISSIONS);
-      return saved ? JSON.parse(saved) : createSeedSubmissions();
+      return normalizeSubmissions(saved ? JSON.parse(saved) : createSeedSubmissions());
     } catch {
-      return createSeedSubmissions();
+      return normalizeSubmissions(createSeedSubmissions());
     }
   });
 
-  const [bannerDismissed, setBannerDismissed] = useState(false);
   const [toast, setToast] = useState(null);
   const [toastUndo, setToastUndo] = useState(null);
 
@@ -283,42 +309,6 @@ export const PortalProvider = ({ children }) => {
     });
   };
 
-  // Applicant photo: validate, shrink to max 600px JPEG so it fits in localStorage
-  const setPhoto = (trackId, file) => new Promise((resolve) => {
-    if (!file) {
-      updateSubmission(trackId, { photo: null });
-      return resolve({ success: true });
-    }
-    const ext = (file.name.split('.').pop() || '').toLowerCase();
-    if (!PHOTO_RULES.exts.includes(ext)) {
-      return resolve({ success: false, error: `รองรับเฉพาะไฟล์ ${PHOTO_RULES.exts.join(', ').toUpperCase()}` });
-    }
-    if (file.size > PHOTO_RULES.maxMB * 1024 * 1024) {
-      return resolve({ success: false, error: `ขนาดไฟล์ต้องไม่เกิน ${PHOTO_RULES.maxMB} MB` });
-    }
-
-    const reader = new FileReader();
-    reader.onerror = () => resolve({ success: false, error: 'ไม่สามารถอ่านไฟล์ภาพได้' });
-    reader.onload = () => {
-      const img = new Image();
-      img.onerror = () => resolve({ success: false, error: 'ไฟล์ภาพไม่ถูกต้อง' });
-      img.onload = () => {
-        const scale = Math.min(1, 600 / Math.max(img.width, img.height));
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.round(img.width * scale);
-        canvas.height = Math.round(img.height * scale);
-        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-        updateSubmission(trackId, {
-          photo: { name: file.name, size: file.size, ext, dataUrl: canvas.toDataURL('image/jpeg', 0.85) }
-        });
-        showToast('อัปโหลดภาพถ่ายผู้สมัครเรียบร้อย');
-        resolve({ success: true });
-      };
-      img.src = reader.result;
-    };
-    reader.readAsDataURL(file);
-  });
-
   // Draft & Submit
   const saveDraft = (trackId) => {
     const sub = submissions[trackId];
@@ -352,7 +342,7 @@ export const PortalProvider = ({ children }) => {
   };
 
   const resetAllDataToDefault = () => {
-    const defaultData = createSeedSubmissions();
+    const defaultData = normalizeSubmissions(createSeedSubmissions());
     setSubmissions(defaultData);
     localStorage.setItem(STORAGE_KEY_SUBMISSIONS, JSON.stringify(defaultData));
     showToast('รีเซ็ตข้อมูลตัวอย่างเรียบร้อยแล้ว');
@@ -382,12 +372,9 @@ export const PortalProvider = ({ children }) => {
         importCsvMembers,
         addFiles,
         removeFile,
-        setPhoto,
         saveDraft,
         confirmSubmit,
         resetAllDataToDefault,
-        bannerDismissed,
-        dismissBanner: () => setBannerDismissed(true),
         toast,
         toastUndo,
         showToast,

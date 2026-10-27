@@ -1,5 +1,6 @@
 import React from 'react';
 import { usePortal } from '../../context/PortalContext';
+import { SectionNum } from './SectionNum';
 import { VideoCamera, GithubLogo, GoogleDriveLogo } from '@phosphor-icons/react';
 
 const LINK_FIELDS = [
@@ -8,7 +9,7 @@ const LINK_FIELDS = [
   { key: 'github', label: 'ลิงก์ GitHub', placeholder: 'https://github.com/...', Icon: GithubLogo, color: 'var(--text-dark)' }
 ];
 
-export const ExternalLinksSection = ({ trackId, isLocked, number }) => {
+export const ExternalLinksSection = ({ trackId, isLocked, number, done }) => {
   const { submissions, updateLink } = usePortal();
   const links = submissions[trackId]?.links || {};
 
@@ -16,7 +17,7 @@ export const ExternalLinksSection = ({ trackId, isLocked, number }) => {
     <div className="card" id="section-links">
       <div>
         <h3 className="section-title">
-          {number && <span className="section-num">{number}</span>}
+          <SectionNum number={number} done={done} />
           ลิงก์ผลงาน
         </h3>
         <p className="section-desc">แนบลิงก์ หรืออัปโหลดไฟล์ด้านล่าง อย่างน้อย 1 รายการ</p>

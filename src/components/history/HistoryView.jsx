@@ -1,8 +1,10 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { usePortal } from '../../context/PortalContext';
-import { TRACKS } from '../../data/tracks';
+import { TRACKS, trackSubtitle } from '../../data/tracks';
 import { fmtDateTime, statusMeta, teamLabel } from '../../utils/formatters';
 import { submissionSummary } from '../../utils/requirements';
+import { getEntries } from '../../utils/entries';
 import {
   ClockCounterClockwise,
   Receipt,
@@ -16,6 +18,7 @@ import {
 
 export const HistoryView = () => {
   const { submissions, openTrack, user } = usePortal();
+  const navigate = useNavigate();
 
   return (
     <div className="app-container" style={{ padding: '36px 20px 80px 20px' }}>
@@ -66,15 +69,16 @@ export const HistoryView = () => {
               </tr>
             </thead>
             <tbody>
-              {TRACKS.map((t) => {
-                const sub = submissions[t.id] || { members: [], files: [], links: {} };
+              {/* One row per entry: grouped tracks get a row for every กลุ่มสาขา */}
+              {TRACKS.flatMap(t => getEntries(t, submissions).map(e => ({ t, e }))).map(({ t, e }) => {
+                const sub = e.sub;
                 const meta = statusMeta(sub.status, 0);
                 const isSubmitted = sub.status === 'submitted';
                 const isDraft = sub.status === 'draft';
 
                 const timestamp = sub.submittedAt
                   ? fmtDateTime(sub.submittedAt)
-                  : (sub.draftAt ? `${fmtDateTime(sub.draftAt)} (ร่าง)` : '—');
+                  : (sub.draftAt ? `${fmtDateTime(sub.draftAt)} (ร่าง)` : '-');
 
                 const filesCount = (sub.files || []).filter(f => f.status === 'done').length;
                 const linksCount = ['video', 'github', 'drive'].filter(k => sub.links && sub.links[k]).length;
@@ -82,7 +86,7 @@ export const HistoryView = () => {
 
                 return (
                   <tr
-                    key={t.id}
+                    key={e.key}
                     style={{
                       borderBottom: '1px solid #F0F1F5',
                       transition: 'background 0.15s ease'
@@ -96,7 +100,7 @@ export const HistoryView = () => {
                         {t.th}
                       </div>
                       <div style={{ fontSize: '13px', color: '#4F5366' }}>
-                        {t.full !== t.th ? t.full : ''}
+                        {e.group || trackSubtitle(t)}
                       </div>
                     </td>
 
@@ -166,7 +170,7 @@ export const HistoryView = () => {
                         </div>
                       ) : (
                         <div style={{ fontSize: '13px', color: '#6B6F80' }}>
-                          {filesCount || linksCount ? `${filesCount} ไฟล์ · ${linksCount} ลิงก์` : '—'}
+                          {filesCount || linksCount ? `${filesCount} ไฟล์ · ${linksCount} ลิงก์` : '-'}
                         </div>
                       )}
                     </td>
@@ -174,7 +178,7 @@ export const HistoryView = () => {
                     {/* Actions */}
                     <td style={{ padding: '18px 20px', textAlign: 'right' }}>
                       <button
-                        onClick={() => openTrack(t.id)}
+                        onClick={() => (e.groupIdx != null ? navigate(`/submit/${t.id}/${e.groupIdx}`) : openTrack(t.id))}
                         style={{
                           background: isSubmitted ? '#FAFAFC' : '#FFF1EB',
                           border: isSubmitted ? '1px solid #ECECF1' : '1px solid rgba(255, 95, 28, 0.25)',

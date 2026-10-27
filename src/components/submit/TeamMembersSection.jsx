@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { usePortal } from '../../context/PortalContext';
+import { SectionNum } from './SectionNum';
 import { MemberModal } from './MemberModal';
 import { CsvImportModal } from './CsvImportModal';
 import { initials } from '../../utils/formatters';
@@ -8,7 +9,7 @@ import { Plus, FileCsv, PencilSimple, Trash, Crown, WarningCircle } from '@phosp
 
 const fullTitleName = (m) => [m.title, m.fullName].filter(Boolean).join(' ');
 
-export const TeamMembersSection = ({ trackId, isLocked, error, number }) => {
+export const TeamMembersSection = ({ trackId, isLocked, error, number, done }) => {
   const { submissions, removeMember, makeLeader } = usePortal();
   const sub = submissions[trackId] || { members: [] };
 
@@ -37,12 +38,24 @@ export const TeamMembersSection = ({ trackId, isLocked, error, number }) => {
     setMemberModalOpen(true);
   };
 
-  // Second line under a name: department · student ID · year
+  const missing = (key, text) => <span key={key} style={{ color: 'var(--danger)', fontWeight: 600 }}>{text}</span>;
+
+  // Second line under a name: department · student ID · year (missing info shown in red)
   const metaLine = (m) => [
-    m.dept || <span key="nodept" style={{ color: 'var(--danger)', fontWeight: 600 }}>ยังไม่ระบุหน่วยงาน</span>,
+    m.dept || missing('nodept', 'ยังไม่ระบุหน่วยงาน'),
+    !m.photo?.dataUrl && missing('nophoto', 'ยังไม่มีรูปถ่าย'),
     m.studentId,
     m.year ? `ปี ${m.year}` : ''
   ].filter(Boolean).reduce((acc, part, i) => (i === 0 ? [part] : [...acc, ' · ', part]), []);
+
+  // Person's photo, or initials until a photo is uploaded
+  const avatar = (m, colors) => (
+    <div className="avatar" style={{ ...colors, overflow: 'hidden', width: '48px', height: '48px' }}>
+      {m.photo?.dataUrl
+        ? <img src={m.photo.dataUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        : initials(m.fullName)}
+    </div>
+  );
 
   const rowActions = (m, extra = null) => !isLocked && (
     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
@@ -64,12 +77,12 @@ export const TeamMembersSection = ({ trackId, isLocked, error, number }) => {
       <div className="section-head">
         <div>
           <h3 className="section-title">
-            {number && <span className="section-num">{number}</span>}
+            <SectionNum number={number} done={done} />
             รายชื่อทีม <span className="required">*</span>
           </h3>
           <p className="section-desc">
-            อาจารย์ที่ปรึกษา {advisorLimit > 1 ? `1–${advisorLimit}` : '1'} ท่าน
-            {' · '}ผู้แข่งขัน {maxCompetitors > 1 ? `1–${maxCompetitors}` : '1'} คน พร้อมหัวหน้าทีม
+            อาจารย์ที่ปรึกษา {advisorLimit > 1 ? `1-${advisorLimit}` : '1'} ท่าน
+            {' และ '}ผู้แข่งขัน {maxCompetitors > 1 ? `1-${maxCompetitors}` : '1'} คน ทุกคนต้องมีรูปถ่ายและหน่วยงาน
           </p>
         </div>
 
@@ -114,9 +127,7 @@ export const TeamMembersSection = ({ trackId, isLocked, error, number }) => {
             {advisors.map(a => (
               <div key={a.id} className="row-item" style={{ background: '#FFFDF5', borderColor: '#F5E8BE' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
-                  <div className="avatar" style={{ background: 'var(--yellow-bg)', color: '#B07A00' }}>
-                    {initials(a.fullName)}
-                  </div>
+                  {avatar(a, { background: 'var(--yellow-bg)', color: '#B07A00' })}
                   <div style={{ minWidth: 0 }}>
                     <div className="row-title">{fullTitleName(a)}</div>
                     <div className="row-meta">{metaLine(a)}</div>
@@ -149,15 +160,10 @@ export const TeamMembersSection = ({ trackId, isLocked, error, number }) => {
             {students.map((st, index) => (
               <div key={st.id} className="row-item">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
-                  <div
-                    className="avatar"
-                    style={{
-                      background: st.isLeader ? 'var(--primary-subtle)' : 'var(--blue-bg)',
-                      color: st.isLeader ? 'var(--primary)' : 'var(--blue-text)'
-                    }}
-                  >
-                    {initials(st.fullName)}
-                  </div>
+                  {avatar(st, {
+                    background: st.isLeader ? 'var(--primary-subtle)' : 'var(--blue-bg)',
+                    color: st.isLeader ? 'var(--primary)' : 'var(--blue-text)'
+                  })}
                   <div style={{ minWidth: 0 }}>
                     <div className="row-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                       <span>{index + 1}. {fullTitleName(st)}</span>

@@ -1,144 +1,130 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { usePortal } from '../../context/PortalContext';
-import { TRACKS } from '../../data/tracks';
-import { CheckCircle, Clock, CircleDashed } from '@phosphor-icons/react';
+import { getOverviewItems } from '../../utils/entries';
+import { groupShortName, CULTURE_CATEGORY } from '../../data/tracks';
+import { SegmentTooltip } from './SegmentTooltip';
+import { ArrowRight, CheckCircle } from '@phosphor-icons/react';
 
+const STATUS_LABEL = { submitted: 'ส่งแล้ว', draft: 'ฉบับร่าง', not_started: 'ยังไม่เริ่ม' };
+
+// Bar clusters, in the organisers' order:
+// theory groups | practice groups | culture competitions | everything else
+const CLUSTERS = [
+  { label: 'สอนทฤษฎี', match: (it) => it.track.id === 'theory' },
+  { label: 'สอนปฏิบัติ', match: (it) => it.track.id === 'practice' },
+  { label: 'ศิลปวัฒนธรรม', match: (it) => it.track.category === CULTURE_CATEGORY },
+  { label: 'ประเภทอื่น ๆ', match: (it) => it.groupIdx == null && !it.track.category }
+];
+
+const shortName = (it) => (it.groupIdx == null ? it.track.th : `${it.track.th} · ${groupShortName(it.sub.subjectGroup || it.track.subjectGroups[it.groupIdx])}`);
+
+// Dashboard hero tile: greeting, overall progress (one segment per item, 17 in total),
+// a detail card on hover, and the one "next" action.
 export const ProgressStats = () => {
-  const { user, submissions } = usePortal();
+  const { user, submissions, setActiveTrackId } = usePortal();
+  const navigate = useNavigate();
+  const [hover, setHover] = useState(null); // { item, pos }
 
-  const total = TRACKS.length;
-  let submitted = 0;
-  let draft = 0;
-  let notStarted = 0;
+  const items = getOverviewItems(submissions);
+  const counts = { submitted: 0, draft: 0, not_started: 0 };
+  items.forEach(it => { counts[it.status] += 1; });
 
-  TRACKS.forEach(t => {
-    const s = submissions[t.id]?.status || 'not_started';
-    if (s === 'submitted') submitted++;
-    else if (s === 'draft') draft++;
-    else notStarted++;
-  });
+  // Next = first draft (already started), otherwise first not-started item
+  const next = items.find(it => it.status === 'draft') || items.find(it => it.status === 'not_started');
+  const firstName = user?.name ? user.name.split(' ')[0] : '';
 
-  const percentage = Math.round((submitted / total) * 100);
+  const openItem = (it) => {
+    setHover(null);
+    setActiveTrackId(it.track.id);
+    if (it.groupIdx == null) {
+      navigate(`/submit/${it.track.id}`);
+      return;
+    }
+    navigate(`/submit/${it.track.id}/${it.groupIdx}`);
+  };
+
+  const showAtMouse = (it) => (e) => setHover({ item: it, pos: { x: e.clientX, y: e.clientY } });
+  const showAtElement = (it) => (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    setHover({ item: it, pos: { x: r.left + r.width / 2, y: r.bottom } });
+  };
 
   return (
-    <div style={{
-      background: '#FFFFFF',
-      borderRadius: '24px',
-      padding: '24px',
-      border: '1px solid #ECECF1',
-      boxShadow: '0 4px 20px -2px rgba(27, 29, 41, 0.05)',
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'space-between',
-      gap: '20px'
-    }}>
-      {/* Top greeting */}
+    <section className="tile tile-hero span-7 reveal" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div>
-        <div style={{
-          fontSize: '14px',
-          fontWeight: 700,
-          color: '#FF5F1C',
-          marginBottom: '4px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px'
-        }}>
-          <span>มหาวิทยาลัย</span>
-          <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#FF5F1C' }} />
-          <span>{user?.university}</span>
-        </div>
-        <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#1B1D29', letterSpacing: '-0.3px' }}>
-          สวัสดี คุณ{user?.name ? user.name.split(' ')[0] : ''}
-        </h2>
+        <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--on-ink-muted)' }}>{user?.university}</div>
+        <h1 style={{ fontSize: 'clamp(26px, 3vw, 34px)', fontWeight: 700, marginTop: '4px' }}>
+          สวัสดี คุณ{firstName}
+        </h1>
       </div>
 
-      {/* Progress Bar & percentage */}
-      <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '8px' }}>
-          <div>
-            <div style={{ fontSize: '13px', fontWeight: 700, color: '#4F5366' }}>
-              ความคืบหน้ารวม
-            </div>
-            <div style={{ fontSize: '20px', fontWeight: 800, color: '#1B1D29' }}>
-              ส่งแล้ว {submitted} จาก {total} ประเภท
-            </div>
-          </div>
-          <div style={{ fontSize: '24px', fontWeight: 800, color: '#FF5F1C' }}>
-            {percentage}%
-          </div>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: '14px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+          <span className="num-xl" style={{ fontSize: 'clamp(56px, 7vw, 76px)', color: 'var(--primary)' }}>
+            {counts.submitted}
+          </span>
+          <span className="num-xl" style={{ fontSize: '28px', color: 'var(--on-ink-muted)' }}>/{items.length}</span>
         </div>
+        <div style={{ fontSize: 'var(--fs-lg)', fontWeight: 600, paddingBottom: '8px' }}>รายการส่งแล้ว</div>
+      </div>
 
-        {/* Progress Bar Track */}
-        <div style={{
-          width: '100%',
-          height: '10px',
-          background: '#F0F1F5',
-          borderRadius: '20px',
-          overflow: 'hidden'
-        }}>
-          <div style={{
-            width: `${percentage}%`,
-            height: '100%',
-            background: 'linear-gradient(90deg, #FF5F1C 0%, #FF8D20 100%)',
-            borderRadius: '20px',
-            transition: 'width 0.6s cubic-bezier(0.16, 1, 0.3, 1)'
-          }} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div className="segbar" aria-label="สถานะแต่ละรายการ" onMouseLeave={() => setHover(null)}>
+          {CLUSTERS.map(c => {
+            const group = items.filter(c.match);
+            return (
+              <div key={c.label} className="seg-cluster" style={{ flex: group.length }}>
+                <div className="seg-cluster-label">{c.label}</div>
+                <div className="seg-cluster-row" role="list" style={{ gridTemplateColumns: `repeat(${group.length}, 1fr)` }}>
+                  {group.map(it => (
+                    <button
+                      key={it.key}
+                      type="button"
+                      role="listitem"
+                      className={`seg-${it.status}`}
+                      aria-label={`${shortName(it)}: ${STATUS_LABEL[it.status]}`}
+                      aria-describedby={hover?.item.key === it.key ? 'seg-tip' : undefined}
+                      aria-expanded={hover?.item.key === it.key}
+                      onMouseEnter={showAtMouse(it)}
+                      onMouseMove={showAtMouse(it)}
+                      onFocus={showAtElement(it)}
+                      onBlur={() => setHover(null)}
+                      onClick={() => openItem(it)}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="legend">
+          <span><i className="seg-submitted" />ส่งแล้ว {counts.submitted}</span>
+          <span><i className="seg-draft" />ฉบับร่าง {counts.draft}</span>
+          <span><i className="seg-not_started" />ยังไม่เริ่ม {counts.not_started}</span>
         </div>
       </div>
 
-      {/* Quick summary badges */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, 1fr)',
-        gap: '8px',
-        paddingTop: '8px',
-        borderTop: '1px solid #F0F1F5'
-      }}>
-        <div style={{
-          background: '#EAF5FE',
-          borderRadius: '14px',
-          padding: '10px',
-          textAlign: 'center'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', color: '#0A65B0', fontSize: '13px', fontWeight: 700 }}>
-            <CheckCircle size={14} weight="fill" />
-            <span>ส่งแล้ว</span>
+      <div style={{ marginTop: 'auto' }}>
+        {next ? (
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => openItem(next)}
+            style={{ minHeight: '50px', fontSize: '16px', padding: '12px 22px' }}
+          >
+            <span>{next.status === 'draft' ? 'ทำต่อ' : 'เริ่มส่ง'}: {shortName(next)}</span>
+            <ArrowRight size={18} weight="bold" />
+          </button>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: 'var(--fs-lg)', fontWeight: 600 }}>
+            <CheckCircle size={24} weight="fill" color="var(--blue)" />
+            ส่งผลงานครบทุกรายการแล้ว
           </div>
-          <div style={{ fontSize: '20px', fontWeight: 800, color: '#0A65B0', marginTop: '2px' }}>
-            {submitted}
-          </div>
-        </div>
-
-        <div style={{
-          background: '#FFF8DB',
-          borderRadius: '14px',
-          padding: '10px',
-          textAlign: 'center'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', color: '#8A5A00', fontSize: '13px', fontWeight: 700 }}>
-            <Clock size={14} weight="fill" />
-            <span>ฉบับร่าง</span>
-          </div>
-          <div style={{ fontSize: '20px', fontWeight: 800, color: '#8A5A00', marginTop: '2px' }}>
-            {draft}
-          </div>
-        </div>
-
-        <div style={{
-          background: '#F4F5F8',
-          borderRadius: '14px',
-          padding: '10px',
-          textAlign: 'center'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', color: '#4F5366', fontSize: '13px', fontWeight: 700 }}>
-            <CircleDashed size={14} weight="bold" />
-            <span>ยังไม่เริ่ม</span>
-          </div>
-          <div style={{ fontSize: '20px', fontWeight: 800, color: '#4A4E5E', marginTop: '2px' }}>
-            {notStarted}
-          </div>
-        </div>
+        )}
       </div>
-    </div>
+
+      {hover && <SegmentTooltip item={hover.item} pos={hover.pos} />}
+    </section>
   );
 };

@@ -698,4 +698,289 @@ a:hover {
   .nav-reset {
     display: none !important;
   }
+  /* Four icon-only menu items must fit next to the logo and logout button */
+  .nav-row nav button {
+    padding: 9px 11px !important;
+  }
 }
+
+/* ================================================================
+   Redesign layout on the original light palette
+   (white surfaces, orange accent, blue = submitted, yellow = draft)
+   Radius system: tiles 24px · cards 20px · controls 12px · pills full
+   ================================================================ */
+
+:root {
+  --ink: #1B1D29;                    /* dark text on orange surfaces */
+  --ink-line: var(--border-light);
+  --on-ink: var(--text-dark);        /* text on hero surfaces */
+  --on-ink-muted: var(--text-muted);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Big tiles used on dashboard and submit header */
+.tile {
+  border-radius: 24px;
+  padding: 28px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Light hero tile: white with a soft orange glow in the corner */
+.tile-hero {
+  background:
+    radial-gradient(90% 120% at 100% 0%, rgba(255, 141, 32, 0.16) 0%, rgba(255, 141, 32, 0) 55%),
+    #FFFFFF;
+  border: 1px solid var(--border-light);
+  color: var(--text-dark);
+  box-shadow: 0 10px 30px -18px rgba(27, 29, 41, 0.25);
+}
+
+.tile-orange {
+  background: linear-gradient(140deg, #FF5B18 0%, #FF7A12 55%, #FF9A1F 100%);
+  color: var(--ink);
+  box-shadow: 0 18px 40px -18px rgba(255, 95, 28, 0.6);
+}
+
+.bento {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.bento > .span-7 { grid-column: span 7; }
+.bento > .span-5 { grid-column: span 5; }
+
+@media (max-width: 960px) {
+  .bento > .span-7,
+  .bento > .span-5 { grid-column: 1 / -1; }
+}
+
+/* Display numbers */
+.num-xl {
+  font-family: 'Plus Jakarta Sans', 'Anuphan', sans-serif;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+/* Segmented progress: one segment per item (17), in clusters
+   (theory groups | practice groups | other categories) */
+.segbar {
+  display: flex;
+  gap: 14px;
+}
+
+.seg-cluster {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.seg-cluster-label {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.seg-cluster-row {
+  display: grid;
+  gap: 4px;
+}
+
+.segbar button {
+  height: 16px;
+  border-radius: 999px;
+  padding: 0;
+  transition: transform 0.2s var(--ease-out), filter 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out);
+}
+
+.segbar button:hover,
+.segbar button[aria-expanded="true"] { transform: scaleY(1.35); filter: brightness(1.05); box-shadow: 0 0 0 2px #FFFFFF, 0 0 0 4px rgba(255, 95, 28, 0.35); }
+
+/* Hover detail card for a segment, positioned at the mouse */
+.seg-tip {
+  position: fixed;
+  z-index: 200;
+  width: 280px;
+  max-width: calc(100vw - 24px);
+  background: #FFFFFF;
+  border: 1px solid #ECECF1;
+  border-radius: 14px;
+  box-shadow: 0 16px 40px -8px rgba(27, 29, 41, 0.22), 0 4px 10px rgba(27, 29, 41, 0.06);
+  padding: 14px 16px;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: seg-tip-in 0.14s var(--ease-out);
+}
+
+@keyframes seg-tip-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+.seg-tip-title { font-size: 16px; font-weight: 700; color: var(--text-dark); line-height: 1.35; }
+.seg-tip-sub { font-size: var(--fs-sm); color: var(--text-muted); }
+.seg-tip-row { font-size: var(--fs-sm); color: var(--text-dark); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.seg-tip-muted { font-size: var(--fs-xs); color: var(--text-muted); }
+.seg-tip-bar { height: 6px; border-radius: 999px; background: #EEEFF3; overflow: hidden; }
+.seg-tip-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--primary); }
+.seg-tip-hint { font-size: var(--fs-xs); font-weight: 600; color: var(--primary); border-top: 1px solid #F0F1F5; padding-top: 8px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .seg-tip { animation: none; }
+}
+.seg-submitted { background: var(--blue); }
+.seg-draft { background: var(--yellow); }
+.seg-not_started { background: #E3E4EA; }
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: var(--fs-sm);
+  color: var(--on-ink-muted);
+}
+
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+.legend i { width: 12px; height: 12px; border-radius: 4px; display: inline-block; }
+
+/* Segmented filter control */
+.seg-control {
+  display: inline-flex;
+  background: #ECEDF3;
+  border-radius: 999px;
+  padding: 4px;
+  gap: 2px;
+}
+
+.seg-control button {
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: transparent;
+  white-space: nowrap;
+}
+
+.seg-control button[aria-pressed="true"] {
+  background: #FFFFFF;
+  color: var(--text-dark);
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(27, 29, 41, 0.1);
+}
+
+/* Track cards */
+.track-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 18px;
+}
+
+.track-card {
+  position: relative;
+  text-align: left;
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
+  border-radius: 20px;
+  padding: 22px 22px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 220px;
+  overflow: hidden;
+  transition: transform 0.25s var(--ease-out), box-shadow 0.25s var(--ease-out), border-color 0.25s var(--ease-out);
+}
+
+.track-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 5px;
+  background: var(--accent, #D5D7E0);
+}
+
+.track-card:hover {
+  transform: translateY(-4px);
+  border-color: #D5D7E0;
+  box-shadow: 0 20px 36px -20px rgba(20, 22, 42, 0.35);
+}
+
+.track-card .go {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-main);
+  color: var(--text-dark);
+  transition: background 0.2s var(--ease-out), color 0.2s var(--ease-out), transform 0.2s var(--ease-out);
+}
+
+.track-card:hover .go {
+  background: var(--primary);
+  color: #FFFFFF;
+  transform: translateX(3px);
+}
+
+/* Entry reveal with stagger (index via --i) */
+@media (prefers-reduced-motion: no-preference) {
+  .reveal {
+    animation: ttaa-slide-up 0.55s var(--ease-out) both;
+    animation-delay: calc(var(--i, 0) * 45ms);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Section number: becomes a check when the section is complete */
+.section-num.done {
+  background: var(--blue);
+  color: #FFFFFF;
+}
+
+/* Readiness panel (submit page) */
+.ready-panel {
+  position: sticky;
+  top: 94px;
+  border-radius: 24px;
+  padding: 24px;
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
+  color: var(--text-dark);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-shadow: 0 10px 30px -18px rgba(27, 29, 41, 0.25);
+}
+
+.ready-panel .check-item {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: transparent;
+  text-align: left;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--on-ink-muted);
+}
+
+.ready-panel .check-item.ok { color: var(--text-dark); font-weight: 600; }
+.ready-panel .check-item:hover { background: var(--bg-main); }

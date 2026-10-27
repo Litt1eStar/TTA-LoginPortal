@@ -68,12 +68,14 @@ export const ConfirmSubmitModal = ({ isOpen, onClose, onConfirm, track, submissi
             gap: '14px'
           }}>
             {showWorkInfo && (
-              <SummaryItem label="ชื่อผลงาน" wide>{submission.projectName || '—'}</SummaryItem>
+              <SummaryItem label="ชื่อผลงาน" wide>{submission.projectName || '-'}</SummaryItem>
             )}
             <SummaryItem label="ทีม">อาจารย์ {advisors} · ผู้แข่งขัน {students}</SummaryItem>
             {showWorkInfo
               ? <SummaryItem label="ไฟล์และลิงก์">{filesCount} ไฟล์ · {linksCount} ลิงก์</SummaryItem>
-              : <SummaryItem label="ภาพถ่ายผู้สมัคร">{submission.photo ? 'อัปโหลดแล้ว' : '—'}</SummaryItem>}
+              : <SummaryItem label="รูปถ่าย">
+                  {(submission.members || []).filter(m => m.photo?.dataUrl).length}/{(submission.members || []).length} คน
+                </SummaryItem>}
             {submission.subjectGroup && (
               <SummaryItem label="กลุ่มสาขา" wide>{submission.subjectGroup}</SummaryItem>
             )}

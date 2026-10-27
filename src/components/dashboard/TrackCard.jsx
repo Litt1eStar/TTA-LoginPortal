@@ -1,8 +1,12 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { usePortal } from '../../context/PortalContext';
-import { statusMeta, teamLabel, daysUntil } from '../../utils/formatters';
+import { fmtDateTime } from '../../utils/formatters';
 import { submissionSummary } from '../../utils/requirements';
+import { getEntries, getTrackStatus, getTypeStatus } from '../../utils/entries';
+import { isGrouped, groupShortName, hasSubTypes } from '../../data/tracks';
 import {
+  MaskHappy,
   ChalkboardTeacher,
   HandPointing,
   Cpu,
@@ -14,11 +18,11 @@ import {
   MicrophoneStage,
   PersonSimpleRun,
   ArrowRight,
-  LockSimple,
-  PencilSimple
+  LockSimple
 } from '@phosphor-icons/react';
 
 const ICON_MAP = {
+  MaskHappy,
   ChalkboardTeacher,
   HandPointing,
   Cpu,
@@ -31,149 +35,110 @@ const ICON_MAP = {
   PersonSimpleRun
 };
 
-export const TrackCard = ({ track }) => {
-  const { submissions, openTrack } = usePortal();
-  const sub = submissions[track.id] || { status: 'not_started', projectName: '', members: [] };
+// Colours per status: accent bar, icon tile and badge
+const STATUS = {
+  submitted: { label: 'ส่งแล้ว', accent: 'var(--blue)', tileBg: 'var(--blue-bg)', tileFg: 'var(--blue-text)', badge: 'badge-blue', action: 'ดูข้อมูล' },
+  draft: { label: 'ฉบับร่าง', accent: 'var(--yellow)', tileBg: 'var(--yellow-bg)', tileFg: '#B07A00', badge: 'badge-yellow', action: 'ทำต่อ' },
+  not_started: { label: 'ยังไม่เริ่ม', accent: '#D5D7E0', tileBg: 'var(--primary-subtle)', tileFg: 'var(--primary)', badge: '', action: 'เริ่มส่ง' }
+};
 
-  const daysLeft = daysUntil(track.deadline);
-  const meta = statusMeta(sub.status, daysLeft);
-  const IconComponent = ICON_MAP[track.icon] || ChalkboardTeacher;
+// One card per top-level type (8). A type with sub-types (การแข่งขันศิลปวัฒนธรรม)
+// summarises its sub-types; otherwise the card shows its single track.
+export const TrackCard = ({ type, index = 0 }) => {
+  const { submissions, openTrack, setActiveTrackId } = usePortal();
+  const navigate = useNavigate();
+  const track = type.tracks[0];
+  const status = getTypeStatus(type, submissions);
+  const s = STATUS[status] || STATUS.not_started;
+  const Icon = ICON_MAP[type.icon] || ChalkboardTeacher;
+  const entries = getEntries(track, submissions);
+  const multi = hasSubTypes(type);
 
-  const isSubmitted = sub.status === 'submitted';
-  const isDraft = sub.status === 'draft';
-  const summary = submissionSummary(track, sub);
+  // Open the first sub-type (or กลุ่มสาขาวิชา) that isn't sent yet
+  const target = multi
+    ? (type.tracks.find(t => getTrackStatus(t, submissions) !== 'submitted') || track)
+    : track;
+  const targetGroup = !multi && isGrouped(track)
+    ? (entries.find(e => e.sub.status !== 'submitted') || entries[0]).groupIdx
+    : null;
+  const open = () => {
+    if (targetGroup == null) return openTrack(target.id);
+    setActiveTrackId(track.id);
+    navigate(`/submit/${track.id}/${targetGroup}`);
+  };
+
+  let summary;
+  let footnote;
+  if (multi) {
+    const sent = type.tracks.filter(t => getTrackStatus(t, submissions) === 'submitted').length;
+    summary = `${type.tracks.length} ประเภทย่อย · ส่งแล้ว ${sent}`;
+    footnote = type.tracks.map(t => t.th).join(', ');
+  } else if (isGrouped(track)) {
+    // Theory / practice: every กลุ่มสาขาวิชา is a sub-type (same wording as the culture card)
+    const sent = entries.filter(e => e.sub.status === 'submitted').length;
+    summary = `${entries.length} กลุ่มสาขาวิชา · ส่งแล้ว ${sent}`;
+    footnote = entries.map(e => groupShortName(e.group)).join(', ');
+  } else {
+    const sub = entries[0].sub;
+    summary = submissionSummary(track, sub);
+    footnote = sub.status === 'submitted' && sub.submittedAt
+      ? `ส่งเมื่อ ${fmtDateTime(sub.submittedAt)}`
+      : sub.status === 'draft' && sub.draftAt
+        ? `บันทึกล่าสุด ${fmtDateTime(sub.draftAt)}`
+        : 'ยังไม่มีข้อมูล';
+  }
 
   return (
-    <div
-      onClick={() => openTrack(track.id)}
-      style={{
-        background: '#FFFFFF',
-        borderRadius: '20px',
-        border: '1px solid #ECECF1',
-        padding: '22px',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between',
-        cursor: 'pointer',
-        boxShadow: '0 4px 16px -2px rgba(27, 29, 41, 0.04)',
-        transition: 'all 0.22s ease',
-        minHeight: '230px'
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'translateY(-4px)';
-        e.currentTarget.style.boxShadow = '0 16px 32px -4px rgba(27, 29, 41, 0.1)';
-        e.currentTarget.style.borderColor = '#D5D7E0';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = 'none';
-        e.currentTarget.style.boxShadow = '0 4px 16px -2px rgba(27, 29, 41, 0.04)';
-        e.currentTarget.style.borderColor = '#ECECF1';
-      }}
+    <button
+      type="button"
+      className="track-card reveal"
+      style={{ '--accent': s.accent, '--i': index + 2 }}
+      onClick={open}
+      aria-label={`${multi ? type.label : track.full}: ${s.label}`}
     >
-      {/* Top Header */}
-      <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
         <div style={{
+          width: '52px',
+          height: '52px',
+          borderRadius: '16px',
+          background: s.tileBg,
+          color: s.tileFg,
           display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          marginBottom: '16px'
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0
         }}>
-          {/* Icon */}
-          <div style={{
-            width: '46px',
-            height: '46px',
-            borderRadius: '14px',
-            background: isSubmitted ? '#EAF5FE' : (isDraft ? '#FFF8DB' : '#FFF1EB'),
-            color: isSubmitted ? '#2A9FF7' : (isDraft ? '#FF8D20' : '#FF5F1C'),
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
-          }}>
-            <IconComponent size={24} weight="duotone" />
-          </div>
-
-          {/* Status Badge */}
-          <div style={{
-            background: meta.badgeBg,
-            color: meta.badgeColor,
-            border: meta.badgeBorder,
-            padding: '4px 10px',
-            borderRadius: '12px',
-            fontSize: '13px',
-            fontWeight: 700,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px'
-          }}>
-            <span style={{
-              width: '6px',
-              height: '6px',
-              borderRadius: '50%',
-              background: meta.dotColor
-            }} />
-            <span>{meta.label}</span>
-          </div>
+          <Icon size={28} weight="duotone" />
         </div>
-
-        {/* Track Title */}
-        <div>
-          <h3 style={{
-            fontSize: '18px',
-            fontWeight: 800,
-            color: '#1B1D29',
-            marginBottom: '2px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px'
-          }}>
-            <span>{track.th}</span>
-            {isSubmitted && <LockSimple size={14} color="#6B6F80" />}
-          </h3>
-          <div style={{ fontSize: '14px', color: '#4F5366', fontWeight: 500 }}>
-            {track.full !== track.th ? track.full : ''}
-          </div>
-        </div>
-
-        {/* Submission preview: project name (clip) or team summary */}
-        <div style={{
-          marginTop: '14px',
-          fontSize: '15px',
-          fontWeight: summary ? 700 : 500,
-          color: summary ? '#1B1D29' : '#9A9DAD',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap'
-        }}>
-          {summary || 'ยังไม่มีข้อมูล'}
-        </div>
+        <span className={`badge ${s.badge}`}>
+          {status === 'submitted' && <LockSimple size={13} weight="bold" />}
+          {s.label}
+        </span>
       </div>
 
-      {/* Footer Info & Action */}
+      <div>
+        <h3 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-dark)', lineHeight: 1.3 }}>{type.label}</h3>
+        {!multi && track.desc && (
+          <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-muted)', marginTop: '2px' }}>{track.desc}</div>
+        )}
+      </div>
+
+      {summary && (
+        <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-dark)' }}>{summary}</div>
+      )}
+
       <div style={{
-        marginTop: '18px',
-        paddingTop: '14px',
-        borderTop: '1px solid #F0F1F5',
+        marginTop: 'auto',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        fontSize: '14px'
+        gap: '10px'
       }}>
-        <div style={{ color: '#4F5366', fontWeight: 600 }}>
-          {teamLabel(sub.members)}
-        </div>
-
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '4px',
-          fontWeight: 700,
-          color: isSubmitted ? '#0A65B0' : (isDraft ? '#8A5A00' : '#FF5F1C')
-        }}>
-          <span>{isSubmitted ? 'ดูผลงาน' : (isDraft ? 'ทำต่อ' : 'เริ่มส่ง')}</span>
-          <ArrowRight size={13} weight="bold" />
-        </div>
+        <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-muted)' }}>{footnote}</span>
+        <span className="go" aria-hidden="true" title={s.action}>
+          <ArrowRight size={18} weight="bold" />
+        </span>
       </div>
-    </div>
+    </button>
   );
 };
