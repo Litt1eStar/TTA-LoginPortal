@@ -22,7 +22,7 @@ export const ConfirmSubmitModal = ({ isOpen, onClose, onConfirm, track, submissi
   const advisors = (submission.members || []).filter(m => m.type === 'advisor').length;
   const students = (submission.members || []).filter(m => m.type === 'student').length;
   const filesCount = (submission.files || []).filter(f => f.status === 'done').length;
-  const linksCount = ['video', 'github', 'drive'].filter(k => submission.links?.[k]).length;
+  const linksCount = (submission.links?.video ? 1 : 0);
 
   return (
     <div className="modal-overlay">

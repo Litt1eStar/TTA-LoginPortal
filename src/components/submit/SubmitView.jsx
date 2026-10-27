@@ -98,7 +98,7 @@ export const SubmitView = () => {
     const list = reqs.filter(r => r.section === section);
     return list.length > 0 && list.every(r => r.ok);
   };
-  const hasLink = !!(sub.links?.video || sub.links?.github || sub.links?.drive);
+  const hasLink = !!sub.links?.video;
   const groupName = grouped && activeGroup != null ? activeTrack.subjectGroups[activeGroup] : null;
 
   return (

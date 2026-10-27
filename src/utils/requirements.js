@@ -70,13 +70,13 @@ export const getRequirements = (track, sub = {}) => {
 
   if (track.needsWorkInfo) {
     const hasFiles = (sub.files || []).some(f => f.status === 'done');
-    const hasLinks = !!(sub.links?.video || sub.links?.github || sub.links?.drive);
+    const hasLinks = !!sub.links?.video;
     reqs.push({
       key: 'deliverables',
       section: 'deliverables',
-      label: 'อัปโหลดไฟล์หรือแนบลิงก์ผลงาน',
+      label: 'อัปโหลดไฟล์หรือแนบลิงก์ YouTube',
       ok: hasFiles || hasLinks,
-      error: 'กรุณาอัปโหลดไฟล์ หรือแนบลิงก์ผลงานอย่างน้อย 1 รายการ'
+      error: 'กรุณาอัปโหลดไฟล์ หรือแนบลิงก์ YouTube อย่างน้อย 1 รายการ'
     });
   }
 

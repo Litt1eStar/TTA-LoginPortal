@@ -81,7 +81,7 @@ export const HistoryView = () => {
                   : (sub.draftAt ? `${fmtDateTime(sub.draftAt)} (ร่าง)` : '-');
 
                 const filesCount = (sub.files || []).filter(f => f.status === 'done').length;
-                const linksCount = ['video', 'github', 'drive'].filter(k => sub.links && sub.links[k]).length;
+                const linksCount = (sub.links?.video ? 1 : 0);
                 const summary = submissionSummary(t, sub);
 
                 return (

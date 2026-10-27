@@ -1,12 +1,11 @@
 import React from 'react';
 import { usePortal } from '../../context/PortalContext';
 import { SectionNum } from './SectionNum';
-import { VideoCamera, GithubLogo, GoogleDriveLogo } from '@phosphor-icons/react';
+import { YoutubeLogo } from '@phosphor-icons/react';
 
+// Only a YouTube link is collected (GitHub / Google Drive removed)
 const LINK_FIELDS = [
-  { key: 'video', label: 'ลิงก์วิดีโอ (YouTube / Vimeo)', placeholder: 'https://youtu.be/...', Icon: VideoCamera, color: 'var(--primary)' },
-  { key: 'drive', label: 'ลิงก์ Google Drive', placeholder: 'https://drive.google.com/...', Icon: GoogleDriveLogo, color: 'var(--blue-text)' },
-  { key: 'github', label: 'ลิงก์ GitHub', placeholder: 'https://github.com/...', Icon: GithubLogo, color: 'var(--text-dark)' }
+  { key: 'video', label: 'ลิงก์ YouTube', placeholder: 'https://youtu.be/...', Icon: YoutubeLogo, color: '#E62117' }
 ];
 
 export const ExternalLinksSection = ({ trackId, isLocked, number, done }) => {
@@ -20,7 +19,7 @@ export const ExternalLinksSection = ({ trackId, isLocked, number, done }) => {
           <SectionNum number={number} done={done} />
           ลิงก์ผลงาน
         </h3>
-        <p className="section-desc">แนบลิงก์ หรืออัปโหลดไฟล์ด้านล่าง อย่างน้อย 1 รายการ</p>
+        <p className="section-desc">แนบลิงก์ YouTube หรืออัปโหลดไฟล์ด้านล่าง อย่างน้อย 1 รายการ</p>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
