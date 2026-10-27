@@ -1,134 +1,126 @@
+// Demo submissions.
+// - Only the clip track uses projectName / summary / files / links.
+// - Every member has university, dept and their own photo (demo SVG portrait).
+// - Submitted entries must pass every requirement; PortalContext also downgrades any that don't.
+// - Theory / practice: one entry per group under `${trackId}.g${index}` (see entryKey).
+//   Groups not listed here are created blank by PortalContext.
+const UNI = 'มหาวิทยาลัยเทคโนโลยีพระจอมเกล้าธนบุรี';
+const D1 = 'คณะครุศาสตร์อุตสาหกรรมและเทคโนโลยี';
+const D2 = 'คณะครุศาสตร์อุตสาหกรรม';
+const D3 = 'คณะวิศวกรรมศาสตร์';
+
+// Demo portrait: first letter of the name on a soft colour, as an SVG data URL.
+// Same { name, size, ext, dataUrl } shape as an uploaded photo.
+const PHOTO_COLORS = [['#FFE4D6', '#C2410C'], ['#DCEEFF', '#0A65B0'], ['#FFF3C4', '#8A6100'], ['#E3F5E8', '#1F7A3D']];
+const placeholderPhoto = (fullName) => {
+  const letter = String(fullName || '?').trim().charAt(0);
+  const [bg, fg] = PHOTO_COLORS[letter.charCodeAt(0) % PHOTO_COLORS.length];
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="150" viewBox="0 0 120 150">`
+    + `<rect width="120" height="150" fill="${bg}"/>`
+    + `<circle cx="60" cy="58" r="26" fill="${fg}" opacity="0.18"/>`
+    + `<path d="M18 150c4-30 22-44 42-44s38 14 42 44z" fill="${fg}" opacity="0.18"/>`
+    + `<text x="60" y="68" font-family="sans-serif" font-size="30" font-weight="700" fill="${fg}" text-anchor="middle">${letter}</text>`
+    + `</svg>`;
+  const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  return { name: 'photo.svg', size: svg.length, ext: 'svg', dataUrl };
+};
+
+const advisor = (id, title, fullName, email, dept, photo = true) =>
+  ({ id, type: 'advisor', title, fullName, email, phone: '', dept, university: UNI, photo: photo ? placeholderPhoto(fullName) : null, source: 'manual' });
+
+const student = (id, title, fullName, studentId, dept, isLeader = false, photo = true) =>
+  ({ id, type: 'student', title, fullName, studentId, email: '', phone: '', dept, university: UNI, photo: photo ? placeholderPhoto(fullName) : null, year: '3', isLeader, source: 'manual' });
+
+export const emptySubmission = (extra = {}) => ({
+  status: 'not_started',
+  projectName: '',
+  summary: '',
+  notes: '',
+  members: [],
+  files: [],
+  links: { video: '', github: '', drive: '' },
+  subjectGroup: '',
+  ...extra
+});
+
 export const createSeedSubmissions = () => ({
-  theory: {
+  // Theory: the computer group (index 4) is already submitted; other groups start blank
+  'theory.g4': emptySubmission({
     status: 'submitted',
-    projectName: 'Interactive Fractions Workshop',
-    summary: 'ชุดสื่อการสอนเศษส่วนเชิงโต้ตอบสำหรับนักเรียนระดับประถมศึกษา เพื่อพัฒนาทักษะการคำนวณและความเข้าใจเชิงมโนทัศน์',
-    notes: 'ผ่านการทดสอบกับกลุ่มตัวอย่าง 60 คน ผลสัมฤทธิ์ทางการเรียนเพิ่มขึ้นอย่างมีนัยสำคัญ',
+    subjectGroup: 'กลุ่มสาขาวิชาคอมพิวเตอร์',
     members: [
-      { id: 'm-adv-1', type: 'advisor', title: 'รศ.', fullName: 'Somchai Jaidee', email: 'somchai.j@rtc.ac.th', phone: '081-234-5678', dept: 'คณะครุศาสตร์', source: 'manual' },
-      { id: 'm-st-1', type: 'student', fullName: 'Nid Suwannee', studentId: '6401234567', email: 'nid.s@rtc.ac.th', phone: '089-111-2222', faculty: 'คณิตศาสตร์ศึกษา', year: '3', isLeader: true, source: 'manual' },
-      { id: 'm-st-2', type: 'student', fullName: 'Arm Thanapon', studentId: '6401234588', email: 'arm.t@rtc.ac.th', phone: '', faculty: 'คณิตศาสตร์ศึกษา', year: '3', isLeader: false, source: 'manual' }
+      advisor('m-adv-1', 'รศ.', 'สมชาย ใจดี', 'somchai.j@rtc.ac.th', D1),
+      student('m-st-1', 'นางสาว', 'นิด สุวรรณี', '6401234567', D1, true),
+      student('m-st-2', 'นาย', 'อาร์ม ธนพล', '6401234588', D1)
     ],
-    files: [
-      { id: 'f1', name: 'lesson-plan.pdf', size: 842000, ext: 'pdf', progress: 100, status: 'done' }
-    ],
-    links: { video: 'https://youtu.be/mock-fractions-demo', github: '', drive: '' },
     submittedAt: '2026-09-05T10:15:00+07:00',
     hash: 'a13f92c7b0e4'
-  },
-  practice: {
+  }),
+
+  // Practice: two groups — electrical submitted, mechanical still a draft
+  'practice.g0': emptySubmission({
     status: 'submitted',
-    projectName: 'Hands-On Circuit Lab',
-    summary: 'ชุดฝึกปฏิบัติการวงจรอิเล็กทรอนิกส์พื้นฐานแบบจำลอง พร้อมระบบตรวจจับข้อผิดพลาดแบบเรียลไทม์',
-    notes: '',
+    subjectGroup: 'กลุ่มสาขาวิชาไฟฟ้า',
     members: [
-      { id: 'm-adv-2', type: 'advisor', title: 'ดร.', fullName: 'Anong Srisuk', email: 'anong.s@rtc.ac.th', phone: '', dept: 'คณะครุศาสตร์อุตสาหกรรม', source: 'manual' },
-      { id: 'm-st-3', type: 'student', fullName: 'Ploy Ratchanee', studentId: '6402210011', email: 'ploy.r@rtc.ac.th', phone: '', faculty: 'วิศวกรรมไฟฟ้าศึกษา', year: '4', isLeader: true, source: 'manual' },
-      { id: 'm-st-4', type: 'student', fullName: 'Guy Nattapong', studentId: '6402210027', email: 'guy.n@rtc.ac.th', phone: '', faculty: 'วิศวกรรมไฟฟ้าศึกษา', year: '4', isLeader: false, source: 'manual' }
+      advisor('m-adv-2', 'ดร.', 'อนงค์ ศรีสุข', 'anong.s@rtc.ac.th', D2),
+      student('m-st-3', 'นางสาว', 'พลอย รัชนี', '6402210011', D2, true),
+      student('m-st-4', 'นาย', 'กาย ณัฐพงษ์', '6402210027', D2)
     ],
-    files: [
-      { id: 'f2', name: 'practical-demo.pdf', size: 1204000, ext: 'pdf', progress: 100, status: 'done' }
-    ],
-    links: { video: '', github: 'https://github.com/mock/circuit-lab-demo', drive: '' },
     submittedAt: '2026-09-06T14:40:00+07:00',
     hash: 'e5d81ac2f930'
-  },
-  hardware: {
+  }),
+  'practice.g3': emptySubmission({
     status: 'draft',
-    projectName: 'Smart Attendance Sensor',
-    summary: 'เซนเซอร์ RFID ต้นทุนต่ำ บันทึกการเข้าเรียนอัตโนมัติและแจ้งเตือนนักศึกษาที่มีแนวโน้มเรียนไม่ทัน',
-    notes: 'อยู่ระหว่างปรับปรุงเอกสารคู่มือประกอบการติดตั้ง',
+    subjectGroup: 'กลุ่มสาขาวิชาเครื่องกล',
     members: [
-      { id: 'm-adv-3', type: 'advisor', title: 'ดร.', fullName: 'Kittipong Wongsa', email: 'kittipong.w@rtc.ac.th', phone: '082-555-0192', dept: 'คณะครุศาสตร์อุตสาหกรรม', source: 'manual' },
-      { id: 'm-st-5', type: 'student', fullName: 'Tee Anuwat', studentId: '6502110034', email: 'tee.a@rtc.ac.th', phone: '', faculty: 'วิศวกรรมคอมพิวเตอร์ศึกษา', year: '2', isLeader: true, source: 'manual' },
-      { id: 'm-st-6', type: 'student', fullName: 'Gift Kanyarat', studentId: '6502110051', email: 'gift.k@rtc.ac.th', phone: '', faculty: 'วิศวกรรมคอมพิวเตอร์ศึกษา', year: '2', isLeader: false, source: 'manual' }
+      advisor('m-adv-6', 'ผศ.', 'ประเสริฐ มั่นคง', 'prasert.m@rtc.ac.th', D3),
+      // Draft on purpose: this student has no photo yet
+      student('m-st-12', 'นาย', 'ภูมิ ธนากร', '6502330017', D3, true, false)
     ],
-    files: [
-      { id: 'f3', name: 'schematic-draft.pdf', size: 530000, ext: 'pdf', progress: 100, status: 'done' }
+    draftAt: '2026-10-02T15:30:00+07:00'
+  }),
+
+  hardware: emptySubmission({
+    status: 'draft',
+    members: [
+      advisor('m-adv-3', 'ดร.', 'กิตติพงษ์ วงศ์ษา', 'kittipong.w@rtc.ac.th', D3),
+      student('m-st-5', 'นาย', 'ตี๋ อนุวัฒน์', '6502110034', D3, true),
+      student('m-st-6', 'นางสาว', 'กิ๊ฟ กันยารัตน์', '6502110051', D3)
     ],
-    links: { video: '', github: '', drive: '' },
     draftAt: '2026-09-28T09:00:00+07:00'
-  },
-  software: {
+  }),
+  software: emptySubmission({
     status: 'submitted',
-    projectName: 'Grade Tracker Mobile App',
-    summary: 'แอปพลิเคชันมือถือสำหรับติดตามผลการเรียนและการวางแผนการลงทะเบียนเรียนรายบุคคล',
-    notes: '',
     members: [
-      { id: 'm-adv-4', type: 'advisor', title: 'ผศ.', fullName: 'Wichai Thongdee', email: 'wichai.t@rtc.ac.th', phone: '', dept: 'คณะวิทยาศาสตร์', source: 'manual' },
-      { id: 'm-st-7', type: 'student', fullName: 'Fah Napassorn', studentId: '6401330102', email: 'fah.n@rtc.ac.th', phone: '', faculty: 'คอมพิวเตอร์ศึกษา', year: '3', isLeader: true, source: 'manual' },
-      { id: 'm-st-8', type: 'student', fullName: 'Boat Sirawit', studentId: '6401330118', email: 'boat.s@rtc.ac.th', phone: '', faculty: 'คอมพิวเตอร์ศึกษา', year: '3', isLeader: false, source: 'manual' },
-      { id: 'm-st-9', type: 'student', fullName: 'Kong Peerapat', studentId: '6401330125', email: 'kong.p@rtc.ac.th', phone: '', faculty: 'คอมพิวเตอร์ศึกษา', year: '3', isLeader: false, source: 'manual' }
+      advisor('m-adv-4', 'ผศ.', 'วิชัย ทองดี', 'wichai.t@rtc.ac.th', D1),
+      student('m-st-7', 'นางสาว', 'ฟ้า นภัสสร', '6401330102', D1, true),
+      student('m-st-8', 'นาย', 'โบ๊ท ศิรวิทย์', '6401330118', D1)
     ],
-    files: [
-      { id: 'f4', name: 'source.zip', size: 5200000, ext: 'zip', progress: 100, status: 'done' },
-      { id: 'f5', name: 'demo-deck.pptx', size: 3100000, ext: 'pptx', progress: 100, status: 'done' }
-    ],
-    links: { video: '', github: 'https://github.com/mock/grade-tracker', drive: '' },
     submittedAt: '2026-09-07T11:20:00+07:00',
     hash: 'ff02b7c81a5e'
-  },
-  research: {
+  }),
+  research: emptySubmission({
     status: 'submitted',
-    projectName: 'Impact of Gamification on Retention',
-    summary: 'งานวิจัยศึกษาผลกระทบของการประยุกต์ใช้องค์ประกอบเกม (Gamification) ต่อความคงอยู่ขององค์ความรู้ในวิชาวิทยาศาสตร์',
-    notes: '',
     members: [
-      { id: 'm-adv-5', type: 'advisor', title: 'ศ.', fullName: 'Sirin Chaiyaporn', email: 'sirin.c@rtc.ac.th', phone: '', dept: 'คณะครุศาสตร์', source: 'manual' },
-      { id: 'm-st-10', type: 'student', fullName: 'Bee Chotika', studentId: '6301120044', email: 'bee.c@rtc.ac.th', phone: '', faculty: 'จิตวิทยาการศึกษา', year: '4', isLeader: true, source: 'manual' },
-      { id: 'm-st-11', type: 'student', fullName: 'Nam Pattarapon', studentId: '6301120059', email: 'nam.p@rtc.ac.th', phone: '', faculty: 'จิตวิทยาการศึกษา', year: '4', isLeader: false, source: 'manual' }
+      advisor('m-adv-5', 'ศ.', 'สิรินทร์ ชัยพร', 'sirin.c@rtc.ac.th', D2),
+      student('m-st-10', 'นางสาว', 'บี โชติกา', '6301120044', D2, true),
+      student('m-st-11', 'นาย', 'น้ำ ภัทรพล', '6301120059', D2)
     ],
-    files: [
-      { id: 'f6', name: 'research-paper.pdf', size: 980000, ext: 'pdf', progress: 100, status: 'done' }
-    ],
-    links: { video: '', github: '', drive: 'https://drive.google.com/drive/folders/mock-research-data' },
     submittedAt: '2026-09-02T16:00:00+07:00',
     hash: '0c9d4e2a8b71'
-  },
-  clip: {
-    status: 'not_started',
-    projectName: '',
-    summary: '',
-    notes: '',
-    members: [],
-    files: [],
-    links: { video: '', github: '', drive: '' }
-  },
-  pitching: {
-    status: 'not_started',
-    projectName: '',
-    summary: '',
-    notes: '',
-    members: [],
-    files: [],
-    links: { video: '', github: '', drive: '' }
-  },
-  robot: {
+  }),
+  clip: emptySubmission({
     status: 'draft',
-    projectName: 'Line-Tracking Robot v2',
-    summary: 'หุ่นยนต์เดินตามเส้นเพื่อการเรียนรู้ด้านระบบอัตโนมัติเบื้องต้น',
-    notes: 'กำลังจัดทำวิดีโอสาธิตการทำงาน',
-    members: [],
-    files: [],
-    links: { video: '', github: '', drive: '' },
+    projectName: 'เรียนรู้ไฟฟ้าใน 60 วินาที',
+    summary: 'คลิปวิดีโอสั้นอธิบายหลักการวงจรไฟฟ้าพื้นฐานด้วยแอนิเมชัน',
+    links: { video: 'https://youtu.be/mock-clip-demo', github: '', drive: '' },
+    draftAt: '2026-09-20T13:00:00+07:00'
+  }),
+  pitching: emptySubmission(),
+  robot: emptySubmission({
+    status: 'draft',
     draftAt: '2026-09-03T08:30:00+07:00'
-  },
-  singing: {
-    status: 'not_started',
-    projectName: '',
-    summary: '',
-    notes: '',
-    members: [],
-    files: [],
-    links: { video: '', github: '', drive: '' }
-  },
-  dance: {
-    status: 'not_started',
-    projectName: '',
-    summary: '',
-    notes: '',
-    members: [],
-    files: [],
-    links: { video: '', github: '', drive: '' }
-  }
+  }),
+  singing: emptySubmission(),
+  dance: emptySubmission()
 });

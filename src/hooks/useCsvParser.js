@@ -1,4 +1,5 @@
 import { generateId } from '../utils/formatters';
+import { DEPARTMENTS } from '../data/referenceData';
 
 export const parseCsvText = (text) => {
   if (!text) return [];
@@ -70,15 +71,14 @@ export const evaluateCsvRows = (parsedRows, existingMembers = []) => {
     else if (h.includes('leader') || h.includes('หัวหน้า')) headerMap.isLeader = idx;
   });
 
-  if (headerMap.fullName === undefined || headerMap.email === undefined) {
+  if (headerMap.fullName === undefined) {
     return {
-      headerError: 'หัวตารางต้องมีคอลัมน์ full_name (ชื่อ) และ email (อีเมล)',
+      headerError: 'หัวตารางต้องมีคอลัมน์ full_name (ชื่อ-นามสกุล)',
       rows: []
     };
   }
 
-  const seenEmails = new Set();
-  const existingEmails = new Set(existingMembers.map(m => m.email.toLowerCase()));
+  const seenEmails = new Set(existingMembers.map(m => (m.email || '').toLowerCase()).filter(Boolean));
 
   const evaluated = parsedRows.slice(1).map((r, i) => {
     const getVal = (col) => (col !== undefined && r[col] ? String(r[col]).trim() : '');
@@ -88,20 +88,22 @@ export const evaluateCsvRows = (parsedRows, existingMembers = []) => {
     const studentId = getVal(headerMap.studentId);
     const email = getVal(headerMap.email);
     const phone = getVal(headerMap.phone);
-    const deptOrFaculty = getVal(headerMap.deptOrFaculty);
+    const dept = getVal(headerMap.deptOrFaculty);
     const year = getVal(headerMap.year);
     const title = getVal(headerMap.title) || (type === 'advisor' ? 'ดร.' : '');
     const leaderRaw = getVal(headerMap.isLeader).toLowerCase();
     const isLeader = ['yes', 'y', 'true', '1', 'หัวหน้า', 'หัวหน้าทีม'].includes(leaderRaw);
 
+    // Only name and department are required; email is checked only if given
     const errors = [];
     if (!fullName) errors.push('ขาดชื่อ-นามสกุล');
-    if (!email) errors.push('ขาดอีเมล');
-    else if (!/^\S+@\S+\.\S+$/.test(email)) errors.push('รูปแบบอีเมลไม่ถูกต้อง');
-    else if (seenEmails.has(email.toLowerCase())) errors.push('อีเมลซ้ำในไฟล์');
-    else seenEmails.add(email.toLowerCase());
-
-    if (type === 'student' && !studentId) errors.push('ขาดรหัสนักศึกษา');
+    if (!dept) errors.push('ขาดหน่วยงาน');
+    else if (!DEPARTMENTS.includes(dept)) errors.push('หน่วยงานไม่อยู่ในรายการ');
+    if (email) {
+      if (!/^\S+@\S+\.\S+$/.test(email)) errors.push('รูปแบบอีเมลไม่ถูกต้อง');
+      else if (seenEmails.has(email.toLowerCase())) errors.push('อีเมลซ้ำ');
+      else seenEmails.add(email.toLowerCase());
+    }
 
     const ok = errors.length === 0;
 
@@ -114,8 +116,7 @@ export const evaluateCsvRows = (parsedRows, existingMembers = []) => {
       studentId,
       email,
       phone,
-      faculty: type === 'student' ? deptOrFaculty : '',
-      dept: type === 'advisor' ? deptOrFaculty : '',
+      dept,
       year,
       isLeader,
       source: 'csv',

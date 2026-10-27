@@ -124,10 +124,10 @@ export const CsvImportModal = ({ isOpen, onClose, trackId }) => {
               <FileCsv size={24} weight="duotone" />
             </div>
             <div>
-              <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#1B1D29' }}>
+              <h3 style={{ fontSize: '20px', fontWeight: 800, color: '#1B1D29' }}>
                 นำเข้ารายชื่อสมาชิกทีมผ่าน CSV
               </h3>
-              <p style={{ fontSize: '12.5px', color: '#6B6F80' }}>
+              <p style={{ fontSize: '14px', color: '#4F5366' }}>
                 อัปโหลดไฟล์ CSV เพื่อเพิ่มอาจารย์และนักศึกษาจำนวนมากในครั้งเดียว
               </p>
             </div>
@@ -137,7 +137,7 @@ export const CsvImportModal = ({ isOpen, onClose, trackId }) => {
             onClick={onClose}
             style={{
               background: 'transparent',
-              color: '#6B6F80',
+              color: '#4F5366',
               padding: '6px',
               borderRadius: '50%',
               display: 'flex',
@@ -164,10 +164,10 @@ export const CsvImportModal = ({ isOpen, onClose, trackId }) => {
             gap: '12px'
           }}>
             <div>
-              <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#1B1D29' }}>
+              <div style={{ fontSize: '15px', fontWeight: 700, color: '#1B1D29' }}>
                 ยังไม่มีแบบฟอร์มไฟล์ CSV หรือไม่?
               </div>
-              <div style={{ fontSize: '12.5px', color: '#6B6F80' }}>
+              <div style={{ fontSize: '14px', color: '#4F5366' }}>
                 ดาวน์โหลดไฟล์ตัวอย่างที่มีคอลัมน์และคำอธิบายถูกต้องตามข้อกำหนด
               </div>
             </div>
@@ -179,7 +179,7 @@ export const CsvImportModal = ({ isOpen, onClose, trackId }) => {
                 color: '#1B1D29',
                 padding: '8px 14px',
                 borderRadius: '10px',
-                fontSize: '13px',
+                fontSize: '14px',
                 fontWeight: 700,
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -233,10 +233,10 @@ export const CsvImportModal = ({ isOpen, onClose, trackId }) => {
               <UploadSimple size={24} weight="bold" />
             </div>
             <div>
-              <div style={{ fontSize: '14.5px', fontWeight: 700, color: '#1B1D29' }}>
+              <div style={{ fontSize: '16px', fontWeight: 700, color: '#1B1D29' }}>
                 {fileName ? fileName : 'คลิกเพื่อเลือกไฟล์ หรือลากไฟล์ CSV มาวางที่นี่'}
               </div>
-              <div style={{ fontSize: '12px', color: '#6B6F80', marginTop: '2px' }}>
+              <div style={{ fontSize: '13px', color: '#4F5366', marginTop: '2px' }}>
                 รองรับไฟล์นามสกุล .csv (UTF-8 encoding)
               </div>
             </div>
@@ -250,7 +250,7 @@ export const CsvImportModal = ({ isOpen, onClose, trackId }) => {
               color: '#C2410C',
               padding: '12px 16px',
               borderRadius: '12px',
-              fontSize: '13px',
+              fontSize: '14px',
               fontWeight: 600,
               display: 'flex',
               alignItems: 'center',
@@ -270,7 +270,7 @@ export const CsvImportModal = ({ isOpen, onClose, trackId }) => {
                 alignItems: 'center',
                 marginBottom: '10px'
               }}>
-                <div style={{ fontSize: '14px', fontWeight: 700, color: '#1B1D29' }}>
+                <div style={{ fontSize: '15px', fontWeight: 700, color: '#1B1D29' }}>
                   ตรวจสอบข้อมูล ({validRows.length} รายการพร้อมนำเข้า{errorCount > 0 ? `, ${errorCount} รายการมีข้อผิดพลาด` : ''})
                 </div>
               </div>
@@ -282,9 +282,9 @@ export const CsvImportModal = ({ isOpen, onClose, trackId }) => {
                 maxHeight: '220px',
                 overflowY: 'auto'
               }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', textAlign: 'left' }}>
                   <thead>
-                    <tr style={{ background: '#F6F6F9', color: '#6B6F80', borderBottom: '1px solid #ECECF1' }}>
+                    <tr style={{ background: '#F6F6F9', color: '#4F5366', borderBottom: '1px solid #ECECF1' }}>
                       <th style={{ padding: '10px 12px', fontWeight: 700, width: '40px' }}>#</th>
                       <th style={{ padding: '10px 12px', fontWeight: 700 }}>ประเภท</th>
                       <th style={{ padding: '10px 12px', fontWeight: 700 }}>ชื่อ - นามสกุล</th>
@@ -301,12 +301,12 @@ export const CsvImportModal = ({ isOpen, onClose, trackId }) => {
                           background: r.ok ? '#FFFFFF' : '#FFF8F4'
                         }}
                       >
-                        <td style={{ padding: '10px 12px', color: '#9A9DAD', fontWeight: 600 }}>{r.line}</td>
+                        <td style={{ padding: '10px 12px', color: '#6B6F80', fontWeight: 600 }}>{r.line}</td>
                         <td style={{ padding: '10px 12px' }}>
                           <span style={{
                             padding: '3px 8px',
                             borderRadius: '8px',
-                            fontSize: '11.5px',
+                            fontSize: '13px',
                             fontWeight: 700,
                             background: r.type === 'advisor' ? '#FFF8DB' : '#EAF5FE',
                             color: r.type === 'advisor' ? '#8A5A00' : '#0A65B0'
@@ -319,7 +319,7 @@ export const CsvImportModal = ({ isOpen, onClose, trackId }) => {
                           {r.isLeader && (
                             <span style={{
                               marginLeft: '6px',
-                              fontSize: '11px',
+                              fontSize: '13px',
                               padding: '2px 6px',
                               borderRadius: '6px',
                               background: '#FFF1EB',
@@ -330,9 +330,9 @@ export const CsvImportModal = ({ isOpen, onClose, trackId }) => {
                             </span>
                           )}
                         </td>
-                        <td style={{ padding: '10px 12px', color: '#6B6F80' }}>
+                        <td style={{ padding: '10px 12px', color: '#4F5366' }}>
                           <div>{r.studentId}</div>
-                          <div style={{ fontSize: '11.5px' }}>{r.email}</div>
+                          <div style={{ fontSize: '13px' }}>{r.email}</div>
                         </td>
                         <td style={{ padding: '10px 12px' }}>
                           {r.ok ? (
@@ -342,7 +342,7 @@ export const CsvImportModal = ({ isOpen, onClose, trackId }) => {
                               gap: '4px',
                               color: '#0A65B0',
                               fontWeight: 700,
-                              fontSize: '12px'
+                              fontSize: '13px'
                             }}>
                               <CheckCircle size={14} weight="fill" />
                               <span>พร้อม</span>
@@ -354,7 +354,7 @@ export const CsvImportModal = ({ isOpen, onClose, trackId }) => {
                               gap: '4px',
                               color: '#C2410C',
                               fontWeight: 700,
-                              fontSize: '12px'
+                              fontSize: '13px'
                             }}>
                               <WarningCircle size={14} weight="fill" />
                               <span>{r.error}</span>
@@ -369,7 +369,7 @@ export const CsvImportModal = ({ isOpen, onClose, trackId }) => {
 
               {/* Mode Selection */}
               <div style={{ marginTop: '16px' }}>
-                <div style={{ fontSize: '13px', fontWeight: 700, color: '#1B1D29', marginBottom: '8px' }}>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#1B1D29', marginBottom: '8px' }}>
                   รูปแบบการนำเข้าข้อมูล
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
@@ -391,10 +391,10 @@ export const CsvImportModal = ({ isOpen, onClose, trackId }) => {
                       style={{ marginTop: '3px', accentColor: '#FF5F1C' }}
                     />
                     <div>
-                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#1B1D29' }}>
-                        เพิ่มต่อท้าย (Append)
+                      <div style={{ fontSize: '14px', fontWeight: 700, color: '#1B1D29' }}>
+                        เพิ่มต่อท้าย
                       </div>
-                      <div style={{ fontSize: '11.5px', color: '#6B6F80' }}>
+                      <div style={{ fontSize: '13px', color: '#4F5366' }}>
                         คงรายชื่อเดิมไว้ และเพิ่มเฉพาะรายชื่อใหม่เข้าไป
                       </div>
                     </div>
@@ -418,10 +418,10 @@ export const CsvImportModal = ({ isOpen, onClose, trackId }) => {
                       style={{ marginTop: '3px', accentColor: '#FF5F1C' }}
                     />
                     <div>
-                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#1B1D29' }}>
-                        แทนที่ทั้งหมด (Replace)
+                      <div style={{ fontSize: '14px', fontWeight: 700, color: '#1B1D29' }}>
+                        แทนที่ทั้งหมด
                       </div>
-                      <div style={{ fontSize: '11.5px', color: '#6B6F80' }}>
+                      <div style={{ fontSize: '13px', color: '#4F5366' }}>
                         ลบรายชื่อเดิมในหมวดนี้ และใส่เฉพาะรายชื่อจากไฟล์
                       </div>
                     </div>
@@ -450,9 +450,9 @@ export const CsvImportModal = ({ isOpen, onClose, trackId }) => {
               borderRadius: '12px',
               background: '#FFFFFF',
               border: '1px solid #E0E1E8',
-              color: '#6B6F80',
+              color: '#4F5366',
               fontWeight: 600,
-              fontSize: '13.5px'
+              fontSize: '15px'
             }}
           >
             ยกเลิก
@@ -468,7 +468,7 @@ export const CsvImportModal = ({ isOpen, onClose, trackId }) => {
               background: 'linear-gradient(135deg, #FF5F1C 0%, #FF8D20 100%)',
               color: '#FFFFFF',
               fontWeight: 700,
-              fontSize: '13.5px',
+              fontSize: '15px',
               boxShadow: '0 4px 12px rgba(255, 95, 28, 0.35)',
               opacity: validRows.length === 0 ? 0.45 : 1,
               cursor: validRows.length === 0 ? 'not-allowed' : 'pointer',

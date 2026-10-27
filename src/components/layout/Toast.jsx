@@ -24,7 +24,7 @@ export const Toast = () => {
         display: 'flex',
         alignItems: 'center',
         gap: '12px',
-        fontSize: '14px',
+        fontSize: '15px',
         fontWeight: 500,
         maxWidth: '90vw'
       }}
@@ -42,7 +42,7 @@ export const Toast = () => {
             border: '1px solid rgba(255, 141, 32, 0.4)',
             padding: '4px 12px',
             borderRadius: '14px',
-            fontSize: '12.5px',
+            fontSize: '14px',
             fontWeight: 700,
             display: 'inline-flex',
             alignItems: 'center',

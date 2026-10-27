@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePortal } from '../../context/PortalContext';
-import { TRACKS } from '../../data/tracks';
+import { TYPES, getTypeOfTrack } from '../../data/tracks';
+import { getTypeStatus } from '../../utils/entries';
 import {
   LockSimple,
   PencilSimple,
@@ -19,6 +20,7 @@ export const TrackSelector = () => {
   const scrollRef = useRef(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
+  const activeType = getTypeOfTrack(activeTrackId);
 
   // Detect when scrolled past original position
   useEffect(() => {
@@ -58,7 +60,7 @@ export const TrackSelector = () => {
   // Center active track inside horizontal scroll when changed
   useEffect(() => {
     if (!scrollRef.current) return;
-    const activeEl = scrollRef.current.querySelector(`[data-track-id="${activeTrackId}"]`);
+    const activeEl = scrollRef.current.querySelector(`[data-type-id="${activeType?.id}"]`);
     if (activeEl) {
       activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     }
@@ -80,12 +82,12 @@ export const TrackSelector = () => {
       <div
         style={{
           position: 'sticky',
-          top: '84px',
+          top: '82px',
           zIndex: 40,
           background: isFloating ? 'rgba(255, 255, 255, 0.94)' : '#FFFFFF',
           backdropFilter: isFloating ? 'blur(16px)' : 'none',
           WebkitBackdropFilter: isFloating ? 'blur(16px)' : 'none',
-          borderRadius: '20px',
+          borderRadius: '999px',
           border: isFloating
             ? '1.5px solid rgba(255, 95, 28, 0.25)'
             : '1px solid #ECECF1',
@@ -111,14 +113,14 @@ export const TrackSelector = () => {
               borderRadius: '12px',
               background: '#FFF1EB',
               color: '#FF5F1C',
-              fontSize: '12.5px',
+              fontSize: '14px',
               fontWeight: 700,
               whiteSpace: 'nowrap',
               flexShrink: 0
             }}
           >
-            <ListBullets size={15} weight="bold" />
-            <span>เลือกหมวด</span>
+            <ListBullets size={16} weight="bold" />
+            <span>ประเภท</span>
           </div>
         )}
 
@@ -161,27 +163,31 @@ export const TrackSelector = () => {
             scrollBehavior: 'smooth'
           }}
         >
-          {TRACKS.map(t => {
-            const isActive = t.id === activeTrackId;
-            const sub = submissions[t.id] || {};
-            const isSubmitted = sub.status === 'submitted';
-            const isDraft = sub.status === 'draft';
+          {TYPES.map(type => {
+            const isActive = type.id === activeType?.id;
+            const status = getTypeStatus(type, submissions);
+            const isSubmitted = status === 'submitted';
+            const isDraft = status === 'draft';
 
             return (
               <button
-                key={t.id}
-                data-track-id={t.id}
+                key={type.id}
+                data-type-id={type.id}
+                aria-current={isActive ? 'true' : undefined}
                 onClick={() => {
-                  setActiveTrackId(t.id);
-                  navigate(`/submit/${t.id}`);
+                  if (isActive) return;
+                  // A type with sub-types opens its first sub-type
+                  const first = type.tracks[0].id;
+                  setActiveTrackId(first);
+                  navigate(`/submit/${first}`);
                 }}
                 style={{
-                  padding: '10px 16px',
-                  borderRadius: '14px',
+                  padding: '10px 18px',
+                  borderRadius: '999px',
                   border: isActive ? '1.5px solid #FF5F1C' : '1.5px solid transparent',
                   background: isActive ? '#FF5F1C' : '#FAFAFC',
                   color: isActive ? '#FFFFFF' : '#1B1D29',
-                  fontSize: '13.5px',
+                  fontSize: '15px',
                   fontWeight: isActive ? 700 : 600,
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -192,13 +198,13 @@ export const TrackSelector = () => {
                   transition: 'all 0.18s ease'
                 }}
               >
-                <span>{t.th}</span>
+                <span>{type.label}</span>
                 {isSubmitted ? (
-                  <LockSimple size={13} weight="bold" color={isActive ? '#FFFFFF' : '#0A65B0'} />
+                  <LockSimple size={15} weight="bold" color={isActive ? '#FFFFFF' : '#0A65B0'} aria-label="ส่งแล้ว" />
                 ) : isDraft ? (
-                  <PencilSimple size={13} weight="bold" color={isActive ? '#FFFFFF' : '#D99A00'} />
+                  <PencilSimple size={15} weight="bold" color={isActive ? '#FFFFFF' : '#B07A00'} aria-label="ฉบับร่าง" />
                 ) : (
-                  <CircleDashed size={13} weight="bold" color={isActive ? '#FFFFFF' : '#A3A6B4'} />
+                  <CircleDashed size={15} weight="bold" color={isActive ? '#FFFFFF' : '#8A8D9C'} aria-label="ยังไม่เริ่ม" />
                 )}
               </button>
             );

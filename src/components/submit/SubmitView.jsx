@@ -1,47 +1,67 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { usePortal } from '../../context/PortalContext';
-import { TRACKS } from '../../data/tracks';
+import { TRACKS, isGrouped, entryKey, getTypeOfTrack, hasSubTypes } from '../../data/tracks';
+import { SubTypeBar } from './SubTypeBar';
 import { daysUntil, fmtDate } from '../../utils/formatters';
 import { TrackSelector } from './TrackSelector';
+import { GroupBar } from './GroupBar';
 import { ProjectInfoSection } from './ProjectInfoSection';
 import { ExternalLinksSection } from './ExternalLinksSection';
 import { TeamMembersSection } from './TeamMembersSection';
 import { FileUploader } from './FileUploader';
 import { SubmissionChecklist } from './SubmissionChecklist';
 import { ConfirmSubmitModal } from './ConfirmSubmitModal';
-import { LockSimple, WarningCircle, CheckCircle } from '@phosphor-icons/react';
+import { getRequirements, getFormErrors } from '../../utils/requirements';
+import { emptySubmission } from '../../data/seedData';
+import { LockSimple, CheckCircle, CalendarBlank } from '@phosphor-icons/react';
 
 export const SubmitView = () => {
-  const { trackId } = useParams();
+  const { trackId, groupIdx: groupParam } = useParams();
   const navigate = useNavigate();
   const { activeTrackId, setActiveTrackId, submissions, saveDraft, confirmSubmit, showToast } = usePortal();
 
-  // If a valid trackId is in URL, keep activeTrackId in sync
-  useEffect(() => {
-    if (trackId) {
-      const match = TRACKS.find(t => t.id === trackId);
-      if (match && match.id !== activeTrackId) {
-        setActiveTrackId(match.id);
-      } else if (!match) {
-        // Fallback to activeTrackId if invalid param is typed
-        navigate(`/submit/${activeTrackId || 'theory'}`, { replace: true });
-      }
-    }
-  }, [trackId, activeTrackId, setActiveTrackId, navigate]);
+  const validTrack = TRACKS.find(t => t.id === trackId);
+  const activeTrack = validTrack || TRACKS.find(t => t.id === activeTrackId) || TRACKS[0];
+  const activeType = getTypeOfTrack(activeTrack.id);
+  const grouped = isGrouped(activeTrack);
+  // Grouped: every กลุ่มสาขาวิชา always exists; default to the first one
+  const requestedGroup = groupParam != null ? Number(groupParam) : null;
+  const activeGroup = grouped
+    ? (activeTrack.subjectGroups[requestedGroup] != null ? requestedGroup : 0)
+    : null;
 
-  const currentTrackId = (trackId && TRACKS.some(t => t.id === trackId)) ? trackId : activeTrackId;
-  const activeTrack = TRACKS.find(t => t.id === currentTrackId) || TRACKS[0];
-  const sub = submissions[activeTrack.id] || { members: [], files: [], links: {} };
+  // Keep URL and active track in sync; fix invalid track or group in the URL
+  useEffect(() => {
+    if (!validTrack) {
+      navigate(`/submit/${activeTrackId || 'theory'}`, { replace: true });
+      return;
+    }
+    if (validTrack.id !== activeTrackId) setActiveTrackId(validTrack.id);
+    if (grouped) {
+      const want = `/submit/${validTrack.id}/${activeGroup}`;
+      const has = groupParam == null ? `/submit/${validTrack.id}` : `/submit/${validTrack.id}/${groupParam}`;
+      if (want !== has) navigate(want, { replace: true });
+    }
+  }, [validTrack, activeTrackId, setActiveTrackId, navigate, grouped, activeGroup, groupParam]);
+
+  // The submission this page edits: the track itself, or the chosen group's entry
+  const entryId = grouped ? entryKey(activeTrack.id, activeGroup) : activeTrack.id;
+  const sub = (entryId && submissions[entryId]) || emptySubmission();
 
   const [formErrors, setFormErrors] = useState({});
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+
+  // Errors belong to one entry; clear them when switching
+  useEffect(() => {
+    setFormErrors({});
+  }, [entryId]);
 
   const isLocked = sub.status === 'submitted';
   const daysLeft = daysUntil(activeTrack.deadline);
 
   const handleSaveDraft = () => {
-    const res = saveDraft(activeTrack.id);
+    const res = saveDraft(entryId);
     if (!res.success) {
       setFormErrors({ projectName: res.error });
       showToast(res.error);
@@ -51,200 +71,156 @@ export const SubmitView = () => {
   };
 
   const handleAttemptSubmit = () => {
-    const errors = {};
-    if (!(sub.projectName || '').trim()) {
-      errors.projectName = 'กรุณาระบุชื่อผลงานก่อนส่ง';
-    }
-
-    const hasAdvisor = (sub.members || []).some(m => m.type === 'advisor');
-    const students = (sub.members || []).filter(m => m.type === 'student');
-    const hasLeader = students.some(m => m.isLeader);
-
-    if (!hasAdvisor || students.length === 0 || !hasLeader) {
-      if (!hasAdvisor && students.length === 0) {
-        errors.team = 'กรุณาเพิ่มอาจารย์ที่ปรึกษา และนักศึกษาอย่างน้อย 1 คนพร้อมกำหนดหัวหน้าทีม';
-      } else if (!hasAdvisor) {
-        errors.team = 'กรุณาระบุอาจารย์ที่ปรึกษา (1 ท่าน)';
-      } else if (students.length === 0) {
-        errors.team = 'กรุณาเพิ่มนักศึกษาอย่างน้อย 1 คน';
-      } else if (!hasLeader) {
-        errors.team = 'กรุณากำหนดหัวหน้าทีมสำหรับนักศึกษา';
-      }
-    }
-
-    const hasFiles = (sub.files || []).some(f => f.status === 'done');
-    const hasLinks = !!(sub.links?.video || sub.links?.github || sub.links?.drive);
-    if (!hasFiles && !hasLinks) {
-      errors.deliverables = 'กรุณาอัปโหลดไฟล์ หรือแนบลิงก์ผลงานอย่างน้อย 1 รายการ';
-    }
-
+    const errors = getFormErrors(getRequirements(activeTrack, sub));
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
-      showToast('กรุณากรอกข้อมูลให้ครบถ้วนตามข้อกำหนดก่อนส่งผลงาน');
+      showToast('ยังกรอกข้อมูลไม่ครบ กรุณาตรวจสอบรายการที่มีเครื่องหมายสีแดง');
+      const first = Object.keys(errors)[0];
+      document.getElementById(`section-${first}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       return;
     }
-
     setFormErrors({});
     setConfirmModalOpen(true);
   };
 
   const handleConfirmSubmit = () => {
-    confirmSubmit(activeTrack.id);
+    confirmSubmit(entryId);
     setConfirmModalOpen(false);
   };
 
+  // Section numbers follow the order they appear on the page
+  let n = 0;
+  const next = () => ++n;
+
+  // A section is "done" when every requirement that belongs to it passes
+  const reqs = getRequirements(activeTrack, sub);
+  const done = (section) => {
+    const list = reqs.filter(r => r.section === section);
+    return list.length > 0 && list.every(r => r.ok);
+  };
+  const hasLink = !!(sub.links?.video || sub.links?.github || sub.links?.drive);
+  const groupName = grouped && activeGroup != null ? activeTrack.subjectGroups[activeGroup] : null;
+
   return (
-    <div className="app-container" style={{ padding: '32px 20px 80px 20px' }}>
-      {/* 1. Track Switcher */}
+    <div className="app-container" style={{ padding: '28px 20px 80px' }}>
       <TrackSelector />
 
-      {/* 2. Track Header Card */}
-      <div style={{
-        background: '#FFFFFF',
-        borderRadius: '24px',
-        border: '1px solid #ECECF1',
-        padding: '24px',
-        marginBottom: '24px',
+      {/* Track title band */}
+      <div className="tile tile-hero reveal" style={{
         display: 'flex',
-        alignItems: 'center',
+        alignItems: 'flex-end',
         justifyContent: 'space-between',
         flexWrap: 'wrap',
         gap: '16px',
-        boxShadow: '0 2px 8px rgba(27, 29, 41, 0.03)'
+        marginBottom: '24px',
+        padding: '28px 32px'
       }}>
         <div>
-          <div style={{
-            fontSize: '12.5px',
-            fontWeight: 700,
-            color: '#FF5F1C',
-            textTransform: 'uppercase',
-            letterSpacing: '0.6px',
-            marginBottom: '4px'
-          }}>
-            หมวดหมู่การแข่งขันที่เลือก
+          <div style={{ fontSize: 'var(--fs-sm)', fontWeight: 600, color: 'var(--primary)' }}>
+            {activeTrack.category || 'ประเภทการแข่งขัน'}
           </div>
-          <h1 style={{
-            fontSize: '26px',
-            fontWeight: 800,
-            color: '#1B1D29',
-            letterSpacing: '-0.3px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px'
-          }}>
-            <span>{activeTrack.th}</span>
-            <span style={{ fontSize: '18px', color: '#6B6F80', fontWeight: 500 }}>
-              ({activeTrack.en})
-            </span>
+          <h1 style={{ fontSize: 'clamp(26px, 3.4vw, 38px)', fontWeight: 700, marginTop: '2px' }}>
+            {activeTrack.full}
           </h1>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          {isLocked ? (
-            <div style={{
-              background: '#EAF5FE',
-              color: '#0A65B0',
-              border: '1px solid rgba(42, 159, 247, 0.3)',
-              padding: '8px 16px',
-              borderRadius: '20px',
-              fontSize: '13.5px',
-              fontWeight: 700,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}>
-              <LockSimple size={16} weight="bold" />
-              <span>ส่งผลงานแล้ว (ล็อกการแก้ไข)</span>
-            </div>
-          ) : (
-            <div style={{
-              background: '#FFF1EB',
-              color: '#C2410C',
-              border: '1px solid rgba(255, 95, 28, 0.25)',
-              padding: '8px 16px',
-              borderRadius: '20px',
-              fontSize: '13px',
-              fontWeight: 700
-            }}>
-              ปิดรับ {fmtDate(activeTrack.deadline)} · เหลืออีก {daysLeft} วัน
+          {(groupName || activeTrack.desc) && (
+            <div style={{ fontSize: 'var(--fs-md)', color: 'var(--text-muted)', marginTop: '4px' }}>
+              {groupName || activeTrack.desc}
             </div>
           )}
         </div>
+
+        {entryId && (isLocked ? (
+          <span className="badge" style={{ fontSize: '15px', padding: '8px 16px', background: 'var(--blue-bg)', color: 'var(--blue-text)' }}>
+            <LockSimple size={16} weight="bold" />
+            ส่งแล้ว แก้ไขไม่ได้
+          </span>
+        ) : (
+          <span className="badge" style={{ fontSize: '15px', padding: '8px 16px', background: 'var(--primary)', color: '#FFFFFF' }}>
+            <CalendarBlank size={16} weight="bold" />
+            ปิดรับ {fmtDate(activeTrack.deadline)} (อีก {daysLeft} วัน)
+          </span>
+        ))}
       </div>
 
-      {/* Lock alert notice if submitted */}
-      {isLocked && (
-        <div style={{
-          background: '#EAF5FE',
-          border: '1px solid #B6E0FE',
-          borderRadius: '16px',
-          padding: '14px 20px',
-          marginBottom: '24px',
-          color: '#0A65B0',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          fontSize: '13.5px',
-          fontWeight: 600
-        }}>
-          <CheckCircle size={20} weight="fill" />
-          <span>
-            ผลงานหมวดหมู่นี้ถูกส่งเรียบร้อยแล้ว หากต้องการเปลี่ยนแปลงข้อมูลเร่งด่วน กรุณาติดต่อกองอำนวยการจัดการประกวด
-          </span>
-        </div>
+      {hasSubTypes(activeType) && <SubTypeBar type={activeType} activeTrackId={activeTrack.id} />}
+
+      {grouped && (
+        <GroupBar
+          track={activeTrack}
+          activeGroup={activeGroup}
+          onSelect={(i) => navigate(`/submit/${activeTrack.id}/${i}`)}
+        />
       )}
 
-      {/* 3. Main Workspace Grid */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'minmax(0, 1fr) 340px',
-        gap: '24px',
-        alignItems: 'start'
-      }}>
-        {/* Left Column: Form & Sections */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          <ProjectInfoSection
-            trackId={activeTrack.id}
-            isLocked={isLocked}
-            error={formErrors.projectName}
-          />
+      {entryId && (
+        <>
+          {isLocked && (
+            <div className="alert alert-info" style={{ marginBottom: '24px' }}>
+              <CheckCircle size={20} weight="fill" />
+              <span>
+                ส่งผลงาน{groupName ? 'กลุ่มสาขานี้' : 'ประเภทนี้'}เรียบร้อยแล้ว หากต้องการแก้ไขข้อมูล กรุณาติดต่อกองอำนวยการ
+              </span>
+            </div>
+          )}
 
-          <ExternalLinksSection
-            trackId={activeTrack.id}
-            isLocked={isLocked}
-          />
+          <div className="submit-grid">
+            {/* Form sections */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', minWidth: 0 }}>
+              <TeamMembersSection
+                trackId={entryId}
+                isLocked={isLocked}
+                error={formErrors.team}
+                number={next()}
+                done={done('team')}
+              />
 
-          <TeamMembersSection
-            trackId={activeTrack.id}
-            isLocked={isLocked}
-            error={formErrors.team}
-          />
+              {/* Project info, links and files: video clip only */}
+              {activeTrack.needsWorkInfo && (
+                <>
+                  <ProjectInfoSection
+                    trackId={entryId}
+                    isLocked={isLocked}
+                    error={formErrors.projectName}
+                    number={next()}
+                    done={done('projectName')}
+                  />
+                  <ExternalLinksSection
+                    trackId={entryId}
+                    isLocked={isLocked}
+                    number={next()}
+                    done={hasLink}
+                  />
+                  <FileUploader
+                    trackId={entryId}
+                    isLocked={isLocked}
+                    error={formErrors.deliverables}
+                    number={next()}
+                    done={done('deliverables')}
+                  />
+                </>
+              )}
+            </div>
 
-          <FileUploader
-            trackId={activeTrack.id}
-            isLocked={isLocked}
-          />
-        </div>
+            {/* Sticky checklist */}
+            <div>
+              <SubmissionChecklist
+                trackId={entryId}
+                isLocked={isLocked}
+                onAttemptSubmit={handleAttemptSubmit}
+                onSaveDraft={handleSaveDraft}
+              />
+            </div>
+          </div>
 
-        {/* Right Column: Sticky Checklist */}
-        <div>
-          <SubmissionChecklist
-            trackId={activeTrack.id}
-            isLocked={isLocked}
-            onAttemptSubmit={handleAttemptSubmit}
-            onSaveDraft={handleSaveDraft}
+          <ConfirmSubmitModal
+            isOpen={confirmModalOpen}
+            onClose={() => setConfirmModalOpen(false)}
+            onConfirm={handleConfirmSubmit}
+            track={activeTrack}
+            submission={sub}
           />
-        </div>
-      </div>
-
-      {/* Confirmation Modal */}
-      <ConfirmSubmitModal
-        isOpen={confirmModalOpen}
-        onClose={() => setConfirmModalOpen(false)}
-        onConfirm={handleConfirmSubmit}
-        track={activeTrack}
-        submission={sub}
-      />
+        </>
+      )}
     </div>
   );
 };

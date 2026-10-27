@@ -3,11 +3,11 @@ import { Routes, Route, Navigate, useLocation, Outlet } from 'react-router-dom';
 import { usePortal } from './context/PortalContext';
 import { LoginView } from './components/auth/LoginView';
 import { Navbar } from './components/layout/Navbar';
-import { UrgentBanner } from './components/layout/UrgentBanner';
 import { Toast } from './components/layout/Toast';
 import { DashboardView } from './components/dashboard/DashboardView';
 import { SubmitView } from './components/submit/SubmitView';
 import { HistoryView } from './components/history/HistoryView';
+import { CertificatesView } from './components/certificates/CertificatesView';
 
 // Protected Route Guard & Layout
 function ProtectedLayout() {
@@ -20,7 +20,6 @@ function ProtectedLayout() {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <UrgentBanner />
       <Navbar />
 
       <main style={{ flex: 1 }}>
@@ -70,7 +69,9 @@ export default function App() {
         <Route path="/dashboard" element={<DashboardView />} />
         <Route path="/submit" element={<SubmitRedirect />} />
         <Route path="/submit/:trackId" element={<SubmitView />} />
+        <Route path="/submit/:trackId/:groupIdx" element={<SubmitView />} />
         <Route path="/history" element={<HistoryView />} />
+        <Route path="/certificates" element={<CertificatesView />} />
       </Route>
 
       {/* Fallback route */}

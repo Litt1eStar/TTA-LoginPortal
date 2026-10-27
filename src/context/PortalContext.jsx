@@ -1,16 +1,44 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ACCOUNTS, DEMO_PASSWORD } from '../data/accounts';
-import { TRACKS } from '../data/tracks';
-import { createSeedSubmissions } from '../data/seedData';
+import { TRACKS, getTrack, entryKey, isGrouped } from '../data/tracks';
+import { createSeedSubmissions, emptySubmission } from '../data/seedData';
 import { generateReceiptHash, generateId } from '../utils/formatters';
+import { getRequirements } from '../utils/requirements';
 import confetti from 'canvas-confetti';
 
 const PortalContext = createContext(null);
 
 const STORAGE_KEY_AUTH = 'ttaa13_auth';
-const STORAGE_KEY_SUBMISSIONS = 'ttaa13_submissions';
+const STORAGE_KEY_SUBMISSIONS = 'tta27_submissions_v5';
 const STORAGE_KEY_TRACK = 'ttaa13_track';
+
+// A locked (submitted) entry must pass every requirement. If one doesn't
+// (old data, or rules changed), unlock it as a draft so it can be completed.
+// Also makes sure every entry exists: each theory / practice กลุ่มสาขาวิชา is a
+// sub-type of its own, created blank automatically (like the culture sub-types).
+const normalizeSubmissions = (data) => {
+  const out = { ...data };
+  TRACKS.forEach(t => {
+    if (isGrouped(t)) {
+      delete out[t.id]; // old "which groups were chosen" marker, no longer used
+      t.subjectGroups.forEach((group, i) => {
+        const key = entryKey(t.id, i);
+        if (!out[key]) out[key] = emptySubmission({ subjectGroup: group });
+      });
+    } else if (!out[t.id]) {
+      out[t.id] = emptySubmission();
+    }
+  });
+  Object.entries(out).forEach(([key, sub]) => {
+    if (!sub || sub.status !== 'submitted') return;
+    const complete = getRequirements(getTrack(key), sub).every(r => r.ok);
+    if (complete) return;
+    const { hash, submittedAt, ...rest } = sub;
+    out[key] = { ...rest, status: 'draft', draftAt: submittedAt || rest.draftAt };
+  });
+  return out;
+};
 
 export const PortalProvider = ({ children }) => {
   const navigate = useNavigate();
@@ -46,13 +74,12 @@ export const PortalProvider = ({ children }) => {
   const [submissions, setSubmissions] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_SUBMISSIONS);
-      return saved ? JSON.parse(saved) : createSeedSubmissions();
+      return normalizeSubmissions(saved ? JSON.parse(saved) : createSeedSubmissions());
     } catch {
-      return createSeedSubmissions();
+      return normalizeSubmissions(createSeedSubmissions());
     }
   });
 
-  const [bannerDismissed, setBannerDismissed] = useState(false);
   const [toast, setToast] = useState(null);
   const [toastUndo, setToastUndo] = useState(null);
 
@@ -167,6 +194,14 @@ export const PortalProvider = ({ children }) => {
     }));
   };
 
+  // Keep at most `limit` advisors, dropping the oldest ones first
+  const capAdvisors = (members, limit) => {
+    const advisors = members.filter(m => m.type === 'advisor');
+    if (advisors.length <= limit) return members;
+    const dropIds = new Set(advisors.slice(0, advisors.length - limit).map(m => m.id));
+    return members.filter(m => !dropIds.has(m.id));
+  };
+
   const ensureStudentLeader = (members = []) => {
     const students = members.filter(m => m.type === 'student');
     if (students.length > 0 && !students.some(m => m.isLeader)) {
@@ -180,6 +215,8 @@ export const PortalProvider = ({ children }) => {
     const sub = submissions[trackId];
     let members = [...sub.members];
     const isEdit = !!memberData.id;
+    // University always comes from the logged-in account
+    memberData = { ...memberData, university: user?.university || '' };
 
     if (isEdit) {
       members = members.map(m => m.id === memberData.id ? { ...m, ...memberData } : m);
@@ -189,11 +226,9 @@ export const PortalProvider = ({ children }) => {
         id: generateId('m'),
         source: 'manual'
       };
-      if (newMember.type === 'advisor') {
-        // Replace existing advisor
-        members = members.filter(m => m.type !== 'advisor');
-      }
       members.push(newMember);
+      // Over the track's advisor limit → replace the oldest advisor
+      members = capAdvisors(members, getTrack(trackId).advisorCount || 1);
     }
 
     // Ensure only one student leader if this member was marked leader
@@ -228,15 +263,11 @@ export const PortalProvider = ({ children }) => {
 
   const importCsvMembers = (trackId, incomingRows, mode = 'append') => {
     const prevMembers = submissions[trackId].members;
-    let base = mode === 'replace' ? [] : [...prevMembers];
+    const base = mode === 'replace' ? [] : [...prevMembers];
 
-    // If incoming contains advisor, replace existing advisor in base
-    const incomingAdvisor = incomingRows.find(r => r.type === 'advisor');
-    if (incomingAdvisor) {
-      base = base.filter(m => m.type !== 'advisor');
-    }
-
-    let combined = [...base, ...incomingRows];
+    // Incoming advisors push out the oldest ones once the track's limit is reached
+    const stamped = incomingRows.map(r => ({ ...r, university: user?.university || '' }));
+    let combined = capAdvisors([...base, ...stamped], getTrack(trackId).advisorCount || 1);
     combined = ensureStudentLeader(combined);
 
     updateSubmission(trackId, { members: combined });
@@ -281,7 +312,7 @@ export const PortalProvider = ({ children }) => {
   // Draft & Submit
   const saveDraft = (trackId) => {
     const sub = submissions[trackId];
-    if (!(sub.projectName || '').trim()) {
+    if (getTrack(trackId).needsWorkInfo && !(sub.projectName || '').trim()) {
       return { success: false, error: 'กรุณาตั้งชื่อผลงานก่อนบันทึกฉบับร่าง' };
     }
     updateSubmission(trackId, {
@@ -311,7 +342,7 @@ export const PortalProvider = ({ children }) => {
   };
 
   const resetAllDataToDefault = () => {
-    const defaultData = createSeedSubmissions();
+    const defaultData = normalizeSubmissions(createSeedSubmissions());
     setSubmissions(defaultData);
     localStorage.setItem(STORAGE_KEY_SUBMISSIONS, JSON.stringify(defaultData));
     showToast('รีเซ็ตข้อมูลตัวอย่างเรียบร้อยแล้ว');
@@ -344,8 +375,6 @@ export const PortalProvider = ({ children }) => {
         saveDraft,
         confirmSubmit,
         resetAllDataToDefault,
-        bannerDismissed,
-        dismissBanner: () => setBannerDismissed(true),
         toast,
         toastUndo,
         showToast,

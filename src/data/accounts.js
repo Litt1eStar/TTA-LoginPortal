@@ -4,7 +4,7 @@ export const ACCOUNTS = {
   'rep.rtc': {
     username: 'rep.rtc',
     name: 'กฤติน ประกอบดี',
-    university: 'มหาวิทยาลัยเทคโนโลยีประจอมเกล้าธนบุรี',
+    university: 'มหาวิทยาลัยเทคโนโลยีพระจอมเกล้าธนบุรี',
     role: 'ผู้ประสานงานมหาวิทยาลัย'
   },
   'rep.svu': {

@@ -281,7 +281,7 @@ export const LoginView = () => {
           borderTop: '1px solid #ECECF1',
           paddingTop: '20px'
         }}>
-          Thailand Teaching Academy Award 13th · ศูนย์ประสานงานการประกวด
+          Thailand Teaching Academy Award 2027 · ศูนย์ประสานงานการประกวด
         </div>
       </div>
     </div>

@@ -94,7 +94,7 @@ export const MosaicHero = () => {
               >
                 <img
                   src="/assets/ttaa13-logo.png"
-                  alt="Thailand Teaching Academy Award 13th"
+                  alt="Thailand Teaching Academy Award 2027"
                   style={{ width: '100%', height: 'auto', display: 'block' }}
                 />
               </div>

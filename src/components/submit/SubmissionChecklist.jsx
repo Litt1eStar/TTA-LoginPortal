@@ -1,5 +1,7 @@
 import React from 'react';
 import { usePortal } from '../../context/PortalContext';
+import { getTrack } from '../../data/tracks';
+import { getRequirements } from '../../utils/requirements';
 import { fmtDateTime } from '../../utils/formatters';
 import {
   CheckCircle,
@@ -7,202 +9,158 @@ import {
   FloppyDisk,
   PaperPlaneTilt,
   LockSimple,
-  Receipt
+  Receipt,
+  Warning
 } from '@phosphor-icons/react';
+
+// Circular progress (SVG ring), sized for the readiness panel
+const Ring = ({ value, total }) => {
+  const r = 34;
+  const c = 2 * Math.PI * r;
+  const pct = total ? value / total : 0;
+  const complete = value === total;
+  return (
+    <div style={{ position: 'relative', width: '84px', height: '84px', flexShrink: 0 }}>
+      <svg width="84" height="84" viewBox="0 0 84 84" aria-hidden="true">
+        <circle cx="42" cy="42" r={r} fill="none" stroke="#ECEDF3" strokeWidth="8" />
+        <circle
+          cx="42"
+          cy="42"
+          r={r}
+          fill="none"
+          stroke={complete ? 'var(--blue)' : 'var(--primary)'}
+          strokeWidth="8"
+          strokeLinecap="round"
+          strokeDasharray={c}
+          strokeDashoffset={c * (1 - pct)}
+          transform="rotate(-90 42 42)"
+          style={{ transition: 'stroke-dashoffset 0.6s var(--ease-out), stroke 0.3s' }}
+        />
+      </svg>
+      <div className="num-xl" style={{
+        position: 'absolute',
+        inset: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: '22px'
+      }}>
+        {value}/{total}
+      </div>
+    </div>
+  );
+};
 
 export const SubmissionChecklist = ({ trackId, onAttemptSubmit, isLocked, onSaveDraft }) => {
   const { submissions } = usePortal();
   const sub = submissions[trackId] || { members: [], files: [], links: {} };
 
-  const hasProjectName = !!(sub.projectName || '').trim();
-  const hasAdvisor = (sub.members || []).some(m => m.type === 'advisor');
-  const students = (sub.members || []).filter(m => m.type === 'student');
-  const hasStudents = students.length > 0;
-  const hasLeader = students.some(m => m.isLeader);
-  const hasTeam = hasStudents && hasLeader;
+  const criteria = getRequirements(getTrack(trackId), sub);
+  const completed = criteria.filter(c => c.ok).length;
+  const allDone = completed === criteria.length;
 
-  const hasFiles = (sub.files || []).some(f => f.status === 'done');
-  const hasLinks = !!(sub.links?.video || sub.links?.github || sub.links?.drive);
-  const hasDeliverables = hasFiles || hasLinks;
+  const savedLabel = isLocked && sub.submittedAt
+    ? `ส่งเมื่อ ${fmtDateTime(sub.submittedAt)}`
+    : sub.draftAt
+      ? `บันทึกร่างเมื่อ ${fmtDateTime(sub.draftAt)}`
+      : 'ยังไม่ได้บันทึก';
 
-  const criteria = [
-    { label: 'ระบุชื่อผลงาน', ok: hasProjectName },
-    { label: 'ระบุอาจารย์ที่ปรึกษา (1 ท่าน)', ok: hasAdvisor },
-    { label: `มีนักศึกษา ${students.length > 0 ? `(${students.length} คน)` : ''} พร้อมหัวหน้าทีม`, ok: hasTeam },
-    { label: 'อัปโหลดไฟล์หรือแนบลิงก์ผลงาน', ok: hasDeliverables }
-  ];
-
-  const completedCount = criteria.filter(c => c.ok).length;
-  const percentage = Math.round((completedCount / criteria.length) * 100);
-
-  const getSavedLabel = () => {
-    if (isLocked && sub.submittedAt) {
-      return `ส่งเมื่อ ${fmtDateTime(sub.submittedAt)}`;
-    }
-    if (sub.draftAt) {
-      return `บันทึกฉบับร่าง ${fmtDateTime(sub.draftAt)}`;
-    }
-    return 'ยังไม่ได้บันทึกฉบับร่าง';
-  };
+  const jumpTo = (section) =>
+    document.getElementById(`section-${section}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   return (
-    <div style={{
-      background: '#FFFFFF',
-      borderRadius: '24px',
-      border: '1px solid #ECECF1',
-      padding: '24px',
-      boxShadow: '0 4px 20px -2px rgba(27, 29, 41, 0.05)',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '20px',
-      position: 'sticky',
-      top: '94px'
-    }}>
-      {/* Header and readiness meter */}
-      <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-          <h3 style={{ fontSize: '17px', fontWeight: 800, color: '#1B1D29' }}>
-            ความพร้อมในการส่งผลงาน
-          </h3>
-          <span style={{ fontSize: '17px', fontWeight: 800, color: '#FF5F1C' }}>
-            {percentage}%
-          </span>
-        </div>
-
-        <div style={{
-          width: '100%',
-          height: '8px',
-          background: '#F0F1F5',
-          borderRadius: '20px',
-          overflow: 'hidden'
-        }}>
-          <div style={{
-            width: `${percentage}%`,
-            height: '100%',
-            background: percentage === 100 ? '#2A9FF7' : 'linear-gradient(90deg, #FF5F1C 0%, #FF8D20 100%)',
-            borderRadius: '20px',
-            transition: 'width 0.4s ease'
-          }} />
+    <aside className="ready-panel reveal" style={{ '--i': 1 }} aria-label="ความพร้อมในการส่ง">
+      {/* Progress */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <Ring value={completed} total={criteria.length} />
+        <div>
+          <h3 style={{ fontSize: 'var(--fs-lg)', fontWeight: 700 }}>ความพร้อมในการส่ง</h3>
+          <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--on-ink-muted)' }}>
+            {allDone ? 'ครบแล้ว พร้อมส่ง' : `เหลืออีก ${criteria.length - completed} รายการ`}
+          </p>
         </div>
       </div>
 
-      {/* Checklist items */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        {criteria.map((c, idx) => (
-          <div
-            key={idx}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              fontSize: '13.5px',
-              color: c.ok ? '#1B1D29' : '#6B6F80',
-              fontWeight: c.ok ? 600 : 500
-            }}
-          >
-            {c.ok ? (
-              <CheckCircle size={19} weight="fill" color="#2A9FF7" style={{ flexShrink: 0 }} />
-            ) : (
-              <Circle size={19} color="#C4C6D0" style={{ flexShrink: 0 }} />
-            )}
-            <span>{c.label}</span>
-          </div>
+      {/* Checklist: each item jumps to its section */}
+      <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+        {criteria.map((c) => (
+          <li key={c.key}>
+            <button type="button" className={`check-item ${c.ok ? 'ok' : ''}`} onClick={() => jumpTo(c.section)}>
+              {c.ok
+                ? <CheckCircle size={20} weight="fill" color="var(--blue)" style={{ flexShrink: 0, marginTop: '2px' }} />
+                : <Circle size={20} color="#A0A3B1" style={{ flexShrink: 0, marginTop: '2px' }} />}
+              <span>{c.label}</span>
+            </button>
+          </li>
         ))}
-      </div>
+      </ul>
 
-      {/* Submission status timestamp / hash */}
+      {/* Status */}
       <div style={{
-        background: '#FAFAFC',
-        borderRadius: '14px',
-        padding: '12px 14px',
-        border: '1px solid #ECECF1',
-        fontSize: '12.5px'
+        borderTop: '1px solid var(--ink-line)',
+        paddingTop: '14px',
+        fontSize: 'var(--fs-sm)',
+        color: 'var(--on-ink-muted)'
       }}>
-        <div style={{ color: '#6B6F80' }}>
-          สถานะ: <strong>{getSavedLabel()}</strong>
-        </div>
-
+        <div>สถานะ: <strong style={{ color: 'var(--on-ink)' }}>{savedLabel}</strong></div>
         {sub.hash && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            marginTop: '6px',
-            fontSize: '12px',
-            color: '#0A65B0',
-            fontWeight: 700
-          }}>
-            <Receipt size={14} weight="bold" />
-            <span>รหัสใบเสร็จ: #{sub.hash}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', color: 'var(--blue-text)', fontWeight: 700 }}>
+            <Receipt size={16} weight="bold" />
+            <span>รหัสยืนยัน #{sub.hash}</span>
           </div>
         )}
       </div>
 
-      {/* Action buttons */}
+      {/* Actions */}
       {isLocked ? (
         <div style={{
-          background: '#EAF5FE',
-          color: '#0A65B0',
-          padding: '12px',
-          borderRadius: '14px',
-          textAlign: 'center',
-          fontSize: '13.5px',
-          fontWeight: 700,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: '8px'
+          gap: '8px',
+          padding: '12px',
+          borderRadius: '12px',
+          background: 'var(--blue-bg)',
+          color: 'var(--blue-text)',
+          fontWeight: 700
         }}>
-          <LockSimple size={16} weight="bold" />
-          <span>ผลงานนี้ถูกส่งและล็อกแล้ว</span>
+          <LockSimple size={18} weight="bold" />
+          <span>ส่งแล้ว แก้ไขไม่ได้</span>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <button
-            type="button"
-            onClick={onAttemptSubmit}
-            style={{
-              width: '100%',
-              padding: '14px',
-              borderRadius: '14px',
-              background: 'linear-gradient(135deg, #FF5F1C 0%, #FF8D20 100%)',
-              color: '#FFFFFF',
-              fontWeight: 700,
-              fontSize: '15px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              boxShadow: '0 6px 18px rgba(255, 95, 28, 0.35)'
-            }}
-          >
-            <PaperPlaneTilt size={18} weight="fill" />
-            <span>ตรวจสอบและส่งผลงาน</span>
-          </button>
+          {/* Pre-submit warning (FEEDBACK #4) */}
+          <div style={{
+            display: 'flex',
+            gap: '10px',
+            alignItems: 'flex-start',
+            padding: '12px 14px',
+            borderRadius: '12px',
+            background: 'var(--yellow-bg)', border: '1px solid rgba(255, 197, 37, 0.6)',
+            color: '#6B4500',
+            fontSize: 'var(--fs-sm)',
+            lineHeight: 1.55
+          }}>
+            <Warning size={18} weight="fill" style={{ flexShrink: 0, marginTop: '2px' }} />
+            <span>ตรวจสอบข้อมูลให้ถูกต้องก่อนส่ง เมื่อส่งแล้วจะแก้ไขไม่ได้</span>
+          </div>
 
           <button
             type="button"
-            onClick={onSaveDraft}
-            style={{
-              width: '100%',
-              padding: '11px',
-              borderRadius: '12px',
-              background: '#FFFFFF',
-              border: '1.5px solid #E0E1E8',
-              color: '#1B1D29',
-              fontWeight: 700,
-              fontSize: '13.5px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px'
-            }}
+            className="btn btn-primary btn-block"
+            onClick={onAttemptSubmit}
+            style={{ minHeight: '54px', fontSize: '16px' }}
           >
-            <FloppyDisk size={16} weight="bold" />
+            <PaperPlaneTilt size={20} weight="fill" />
+            <span>ตรวจสอบและส่งผลงาน</span>
+          </button>
+
+          <button type="button" className="btn btn-block" onClick={onSaveDraft}>
+            <FloppyDisk size={18} weight="bold" />
             <span>บันทึกฉบับร่าง</span>
           </button>
         </div>
       )}
-    </div>
+    </aside>
   );
 };
