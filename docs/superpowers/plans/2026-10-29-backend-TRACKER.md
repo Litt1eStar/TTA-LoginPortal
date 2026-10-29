@@ -10,11 +10,11 @@ One list for the whole backend build. Tick a box when its task is done and commi
 
 | Phase | Plan | Tasks | Done | Target |
 |---|---|---|---|---|
-| A | [Server core](2026-10-29-backend-a-server-core.md) | 12 | 12 ✅ (awaiting approval) | 29–30 Oct |
-| B | [Files + Google Drive video](2026-10-29-backend-b-files-drive.md) | 8 | 0 | 30–31 Oct |
+| A | [Server core](2026-10-29-backend-a-server-core.md) | 12 | 12 ✅ approved | 29–30 Oct |
+| B | [Files + Google Drive video](2026-10-29-backend-b-files-drive.md) | 8 | 8 ✅ approved |  30–31 Oct |
 | C | [Frontend wiring](2026-10-29-backend-c-frontend.md) | 14 | 0 | 30–31 Oct |
 | D | [Admin, export, deploy](2026-10-29-backend-d-admin-deploy.md) | 13 | 0 | 31 Oct–3 Nov |
-| **All** | | **47** | **12** | **go-live 4 Nov** |
+| **All** | | **47** | **20** | **go-live 4 Nov** |
 
 **Order:** A must be finished before anything else. After that, B and C can run side by side. Exceptions:
 - C11 (video UI) needs B7.
@@ -48,14 +48,14 @@ These can follow later: the D6 admin page polish, and the D4 zip download. Until
 
 ## B · Files + Google Drive video — [plan](2026-10-29-backend-b-files-drive.md)
 
-- [ ] **B1** Packages, `settings` table, token encryption (AES-256-GCM)
-- [ ] **B2** Checklist accepts an uploaded video (shared `requirements.js`)
-- [ ] **B3** Photo + work-file upload (real type check, sha256 dedupe, limits)
-- [ ] **B4** Download + delete files (own university or admin)
-- [ ] **B5** Google Drive client with injectable fetch (folders, resumable session, quota)
-- [ ] **B6** Admin OAuth connect / callback / status
-- [ ] **B7** Video routes (session, confirm, delete)
-- [ ] **B8** 👤 Manual check with the real Google account *(needs you)*
+- [x] **B1** Packages, `settings` table, token encryption (AES-256-GCM)
+- [x] **B2** Checklist accepts an uploaded video (shared `requirements.js`)
+- [x] **B3** Photo + work-file upload (real type check, sha256 dedupe, limits)
+- [x] **B4** Download + delete files (own university or admin)
+- [x] **B5** Google Drive client with injectable fetch (folders, resumable session, quota)
+- [x] **B6** Admin OAuth connect / callback / status
+- [x] **B7** Video routes (session, confirm, delete)
+- [x] **B8** 👤 Manual check with the real Google account *(needs you)*
 
 ## C · Frontend wiring — [plan](2026-10-29-backend-c-frontend.md)
 
@@ -96,7 +96,7 @@ These can follow later: the D6 admin page polish, and the D4 zip download. Until
 - [x] Homepage + privacy policy live on GitHub Pages
 - [x] Coordinator + admin passwords generated (private note)
 - [ ] Fill in the admin names in the private accounts note (`admin1`–`admin3`)
-- [ ] B8: copy the Google client values into `server/.env` (never commit it), then connect Drive
+- [x] B8: copy the Google client values into `server/.env` (never commit it), then connect Drive
 - [ ] Choose a deploy target: Scenario A (Docker) or B (bare Node) on the university server
 - [ ] Add the production redirect URI to the Google OAuth client
 - [ ] D12: go-live checklist sign-off
@@ -119,3 +119,4 @@ These can follow later: the D6 admin page polish, and the D4 zip download. Until
 |---|---|---|
 | 29 Oct | — | All plans written; nothing implemented yet |
 | 29 Oct | A1–A12 | Plan A built on `backend`: 17 commits, 114 tests passing. Review fixes: atomic submit, input hardening, CSRF 415 hook, trusted proxy, login caps (10/min per IP+user, 30/min per IP), server-side 7-day session expiry, server-relative paths. Real accounts not seeded yet (needs you). |
+| 30 Oct | B1–B8 | Plan B built: files, Drive OAuth, video routes; 190 tests passing. Approved. |
