@@ -141,4 +141,38 @@ export default async function filesRoutes(app, { db, config }) {
       await rm(tmpPath, { force: true });
     }
   });
+
+  const idParams = {
+    type: 'object',
+    required: ['id'],
+    properties: { id: { type: 'integer', minimum: 1 } }
+  };
+  const getFileRow = (id) => {
+    const row = db.prepare('SELECT * FROM files WHERE id = ?').get(id);
+    if (!row) throw httpError(404, 'not_found', 'ไม่พบข้อมูล');
+    return row;
+  };
+  const forbidden = () => httpError(403, 'forbidden', 'ไม่มีสิทธิ์เข้าถึง');
+
+  app.get('/files/:id', { preHandler: app.requireUser, schema: { params: idParams } }, async (request, reply) => {
+    const row = getFileRow(request.params.id);
+    if (request.user.role !== 'admin' && row.university_id !== request.user.universityId) throw forbidden();
+    const disposition = row.kind === KIND.photo ? 'inline' : 'attachment';
+    reply
+      .header('content-type', row.mime)
+      .header('content-length', row.size)
+      .header('cache-control', 'private, max-age=31536000, immutable')
+      .header('content-disposition', `${disposition}; filename*=UTF-8''${encodeURIComponent(row.original_name)}`);
+    return reply.send(createReadStream(blobPath(row.sha256)));
+  });
+
+  app.delete('/files/:id', { preHandler: app.requireCoordinator, schema: { params: idParams } }, async (request) => {
+    const row = getFileRow(request.params.id);
+    if (row.university_id !== request.user.universityId) throw forbidden();
+    writableEntry(db, config, row.university_id, row.entry_key);
+    db.prepare('DELETE FROM files WHERE id = ?').run(row.id);
+    const { n } = db.prepare('SELECT COUNT(*) AS n FROM files WHERE sha256 = ?').get(row.sha256);
+    if (n === 0) await rm(blobPath(row.sha256), { force: true });
+    return { ok: true };
+  });
 }

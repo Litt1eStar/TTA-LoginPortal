@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+import path from 'node:path';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { readdirSync } from 'node:fs';
 import { makeTestApp, loginAs } from './helpers.js';
@@ -108,5 +110,57 @@ describe('POST /api/submissions/:key/files', () => {
     const res = await upload(t.app, kmutt, 'dance', 'photo', 'p40.jpg', jpegBytes(64, 200));
     expect(res.statusCode).toBe(400);
     expect(res.json().error).toBe('bad_request');
+  });
+});
+describe('GET /api/files/:id', () => {
+  it('streams the bytes with mime and immutable cache to the owner', async () => {
+    const { file } = (await upload(t.app, kmutt, 'singing', 'photo', 'a.jpg', jpegBytes())).json();
+    const res = await t.app.inject({ method: 'GET', url: file.dataUrl, headers: { cookie: kmutt } });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toBe('image/jpeg');
+    expect(res.headers['cache-control']).toBe('private, max-age=31536000, immutable');
+    expect(res.rawPayload.equals(jpegBytes())).toBe(true);
+  });
+
+  it('is 403 for another university and 200 for an admin', async () => {
+    const { file } = (await upload(t.app, kmutt, 'clip', 'work', 'w.pdf', pdfBytes())).json();
+    const rmutt = await loginAs(t.app, 'rmutt', 'pass-rmutt-1');
+    const other = await t.app.inject({ method: 'GET', url: file.url, headers: { cookie: rmutt } });
+    expect(other.statusCode).toBe(403);
+    const admin = await loginAs(t.app, 'admin1', 'pass-admin-1');
+    const ok = await t.app.inject({ method: 'GET', url: file.url, headers: { cookie: admin } });
+    expect(ok.statusCode).toBe(200);
+    expect(ok.headers['content-disposition']).toBe("attachment; filename*=UTF-8''w.pdf");
+  });
+
+  it('is 404 for an unknown id and 401 without a session', async () => {
+    expect((await t.app.inject({ method: 'GET', url: '/api/files/999', headers: { cookie: kmutt } })).statusCode).toBe(404);
+    expect((await t.app.inject({ method: 'GET', url: '/api/files/1' })).statusCode).toBe(401);
+  });
+});
+
+describe('DELETE /api/files/:id', () => {
+  const del = (id, cookie) => t.app.inject({ method: 'DELETE', url: `/api/files/${id}`, headers: { cookie } });
+
+  it('keeps the disk file while another row still uses it', async () => {
+    const a = (await upload(t.app, kmutt, 'singing', 'photo', 'a.jpg', jpegBytes())).json().file;
+    const b = (await upload(t.app, kmutt, 'dance', 'photo', 'b.jpg', jpegBytes())).json().file;
+    const [blob] = blobs(t.config);
+    const blobFile = path.join(t.config.uploadDir, blob);
+
+    expect((await del(a.fileId, kmutt)).json()).toEqual({ ok: true });
+    expect(existsSync(blobFile)).toBe(true);
+    expect((await del(b.fileId, kmutt)).statusCode).toBe(200);
+    expect(existsSync(blobFile)).toBe(false);
+    expect(t.db.prepare('SELECT COUNT(*) AS n FROM files').get().n).toBe(0);
+  });
+
+  it('refuses another university (403) and a submitted entry (423)', async () => {
+    const f = (await upload(t.app, kmutt, 'singing', 'photo', 'a.jpg', jpegBytes())).json().file;
+    const rmutt = await loginAs(t.app, 'rmutt', 'pass-rmutt-1');
+    expect((await del(f.fileId, rmutt)).statusCode).toBe(403);
+    t.db.prepare("UPDATE submissions SET status = 2 WHERE university_id = 1 AND entry_key = 'singing'").run();
+    expect((await del(f.fileId, kmutt)).statusCode).toBe(423);
+    expect(t.db.prepare('SELECT COUNT(*) AS n FROM files').get().n).toBe(1);
   });
 });
