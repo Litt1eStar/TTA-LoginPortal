@@ -6,7 +6,8 @@ import { listEntries } from './entries.js';
 
 export const COOKIE_NAME = 'tta_session';
 const MAX_AGE = 7 * 24 * 3600;
-let dummyHash = null; // compared when the username is unknown, so timing does not reveal it
+// Compared when the username is unknown, so timing does not reveal it. Computed once, same cost as real users.
+let dummyHash = null;
 
 function cookieOptions(config) {
   return { signed: true, httpOnly: true, sameSite: 'lax', secure: config.cookieSecure, path: '/', maxAge: MAX_AGE };
@@ -17,6 +18,7 @@ function submissionsFor(db, user) {
 }
 
 async function authPlugin(app, { db, config }) {
+  dummyHash ??= bcrypt.hashSync('dummy-password', 12);
   app.decorateRequest('user', null);
 
   async function requireUser(request) {
@@ -45,7 +47,13 @@ async function authPlugin(app, { db, config }) {
   app.decorate('requireCoordinator', requireCoordinator);
 
   app.post('/api/login', {
-    config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    config: {
+      rateLimit: {
+        max: 10,
+        timeWindow: '1 minute',
+        keyGenerator: (request) => `${request.ip}|${String(request.body?.username || '').trim().toLowerCase()}`
+      }
+    },
     schema: {
       body: {
         type: 'object',
@@ -57,7 +65,6 @@ async function authPlugin(app, { db, config }) {
     const { username, password } = request.body;
     const row = getUserByUsername(db, username.trim().toLowerCase());
     if (!row) {
-      dummyHash ??= await bcrypt.hash('dummy-password', 12);
       await bcrypt.compare(password, dummyHash);
       throw httpError(401, 'bad_credentials');
     }
@@ -70,7 +77,8 @@ async function authPlugin(app, { db, config }) {
 
   app.post('/api/logout', { preHandler: requireUser }, async (request, reply) => {
     bumpSessionVersion(db, request.user.id);
-    reply.clearCookie(COOKIE_NAME, { path: '/' });
+    const { maxAge, ...clearOpts } = cookieOptions(config);
+    reply.clearCookie(COOKIE_NAME, clearOpts);
     return { ok: true };
   });
 

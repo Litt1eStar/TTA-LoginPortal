@@ -7,7 +7,7 @@ import { loadConfig } from '../src/config.js';
 import { buildApp } from '../src/app.js';
 import { clearUserCache } from '../src/users.js';
 
-export async function makeTestApp(overrides = {}) {
+export async function makeTestApp(overrides = {}, appOptions = {}) {
   clearUserCache();
   const uploadDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tta-up-'));
   const config = loadConfig({ NODE_ENV: 'test', UPLOAD_DIR: uploadDir, ...overrides });
@@ -18,7 +18,7 @@ export async function makeTestApp(overrides = {}) {
   addUser.run('kmutt', bcrypt.hashSync('pass-kmutt-1', 4), 'ผู้ประสานงาน มจธ.', 1, 0);
   addUser.run('rmutt', bcrypt.hashSync('pass-rmutt-1', 4), 'ผู้ประสานงาน มทร.ธัญบุรี', 2, 0);
   addUser.run('admin1', bcrypt.hashSync('pass-admin-1', 4), 'Admin', null, 1);
-  const app = buildApp({ db, config });
+  const app = buildApp({ db, config, ...appOptions });
   await app.ready();
   return { app, db, config };
 }

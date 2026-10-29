@@ -9,6 +9,7 @@ export function loadConfig(env = process.env) {
     dbPath: env.DB_PATH || 'data/portal.db',
     uploadDir: env.UPLOAD_DIR || 'data/uploads',
     sessionSecret: env.SESSION_SECRET || 'dev-only-secret-change-me-dev-only-secret',
+    trustProxy: env.TRUST_PROXY ? (/^\d+$/.test(env.TRUST_PROXY) ? Number(env.TRUST_PROXY) : env.TRUST_PROXY) : false,
     cookieSecure: env.COOKIE_SECURE === 'true',
     deadline: env.DEADLINE || FINAL_DEADLINE,
     maxPhotoKB: Number(env.MAX_PHOTO_KB || 200),

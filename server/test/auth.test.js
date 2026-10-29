@@ -59,7 +59,91 @@ describe('POST /api/login', () => {
   });
 });
 
+describe('login hardening', () => {
+  it('rate limit is per IP and username', async () => {
+    const { app } = await makeTestApp();
+    for (let i = 0; i < 10; i++) await login(app, 'kmutt', 'wrong');
+    expect((await login(app, 'kmutt', 'pass-kmutt-1')).statusCode).toBe(429);
+    expect((await login(app, 'rmutt', 'pass-rmutt-1')).statusCode).toBe(200);
+  });
+
+  it('trims and lowercases the username', async () => {
+    const { app } = await makeTestApp();
+    const res = await login(app, ' KMUTT ', 'pass-kmutt-1');
+    expect(res.statusCode).toBe(200);
+    expect(res.json().user.username).toBe('kmutt');
+  });
+
+  it('sets Secure when cookieSecure is true', async () => {
+    const { app } = await makeTestApp({ COOKIE_SECURE: 'true' });
+    const res = await login(app, 'kmutt', 'pass-kmutt-1');
+    expect(res.cookies.find(c => c.name === 'tta_session').secure).toBe(true);
+  });
+
+  it('401 for tampered signed cookies', async () => {
+    const { app } = await makeTestApp();
+    const a = (await loginAs(app, 'kmutt', 'pass-kmutt-1')).split('=')[1];
+    const b = (await loginAs(app, 'rmutt', 'pass-rmutt-1')).split('=')[1];
+    const sigA = a.slice(a.lastIndexOf('.') + 1);
+    const sigB = b.slice(b.lastIndexOf('.') + 1);
+    const valueA = a.slice(0, a.lastIndexOf('.'));
+    const valueB = b.slice(0, b.lastIndexOf('.'));
+    const tampered = [`${valueB}.${sigA}`, `${valueA}.${sigB}`, `3.1.${sigA}`];
+    for (const v of tampered) {
+      const res = await app.inject({ method: 'GET', url: '/api/me', headers: { cookie: `tta_session=${v}` } });
+      expect(res.statusCode).toBe(401);
+    }
+  });
+
+  it('logout clears the cookie with matching attributes', async () => {
+    const { app } = await makeTestApp({ COOKIE_SECURE: 'true' });
+    const cookie = await loginAs(app, 'kmutt', 'pass-kmutt-1');
+    const out = await app.inject({ method: 'POST', url: '/api/logout', headers: { cookie } });
+    const c = out.cookies.find(x => x.name === 'tta_session');
+    expect(c).toMatchObject({ path: '/', httpOnly: true, secure: true, sameSite: 'Lax' });
+  });
+});
+
+describe('request guards', () => {
+  it('415 for text/plain POST', async () => {
+    const { app } = await makeTestApp();
+    const cookie = await loginAs(app, 'kmutt', 'pass-kmutt-1');
+    const res = await app.inject({ method: 'POST', url: '/api/submissions/clip/submit', headers: { cookie, 'content-type': 'text/plain' }, payload: 'x' });
+    expect(res.statusCode).toBe(415);
+    expect(res.json().error).toBe('bad_type');
+  });
+
+  it('415 for form-urlencoded and multipart outside the files route', async () => {
+    const { app } = await makeTestApp();
+    for (const ct of ['application/x-www-form-urlencoded', 'multipart/form-data; boundary=x']) {
+      const res = await app.inject({ method: 'POST', url: '/api/login', headers: { 'content-type': ct }, payload: 'a=b' });
+      expect(res.statusCode).toBe(415);
+    }
+  });
+
+  it('bodyless POST to submit and logout still works', async () => {
+    const { app } = await makeTestApp();
+    const cookie = await loginAs(app, 'kmutt', 'pass-kmutt-1');
+    const submit = await app.inject({ method: 'POST', url: '/api/submissions/clip/submit', headers: { cookie } });
+    expect(submit.statusCode).not.toBe(415);
+    const out = await app.inject({ method: 'POST', url: '/api/logout', headers: { cookie } });
+    expect(out.statusCode).toBe(200);
+  });
+
+  it('413 for a body over 1 MB', async () => {
+    const { app } = await makeTestApp();
+    const res = await app.inject({ method: 'POST', url: '/api/login', headers: { 'content-type': 'application/json' }, payload: JSON.stringify({ username: 'a', password: 'x'.repeat(1024 * 1024 + 10) }) });
+    expect(res.statusCode).toBe(413);
+  });
+});
+
 describe('GET /api/me', () => {
+  it('is not rate limited', async () => {
+    const { app } = await makeTestApp();
+    const cookie = await loginAs(app, 'kmutt', 'pass-kmutt-1');
+    for (let i = 0; i < 11; i++) expect((await app.inject({ method: 'GET', url: '/api/me', headers: { cookie } })).statusCode).toBe(200);
+  });
+
   it('401 without a cookie', async () => {
     const { app } = await makeTestApp();
     const res = await app.inject({ method: 'GET', url: '/api/me' });

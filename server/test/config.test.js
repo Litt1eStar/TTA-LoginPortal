@@ -23,6 +23,12 @@ describe('loadConfig', () => {
     expect(c.maxWorkMB).toBe(10);
   });
 
+  it('parses TRUST_PROXY', () => {
+    expect(loadConfig({}).trustProxy).toBe(false);
+    expect(loadConfig({ TRUST_PROXY: '1' }).trustProxy).toBe(1);
+    expect(loadConfig({ TRUST_PROXY: '10.0.0.1' }).trustProxy).toBe('10.0.0.1');
+  });
+
   it('rejects a short secret in production', () => {
     expect(() => loadConfig({ NODE_ENV: 'production', SESSION_SECRET: 'short' })).toThrow(/SESSION_SECRET/);
     expect(() => loadConfig({ NODE_ENV: 'production' })).toThrow(/SESSION_SECRET/);
