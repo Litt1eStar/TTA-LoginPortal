@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { usePortal } from '../../context/PortalContext';
 import { TITLE_PREFIXES, DEPARTMENTS, PHOTO_RULES } from '../../data/referenceData';
-import { processPhoto } from '../../utils/photo';
+import { processPhoto, dataUrlToFile } from '../../utils/photo';
+import { uploadFile } from '../../api';
 import { X, ChalkboardTeacher, Student, Plus, Buildings, WarningCircle, Camera, Trash } from '@phosphor-icons/react';
 
 const FieldError = ({ msg }) => msg ? (
@@ -23,6 +24,7 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
   const [isLeader, setIsLeader] = useState(false);
   const [photo, setPhoto] = useState(null);
   const [errors, setErrors] = useState({});
+  const [photoBusy, setPhotoBusy] = useState(false);
   const photoInput = useRef(null);
 
   useEffect(() => {
@@ -74,6 +76,7 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
   };
 
   const handleSave = (addAnother = false) => {
+    if (photoBusy) return;
     if (!validate()) return;
 
     addOrUpdateMember(trackId, {
@@ -105,14 +108,24 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
 
   const clearError = (key) => errors[key] && setErrors(prev => ({ ...prev, [key]: '' }));
 
+  // Resize in the browser, upload, then keep the server's PhotoRef ({ fileId, dataUrl: '/api/files/<id>', … })
   const handlePhoto = async (file) => {
     if (!file) return;
     const res = await processPhoto(file);
-    if (res.success) {
-      setPhoto(res.photo);
-      clearError('photo');
-    } else {
+    if (!res.success) {
       setErrors(prev => ({ ...prev, photo: res.error }));
+      return;
+    }
+    setPhotoBusy(true);
+    setErrors(prev => ({ ...prev, photo: '' }));
+    try {
+      const upload = dataUrlToFile(res.photo.dataUrl, `photo.${res.photo.ext}`);
+      const { file: ref } = await uploadFile(`/submissions/${trackId}/files?kind=photo`, upload);
+      setPhoto(ref);
+    } catch (err) {
+      setErrors(prev => ({ ...prev, photo: err.message || 'อัปโหลดรูปไม่สำเร็จ กรุณาลองใหม่' }));
+    } finally {
+      setPhotoBusy(false);
     }
   };
 
@@ -201,17 +214,19 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
                 justifyContent: 'center',
                 color: 'var(--text-light)'
               }}>
-                {photo
-                  ? <img src={photo.dataUrl} alt="รูปถ่าย" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  : <Camera size={28} weight="duotone" />}
+                {photoBusy
+                  ? <span style={{ fontSize: '12.5px', fontWeight: 600, textAlign: 'center', padding: '4px' }}>กำลังอัปโหลด…</span>
+                  : photo
+                    ? <img src={photo.dataUrl} alt="รูปถ่าย" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : <Camera size={28} weight="duotone" />}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-start' }}>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  <button type="button" className="btn btn-sm" onClick={() => photoInput.current?.click()}>
+                  <button type="button" className="btn btn-sm" disabled={photoBusy} onClick={() => photoInput.current?.click()}>
                     <Camera size={16} weight="bold" />
-                    <span>{photo ? 'เปลี่ยนรูป' : 'อัปโหลดรูป'}</span>
+                    <span>{photoBusy ? 'กำลังอัปโหลด…' : photo ? 'เปลี่ยนรูป' : 'อัปโหลดรูป'}</span>
                   </button>
-                  {photo && (
+                  {photo && !photoBusy && (
                     <button type="button" className="btn btn-sm btn-danger" onClick={() => setPhoto(null)}>
                       <Trash size={16} weight="bold" />
                       <span>ลบรูป</span>
@@ -363,12 +378,12 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
         <div className="modal-footer">
           <button type="button" className="btn" onClick={onClose}>ยกเลิก</button>
           {!isEditing && !isAdvisor && (
-            <button type="button" className="btn btn-danger" onClick={() => handleSave(true)}>
+            <button type="button" className="btn btn-danger" disabled={photoBusy} onClick={() => handleSave(true)}>
               <Plus size={16} weight="bold" />
               <span>บันทึกและเพิ่มอีกคน</span>
             </button>
           )}
-          <button type="button" className="btn btn-primary" onClick={() => handleSave(false)}>
+          <button type="button" className="btn btn-primary" disabled={photoBusy} onClick={() => handleSave(false)}>
             {isEditing ? 'บันทึกการแก้ไข' : 'บันทึก'}
           </button>
         </div>
