@@ -8,11 +8,15 @@ const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const API = 'https://www.googleapis.com/drive/v3';
 const UPLOAD_URL = 'https://www.googleapis.com/upload/drive/v3/files';
 const FOLDER_MIME = 'application/vnd.google-apps.folder';
+const FETCH_TIMEOUT_MS = 20000;
+export const FOLDER_MIME_TYPE = FOLDER_MIME;
 export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 export const ROOT_FOLDER_NAME = 'TTA 2027 วิดีโอ';
+export const DRIVE_DOWN = 'Google Drive ขัดข้อง กรุณาลองใหม่';
 
 export const driveUnavailable = (message = 'ยังไม่ได้เชื่อมต่อ Google Drive') =>
   httpError(503, 'drive_unavailable', message);
+const driveDown = () => driveUnavailable(DRIVE_DOWN);
 
 // All Google HTTP goes through `fetch`, so tests pass a fake one.
 export function createDrive({ db, config, fetch = globalThis.fetch }) {
@@ -40,8 +44,25 @@ export function createDrive({ db, config, fetch = globalThis.fetch }) {
     return `${AUTH_URL}?${params}`;
   }
 
+  // Every Google request: 20 s timeout, and any network failure becomes a 503.
+  async function send(url, init) {
+    try {
+      return await fetch(url, { ...init, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+    } catch {
+      throw driveDown();
+    }
+  }
+
+  async function readJson(res) {
+    try {
+      return await res.json();
+    } catch {
+      throw driveDown();
+    }
+  }
+
   async function postToken(params) {
-    const res = await fetch(TOKEN_URL, {
+    const res = await send(TOKEN_URL, {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
@@ -50,7 +71,14 @@ export function createDrive({ db, config, fetch = globalThis.fetch }) {
         ...params
       }).toString()
     });
-    const body = await res.json().catch(() => ({}));
+    if (res.status >= 500) throw driveDown();
+    let body;
+    try {
+      body = await res.json();
+    } catch {
+      if (res.ok) throw driveDown();
+      body = {};
+    }
     return { ok: res.ok, body };
   }
 
@@ -64,45 +92,70 @@ export function createDrive({ db, config, fetch = globalThis.fetch }) {
     if (!stored) throw driveUnavailable();
     const { ok, body } = await postToken({ refresh_token: decrypt(stored, config.tokenKey), grant_type: 'refresh_token' });
     if (!ok) {
-      if (body.error === 'invalid_grant') deleteSetting(db, 'google.refresh_token'); // revoked: admin must reconnect
-      throw driveUnavailable();
+      if (body.error === 'invalid_grant') {
+        deleteSetting(db, 'google.refresh_token'); // revoked: admin must reconnect
+        throw driveUnavailable();
+      }
+      throw driveDown();
     }
+    if (!body.access_token) throw driveDown();
+    if (body.refresh_token) setSetting(db, 'google.refresh_token', encrypt(body.refresh_token, config.tokenKey));
     remember(body);
     return cached.token;
   }
 
   async function call(method, url, { json, headers = {} } = {}) {
-    const token = await accessToken();
-    const res = await fetch(url, {
-      method,
-      headers: {
-        authorization: `Bearer ${token}`,
-        ...(json ? { 'content-type': 'application/json; charset=UTF-8' } : {}),
-        ...headers
-      },
-      body: json ? JSON.stringify(json) : undefined
-    });
-    if (res.status === 401) cached = null;
-    return res;
+    const attempt = async () => {
+      const token = await accessToken();
+      return send(url, {
+        method,
+        headers: {
+          authorization: `Bearer ${token}`,
+          ...(json ? { 'content-type': 'application/json; charset=UTF-8' } : {}),
+          ...headers
+        },
+        body: json ? JSON.stringify(json) : undefined
+      });
+    };
+    const res = await attempt();
+    if (res.status !== 401) return res;
+    cached = null;            // refresh once, retry once
+    return attempt();
   }
 
   async function callJson(method, url, opts) {
     const res = await call(method, url, opts);
-    if (!res.ok) throw driveUnavailable('ไม่สามารถติดต่อ Google Drive ได้ กรุณาลองใหม่');
-    return res.json();
+    if (!res.ok) {
+      const err = driveDown();
+      err.status = res.status;
+      throw err;
+    }
+    return readJson(res);
   }
 
   // Code from the OAuth callback -> stored (encrypted) refresh token, email and root folder.
   async function exchangeCode(code) {
     const { ok, body } = await postToken({ code, redirect_uri: config.google.redirectUri, grant_type: 'authorization_code' });
-    if (!ok || !body.refresh_token) throw httpError(400, 'bad_request', 'ข้อมูลไม่ถูกต้อง');
-    setSetting(db, 'google.refresh_token', encrypt(body.refresh_token, config.tokenKey));
+    if (!ok || !body.access_token) throw httpError(400, 'bad_request', 'ข้อมูลไม่ถูกต้อง');
+    const hadToken = !!getSetting(db, 'google.refresh_token');
+    if (!body.refresh_token && !hadToken) throw httpError(400, 'bad_request', 'ข้อมูลไม่ถูกต้อง');
+    if (body.refresh_token) setSetting(db, 'google.refresh_token', encrypt(body.refresh_token, config.tokenKey));
     remember(body);
-    const { email } = await getAbout();
-    const previous = getSetting(db, 'google.email');
-    if (previous && previous !== email) deleteSettingsLike(db, 'drive.'); // different account: old folder ids are useless
-    setSetting(db, 'google.email', email || '');
-    await ensureRootFolder();
+    try {
+      const { email } = await getAbout();
+      const previous = getSetting(db, 'google.email');
+      if (previous && previous !== email) deleteSettingsLike(db, 'drive.'); // different account: old folder ids are useless
+      setSetting(db, 'google.email', email || '');
+      await ensureRootFolder();
+    } catch (err) {
+      if (body.refresh_token) {   // no half setup
+        deleteSetting(db, 'google.refresh_token');
+        deleteSetting(db, 'google.email');
+        deleteSettingsLike(db, 'drive.');
+        cached = null;
+      }
+      throw err;
+    }
   }
 
   async function getAbout() {
@@ -122,9 +175,15 @@ export function createDrive({ db, config, fetch = globalThis.fetch }) {
     if (existing) return Promise.resolve(existing);
     if (creating.has(key)) return creating.get(key);
     const job = (async () => {
-      const { id } = await callJson('POST', `${API}/files?fields=id`, {
-        json: { name, mimeType: FOLDER_MIME, ...(parent ? { parents: [parent] } : {}) }
-      });
+      let id;
+      try {
+        ({ id } = await callJson('POST', `${API}/files?fields=id`, {
+          json: { name, mimeType: FOLDER_MIME, ...(parent ? { parents: [parent] } : {}) }
+        }));
+      } catch (err) {
+        if (parent && err.status === 404) { err.parentMissing = true; err.parentKind = 'root'; }
+        throw err;
+      }
       setSetting(db, key, id);
       return id;
     })().finally(() => creating.delete(key));
@@ -150,25 +209,47 @@ export function createDrive({ db, config, fetch = globalThis.fetch }) {
       }
     });
     const location = res.headers.get('location');
-    if (!res.ok || !location) throw driveUnavailable('ไม่สามารถติดต่อ Google Drive ได้ กรุณาลองใหม่');
+    if (!res.ok || !location) {
+      const err = driveDown();
+      if (res.status === 404) { err.parentMissing = true; err.parentKind = 'university'; }
+      throw err;
+    }
     return location;
+  }
+
+  // Folder ids can go stale (deleted in Drive): forget them, recreate, retry (at most twice).
+  async function createUniversitySession(code, opts) {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const parent = await ensureUniversityFolder(code);
+        return await createResumableSession({ ...opts, parent });
+      } catch (err) {
+        if (!err.parentMissing || attempt >= 2) throw err;
+        if (err.parentKind === 'root') {
+          deleteSetting(db, 'drive.root_folder');
+          deleteSettingsLike(db, 'drive.folder.');
+        } else {
+          deleteSetting(db, `drive.folder.${code}`);
+        }
+      }
+    }
   }
 
   async function getFileMeta(id) {
     const res = await call('GET', `${API}/files/${encodeURIComponent(id)}?fields=id,name,size,mimeType,parents,trashed`);
     if (res.status === 404) return null;
-    if (!res.ok) throw driveUnavailable('ไม่สามารถติดต่อ Google Drive ได้ กรุณาลองใหม่');
-    return res.json();
+    if (!res.ok) throw driveDown();
+    return readJson(res);
   }
 
   async function deleteFile(id) {
     const res = await call('DELETE', `${API}/files/${encodeURIComponent(id)}`);
-    if (!res.ok && res.status !== 404) throw driveUnavailable('ไม่สามารถติดต่อ Google Drive ได้ กรุณาลองใหม่');
+    if (!res.ok && res.status !== 404) throw driveDown();
   }
 
   return {
     isConfigured, isConnected, assertConfigured, authUrl, exchangeCode, getAbout,
-    ensureRootFolder, ensureUniversityFolder, createResumableSession, getFileMeta, deleteFile
+    ensureRootFolder, ensureUniversityFolder, createResumableSession, createUniversitySession, getFileMeta, deleteFile
   };
 }
 
@@ -183,9 +264,18 @@ function sameText(a, b) {
 
 // Admin routes: /admin/google/connect | callback | status
 export default async function driveRoutes(app, { db, config, drive }) {
+  const pending = new Map(); // state -> { userId, expires }: single use, bound to the admin
+  const takePending = (state, userId) => {
+    const p = pending.get(state);
+    pending.delete(state);
+    return !!p && p.userId === userId && p.expires > Date.now();
+  };
+
   app.get('/admin/google/connect', { preHandler: app.requireAdmin }, async (request, reply) => {
     drive.assertConfigured();
     const state = randomBytes(16).toString('hex');
+    for (const [k, v] of pending) if (v.expires <= Date.now()) pending.delete(k);
+    pending.set(state, { userId: request.user.id, expires: Date.now() + 600000 });
     reply.setCookie(STATE_COOKIE, state, {
       signed: true, httpOnly: true, sameSite: 'lax', secure: config.cookieSecure, path: STATE_PATH, maxAge: 600
     });
@@ -209,13 +299,18 @@ export default async function driveRoutes(app, { db, config, drive }) {
     const raw = request.cookies[STATE_COOKIE];
     const cookie = raw ? request.unsignCookie(raw) : { valid: false, value: null };
     reply.clearCookie(STATE_COOKIE, { path: STATE_PATH });
-    if (!state || !cookie.valid || !sameText(cookie.value, state)) {
+    const fresh = state ? takePending(state, request.user.id) : false;
+    if (!state || !cookie.valid || !sameText(cookie.value, state) || !fresh) {
       throw httpError(400, 'bad_request', 'ข้อมูลไม่ถูกต้อง');
     }
     if (error) return reply.redirect(`${config.appOrigin}/admin?google=denied`);
     if (!code) throw httpError(400, 'bad_request', 'ข้อมูลไม่ถูกต้อง');
-    drive.assertConfigured();
-    await drive.exchangeCode(code);
+    try {
+      drive.assertConfigured();
+      await drive.exchangeCode(code);
+    } catch {
+      return reply.redirect(`${config.appOrigin}/admin?google=error`);
+    }
     return reply.redirect(`${config.appOrigin}/admin?google=connected`);
   });
 

@@ -56,7 +56,7 @@ export function buildApp({ db, config, logger = false, googleFetch = globalThis.
   app.register(submissionsPlugin, { db, config });
   app.register(multipart, { limits: { files: 1, fields: 5 } });
   app.register(filesRoutes, { prefix: '/api', db, config });
-  const drive = createDrive({ db, config, fetch: googleFetch }); 
+  const drive = createDrive({ db, config, fetch: googleFetch });
   app.register(driveRoutes, { prefix: '/api', db, config, drive });
   app.register(videoRoutes, { prefix: '/api', db, config, drive });
   return app;

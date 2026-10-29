@@ -49,7 +49,7 @@ export function fakeGoogle() {
     }
     if (where === 'https://www.googleapis.com/drive/v3/files' && method === 'POST') {
       const body = JSON.parse(init.body);
-      const id = `folder-${++seq}`;
+      const id = `folder-${String(++seq).padStart(4, "0")}`;
       files.set(id, { id, name: body.name, mimeType: body.mimeType, parents: body.parents || [] });
       return json(200, { id });
     }

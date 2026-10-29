@@ -156,6 +156,11 @@ export function saveDraft(db, universityId, key, data, version) {
   if (row.status === 2) throw httpError(423, 'locked');
   if (row.version !== version) throw httpError(409, 'version_conflict', undefined, { entry: rowToEntry(row) });
   const clean = sanitizeData(key, data);
+  if (clean.video) {
+    const id = clean.video.driveFileId;
+    const confirmed = db.prepare('SELECT 1 FROM video_confirmations WHERE university_id = ? AND drive_file_id = ?').get(universityId, id);
+    if (!confirmed && rowToEntry(row).video?.driveFileId !== id) clean.video = null;
+  }
   const res = db.prepare(`
     UPDATE submissions SET data = ?, status = 1, draft_at = ?, version = version + 1
     WHERE university_id = ? AND entry_key = ? AND version = ? AND status <> 2`

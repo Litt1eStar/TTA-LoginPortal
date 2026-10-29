@@ -1,5 +1,7 @@
 import { httpError } from './errors.js';
 import { writableEntry, extOf, cleanName } from './files.js';
+import { FOLDER_MIME_TYPE } from './drive.js';
+import { nowSec } from './entries.js';
 import { getSetting, listSettings } from './settings.js';
 
 const CLIP_KEY = 'clip';
@@ -14,6 +16,8 @@ const wrongFolder = () => httpError(422, 'incomplete', 'ยังกรอกข
 });
 
 export default async function videoRoutes(app, { db, config, drive }) {
+  const isProtectedId = (id) =>
+    id === getSetting(db, 'drive.root_folder') || listSettings(db, 'drive.folder.').includes(id);
   const maxBytes = () => config.maxVideoMB * 1024 * 1024;
 
   app.post('/submissions/clip/video', {
@@ -35,8 +39,8 @@ export default async function videoRoutes(app, { db, config, drive }) {
     writableEntry(db, config, request.user.universityId, CLIP_KEY);
     if (!VIDEO_MIMES.has(mime) || !VIDEO_EXTS.has(extOf(name))) throw badType();
     if (size > maxBytes()) throw tooLarge();
-    const parent = await drive.ensureUniversityFolder(request.user.universityCode);
-    const uploadUrl = await drive.createResumableSession({ name: cleanName(name), size, mime, parent });
+    const uploadUrl = await drive.createUniversitySession(request.user.universityCode,
+      { name: cleanName(name), size, mime });
     return { uploadUrl };
   });
 
@@ -57,11 +61,12 @@ export default async function videoRoutes(app, { db, config, drive }) {
     const meta = await drive.getFileMeta(driveFileId);
     if (!meta || meta.trashed) throw httpError(404, 'not_found', 'ไม่พบข้อมูล');
 
+    // Folders are never deleted: neither ours (root, university) nor any folder-typed item.
+    if (meta.mimeType === FOLDER_MIME_TYPE || isProtectedId(driveFileId)) throw wrongFolder();
     const parents = meta.parents || [];
     if (!parents.includes(folder)) {
-      // Never delete a file that sits in another university's folder: the id may be theirs.
-      const inOtherUniversity = listSettings(db, 'drive.folder.').some(id => parents.includes(id));
-      if (!inOtherUniversity) await drive.deleteFile(driveFileId);
+      // Delete a stray file only when its parent is neither the root nor any university folder.
+      if (!parents.some(isProtectedId)) await drive.deleteFile(driveFileId);
       throw wrongFolder();
     }
     if (!VIDEO_MIMES.has(meta.mimeType) || !VIDEO_EXTS.has(extOf(meta.name))) {
@@ -73,6 +78,8 @@ export default async function videoRoutes(app, { db, config, drive }) {
       await drive.deleteFile(driveFileId);
       throw tooLarge();
     }
+    db.prepare('INSERT OR IGNORE INTO video_confirmations (university_id, drive_file_id, created_at) VALUES (?, ?, ?)')
+      .run(request.user.universityId, meta.id, nowSec());
     return { video: { driveFileId: meta.id, name: meta.name, size, mime: meta.mimeType } };
   });
 
@@ -91,10 +98,13 @@ export default async function videoRoutes(app, { db, config, drive }) {
     const folder = getSetting(db, `drive.folder.${request.user.universityCode}`);
     const meta = await drive.getFileMeta(driveFileId);
     if (!meta) return { ok: true }; // already gone
-    if (!folder || !(meta.parents || []).includes(folder)) {
+    if (meta.mimeType === FOLDER_MIME_TYPE || isProtectedId(driveFileId)
+      || !folder || !(meta.parents || []).includes(folder)) {
       throw httpError(403, 'forbidden', 'ไม่มีสิทธิ์เข้าถึง');
     }
     await drive.deleteFile(driveFileId);
+    db.prepare('DELETE FROM video_confirmations WHERE university_id = ? AND drive_file_id = ?')
+      .run(request.user.universityId, driveFileId);
     return { ok: true };
   });
 }
