@@ -12,7 +12,7 @@ One list for the whole backend build. Tick a box when its task is done and commi
 |---|---|---|---|---|
 | A | [Server core](2026-10-29-backend-a-server-core.md) | 12 | 12 ✅ approved | 29–30 Oct |
 | B | [Files + Google Drive video](2026-10-29-backend-b-files-drive.md) | 8 | 8 ✅ approved |  30–31 Oct |
-| C | [Frontend wiring](2026-10-29-backend-c-frontend.md) | 14 | 14 ✅ | 30–31 Oct |
+| C | [Frontend wiring](2026-10-29-backend-c-frontend.md) | 14 | 14 ✅ approved | 30–31 Oct |
 | D | [Admin, export, deploy](2026-10-29-backend-d-admin-deploy.md) | 13 | 0 | 31 Oct–3 Nov |
 | **All** | | **47** | **34** | **go-live 4 Nov** |
 
