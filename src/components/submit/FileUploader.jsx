@@ -23,6 +23,18 @@ const fileIcon = (ext) => {
   }
 };
 
+const ProgressBar = ({ value }) => (
+  <div
+    role="progressbar"
+    aria-valuemin={0}
+    aria-valuemax={100}
+    aria-valuenow={value}
+    style={{ height: '6px', width: '100%', minWidth: '120px', borderRadius: '999px', background: 'var(--bg-main)', overflow: 'hidden', marginTop: '6px' }}
+  >
+    <div style={{ height: '100%', width: `${value}%`, background: 'var(--primary)', transition: 'width 0.2s' }} />
+  </div>
+);
+
 export const FileUploader = ({ trackId, isLocked, error, number, done }) => {
   const { submissions, addFiles, removeFile } = usePortal();
   const sub = submissions[trackId] || { files: [] };
@@ -93,32 +105,50 @@ export const FileUploader = ({ trackId, isLocked, error, number, done }) => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {sub.files.map((file) => {
             const isError = file.status === 'error';
+            const isUploading = file.status === 'uploading';
             return (
               <div
                 key={file.id}
                 className="row-item"
                 style={isError ? { background: '#FFF8F4', borderColor: '#FFD0BD', flexWrap: 'nowrap' } : { flexWrap: 'nowrap' }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
                   {fileIcon(file.ext)}
-                  <div style={{ minWidth: 0 }}>
-                    <div className="row-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {file.name}
-                    </div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    {file.url && !isUploading ? (
+                      <a
+                        className="row-title"
+                        href={file.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                      >
+                        {file.name}
+                      </a>
+                    ) : (
+                      <div className="row-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {file.name}
+                      </div>
+                    )}
                     <div className="row-meta" style={isError ? { color: 'var(--danger)', fontWeight: 600 } : undefined}>
-                      {isError ? file.error : formatSize(file.size)}
+                      {isError
+                        ? file.error
+                        : isUploading
+                          ? `กำลังอัปโหลด ${file.progress || 0}% · ${formatSize(file.size)}`
+                          : formatSize(file.size)}
                     </div>
+                    {isUploading && <ProgressBar value={file.progress || 0} />}
                   </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                  {!isError && (
+                  {file.status === 'done' && (
                     <span className="badge badge-blue">
                       <CheckCircle size={14} weight="fill" />
                       พร้อมส่ง
                     </span>
                   )}
-                  {!isLocked && (
+                  {!isLocked && !isUploading && (
                     <button
                       type="button"
                       className="icon-btn"
