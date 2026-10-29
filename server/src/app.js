@@ -8,12 +8,13 @@ import authPlugin from './auth.js';
 import submissionsPlugin from './submissions.js';
 import multipart from '@fastify/multipart';
 import filesRoutes from './files.js';
+import { createDrive } from './drive.js';
 
 const BODY_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const UPLOAD_PATH = /^\/api\/submissions\/[^/]+\/files$/;
 
 // Unknown options (e.g. googleFetch, added by later plans) are ignored.
-export function buildApp({ db, config, logger = false }) {
+export function buildApp({ db, config, logger = false, googleFetch = globalThis.fetch }) {
   const app = Fastify({ logger, trustProxy: config.trustProxy, bodyLimit: 1024 * 1024 });
   app.setErrorHandler(errorHandler);
   app.setNotFoundHandler(notFoundHandler);
@@ -54,5 +55,6 @@ export function buildApp({ db, config, logger = false }) {
   app.register(submissionsPlugin, { db, config });
   app.register(multipart, { limits: { files: 1, fields: 5 } });
   app.register(filesRoutes, { prefix: '/api', db, config });
+  const drive = createDrive({ db, config, fetch: googleFetch }); // passed to plugins in later tasks
   return app;
 }
