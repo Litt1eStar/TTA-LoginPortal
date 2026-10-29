@@ -1,3 +1,4 @@
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { httpError } from './errors.js';
 import { getSetting, setSetting, deleteSetting, deleteSettingsLike } from './settings.js';
 import { encrypt, decrypt, isValidTokenKey } from './crypto.js';
@@ -169,4 +170,63 @@ export function createDrive({ db, config, fetch = globalThis.fetch }) {
     isConfigured, isConnected, assertConfigured, authUrl, exchangeCode, getAbout,
     ensureRootFolder, ensureUniversityFolder, createResumableSession, getFileMeta, deleteFile
   };
+}
+
+const STATE_COOKIE = 'tta_gstate';
+const STATE_PATH = '/api/admin/google';
+
+function sameText(a, b) {
+  const x = Buffer.from(String(a));
+  const y = Buffer.from(String(b));
+  return x.length === y.length && timingSafeEqual(x, y);
+}
+
+// Admin routes: /admin/google/connect | callback | status
+export default async function driveRoutes(app, { db, config, drive }) {
+  app.get('/admin/google/connect', { preHandler: app.requireAdmin }, async (request, reply) => {
+    drive.assertConfigured();
+    const state = randomBytes(16).toString('hex');
+    reply.setCookie(STATE_COOKIE, state, {
+      signed: true, httpOnly: true, sameSite: 'lax', secure: config.cookieSecure, path: STATE_PATH, maxAge: 600
+    });
+    return reply.redirect(drive.authUrl(state));
+  });
+
+  app.get('/admin/google/callback', {
+    preHandler: app.requireAdmin,
+    schema: {
+      querystring: {
+        type: 'object',
+        properties: {
+          code: { type: 'string', maxLength: 2048 },
+          state: { type: 'string', maxLength: 128 },
+          error: { type: 'string', maxLength: 200 }
+        }
+      }
+    }
+  }, async (request, reply) => {
+    const { code, state, error } = request.query;
+    const raw = request.cookies[STATE_COOKIE];
+    const cookie = raw ? request.unsignCookie(raw) : { valid: false, value: null };
+    reply.clearCookie(STATE_COOKIE, { path: STATE_PATH });
+    if (!state || !cookie.valid || !sameText(cookie.value, state)) {
+      throw httpError(400, 'bad_request', 'ข้อมูลไม่ถูกต้อง');
+    }
+    if (error) return reply.redirect(`${config.appOrigin}/admin?google=denied`);
+    if (!code) throw httpError(400, 'bad_request', 'ข้อมูลไม่ถูกต้อง');
+    drive.assertConfigured();
+    await drive.exchangeCode(code);
+    return reply.redirect(`${config.appOrigin}/admin?google=connected`);
+  });
+
+  app.get('/admin/google/status', { preHandler: app.requireAdmin }, async () => {
+    if (!drive.isConnected()) return { connected: false, email: null, quota: null };
+    let quota = null;
+    try {
+      quota = (await drive.getAbout()).quota;
+    } catch {
+      // revoked token (now forgotten) or Google down: report what we know
+    }
+    return { connected: drive.isConnected(), email: getSetting(db, 'google.email'), quota };
+  });
 }
