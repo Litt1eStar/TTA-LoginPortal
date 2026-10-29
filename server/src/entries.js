@@ -1,6 +1,9 @@
 import { TRACKS, getTrack, entryKey, parseEntryKey, isGrouped } from '../../src/data/tracks.js';
 import { emptySubmission } from '../../src/data/seedData.js';
 import { tx } from './db.js';
+import crypto from 'node:crypto';
+import { getRequirements } from '../../src/utils/requirements.js';
+import { httpError } from './errors.js';
 
 const STATUS_NAMES = ['not_started', 'draft', 'submitted'];
 const LIMITS = { short: 50, name: 200, text: 2000, url: 500, id: 64 };
@@ -129,3 +132,60 @@ export function listEntries(db, universityId) {
 }
 
 export { nowSec, ensureRows };
+
+export function assertBeforeDeadline(config) {
+  if (Date.now() > Date.parse(config.deadline)) throw httpError(403, 'deadline_passed');
+}
+
+function loadRow(db, universityId, key) {
+  ensureRows(db, universityId);
+  return getEntryRow(db, universityId, key);
+}
+
+export function saveDraft(db, universityId, key, data, version) {
+  const row = loadRow(db, universityId, key);
+  if (row.status === 2) throw httpError(423, 'locked');
+  if (row.version !== version) throw httpError(409, 'version_conflict', undefined, { entry: rowToEntry(row) });
+  const clean = sanitizeData(key, data);
+  const res = db.prepare(`
+    UPDATE submissions SET data = ?, status = 1, draft_at = ?, version = version + 1
+    WHERE university_id = ? AND entry_key = ? AND version = ? AND status <> 2`
+  ).run(JSON.stringify(clean), nowSec(), universityId, key, version);
+  if (res.changes !== 1) {
+    const current = getEntryRow(db, universityId, key);
+    if (current.status === 2) throw httpError(423, 'locked');
+    throw httpError(409, 'version_conflict', undefined, { entry: rowToEntry(current) });
+  }
+  return rowToEntry(getEntryRow(db, universityId, key));
+}
+
+const FILES_LABEL = 'ไฟล์แนบไม่ถูกต้อง';
+
+function missingFileRefs(db, universityId, key, entry) {
+  const ids = [
+    ...(entry.members || []).map(m => m.photo?.fileId).filter(Boolean),
+    ...(entry.files || []).map(f => f.fileId)
+  ];
+  if (!ids.length) return false;
+  const known = new Set(db.prepare('SELECT id FROM files WHERE university_id = ? AND entry_key = ?').all(universityId, key).map(r => r.id));
+  return ids.some(id => !known.has(id));
+}
+
+export function submitEntry(db, universityId, key) {
+  const row = loadRow(db, universityId, key);
+  if (row.status === 2) throw httpError(423, 'locked');
+  const entry = rowToEntry(row);
+  const failed = getRequirements(getTrack(key), entry)
+    .filter(r => !r.ok)
+    .map(r => ({ key: r.key, label: r.label, error: r.error }));
+  if (!failed.length && missingFileRefs(db, universityId, key, entry)) {
+    failed.push({ key: 'files', label: FILES_LABEL, error: FILES_LABEL });
+  }
+  if (failed.length) throw httpError(422, 'incomplete', undefined, { failed });
+  const hash = crypto.randomBytes(6).toString('hex');
+  db.prepare(`
+    UPDATE submissions SET status = 2, submitted_at = ?, hash = ?, version = version + 1
+    WHERE university_id = ? AND entry_key = ? AND status <> 2`
+  ).run(nowSec(), hash, universityId, key);
+  return rowToEntry(getEntryRow(db, universityId, key));
+}
