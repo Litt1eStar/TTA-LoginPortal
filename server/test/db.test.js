@@ -27,6 +27,7 @@ describe('openDb', () => {
     expect(db2.prepare('SELECT COUNT(*) AS n FROM universities').get().n).toBe(1);
     expect(db2.prepare('PRAGMA user_version').get().user_version).toBe(MIGRATION_COUNT);
     db2.close();
+    fs.rmSync(dir, { recursive: true, force: true });
   });
 
   it('tx rolls back on error', () => {
@@ -37,5 +38,23 @@ describe('openDb', () => {
     })).toThrow('boom');
     expect(db.prepare('SELECT COUNT(*) AS n FROM universities').get().n).toBe(0);
     expect(tx(db, () => 42)).toBe(42);
+  });
+
+  it('tx rethrows the original error when ROLLBACK fails', () => {
+    const db = openDb(':memory:');
+    expect(() => tx(db, () => {
+      db.exec('COMMIT');
+      throw new Error('original');
+    })).toThrow('original');
+  });
+
+  it('migrate rejects duplicate migration numbers', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tta-mig-'));
+    fs.writeFileSync(path.join(dir, '001_a.sql'), 'CREATE TABLE a (x);');
+    fs.writeFileSync(path.join(dir, '001_b.sql'), 'CREATE TABLE b (x);');
+    const db = openDb(':memory:');
+    db.exec('PRAGMA user_version = 0');
+    expect(() => migrate(db, dir)).toThrow(/Duplicate migration number 001/);
+    fs.rmSync(dir, { recursive: true, force: true });
   });
 });

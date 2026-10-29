@@ -13,21 +13,31 @@ export function tx(db, fn) {
     db.exec('COMMIT');
     return result;
   } catch (err) {
-    db.exec('ROLLBACK');
+    try {
+      db.exec('ROLLBACK');
+    } catch {
+      // no active transaction; keep the original error
+    }
     throw err;
   }
 }
 
 // Applies every migrations/NNN_*.sql whose number is above PRAGMA user_version.
-export function migrate(db) {
+export function migrate(db, dir = MIGRATIONS_DIR) {
   const current = db.prepare('PRAGMA user_version').get().user_version;
-  const files = fs.readdirSync(MIGRATIONS_DIR)
+  const files = fs.readdirSync(dir)
     .filter(f => /^\d{3}_.*\.sql$/.test(f))
     .sort();
+  const seen = new Map();
+  for (const file of files) {
+    const n = Number(file.slice(0, 3));
+    if (seen.has(n)) throw new Error(`Duplicate migration number ${file.slice(0, 3)}: ${seen.get(n)} and ${file}`);
+    seen.set(n, file);
+  }
   for (const file of files) {
     const n = Number(file.slice(0, 3));
     if (n <= current) continue;
-    const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf8');
+    const sql = fs.readFileSync(path.join(dir, file), 'utf8');
     tx(db, () => {
       db.exec(sql);
       db.exec(`PRAGMA user_version = ${n}`);

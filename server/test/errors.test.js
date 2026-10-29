@@ -7,6 +7,7 @@ function app() {
   a.setErrorHandler(errorHandler);
   a.setNotFoundHandler(notFoundHandler);
   a.get('/conflict', async () => { throw httpError(409, 'version_conflict', undefined, { entry: { version: 3 } }); });
+  a.get('/drive', async () => { throw httpError(503, 'drive_unavailable'); });
   a.get('/boom', async () => { throw new Error('secret internals'); });
   a.post('/schema', { schema: { body: { type: 'object', required: ['x'], properties: { x: { type: 'integer' } } } } }, async () => ({ ok: true }));
   return a;
@@ -24,6 +25,16 @@ describe('errors', () => {
     const res = await app().inject({ method: 'GET', url: '/conflict' });
     expect(res.statusCode).toBe(409);
     expect(res.json()).toEqual({ error: 'version_conflict', message: ERRORS.version_conflict, entry: { version: 3 } });
+  });
+
+  it('keeps code and message for a thrown 503', async () => {
+    const res = await app().inject({ method: 'GET', url: '/drive' });
+    expect(res.statusCode).toBe(503);
+    expect(res.json()).toEqual({ error: 'drive_unavailable', message: ERRORS.drive_unavailable });
+  });
+
+  it('server_error message matches the contract', () => {
+    expect(ERRORS.server_error).toBe('เกิดข้อผิดพลาด กรุณาลองใหม่');
   });
 
   it('hides 5xx details', async () => {

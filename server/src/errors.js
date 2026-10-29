@@ -12,7 +12,7 @@ export const ERRORS = {
   locked: 'ส่งผลงานแล้ว แก้ไขไม่ได้',
   rate_limited: 'ลองใหม่อีกครั้งในภายหลัง',
   drive_unavailable: 'ยังไม่ได้เชื่อมต่อ Google Drive',
-  server_error: 'เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่'
+  server_error: 'เกิดข้อผิดพลาด กรุณาลองใหม่'
 };
 
 const CODE_BY_STATUS = { 400: 'bad_request', 401: 'unauthenticated', 403: 'forbidden', 404: 'not_found', 413: 'too_large', 415: 'bad_type', 429: 'rate_limited' };
@@ -28,6 +28,7 @@ export function httpError(status, code, message = ERRORS[code], extra = {}) {
 
 export function errorHandler(err, request, reply) {
   if (err.isHttpError) {
+    if (err.statusCode >= 500) request.log.error(err);
     return reply.code(err.statusCode).send({ error: err.code, message: err.message, ...err.extra });
   }
   if (err.validation) {
