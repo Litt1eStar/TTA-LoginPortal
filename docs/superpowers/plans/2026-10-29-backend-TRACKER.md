@@ -10,11 +10,11 @@ One list for the whole backend build. Tick a box when its task is done and commi
 
 | Phase | Plan | Tasks | Done | Target |
 |---|---|---|---|---|
-| A | [Server core](2026-10-29-backend-a-server-core.md) | 12 | 0 | 29–30 Oct |
+| A | [Server core](2026-10-29-backend-a-server-core.md) | 12 | 12 ✅ (awaiting approval) | 29–30 Oct |
 | B | [Files + Google Drive video](2026-10-29-backend-b-files-drive.md) | 8 | 0 | 30–31 Oct |
 | C | [Frontend wiring](2026-10-29-backend-c-frontend.md) | 14 | 0 | 30–31 Oct |
 | D | [Admin, export, deploy](2026-10-29-backend-d-admin-deploy.md) | 13 | 0 | 31 Oct–3 Nov |
-| **All** | | **47** | **0** | **go-live 4 Nov** |
+| **All** | | **47** | **12** | **go-live 4 Nov** |
 
 **Order:** A must be finished before anything else. After that, B and C can run side by side. Exceptions:
 - C11 (video UI) needs B7.
@@ -33,18 +33,18 @@ These can follow later: the D6 admin page polish, and the D4 zip download. Until
 
 ## A · Server core — [plan](2026-10-29-backend-a-server-core.md)
 
-- [ ] **A1** Branch `backend` + scaffold `server/` (package.json, .gitignore, .env.example, vitest); commit pending `docs/` + `photo.js`
-- [ ] **A2** Config (`loadConfig`, production secret check)
-- [ ] **A3** Database + migrations (`openDb`, `001_init.sql`, WAL)
-- [ ] **A4** Errors (`httpError`, Thai messages, error and 404 handlers)
-- [ ] **A5** Users (lookups, cache, session version)
-- [ ] **A6** Entry helpers (17 keys, blanks, sanitising, list)
-- [ ] **A7** Save / submit / deadline helpers (409, 422, 423, hash)
-- [ ] **A8** App + auth plugin + test helpers (login, logout, me, rate limit)
-- [ ] **A9** Submissions routes (cross-university isolation tests)
-- [ ] **A10** Entry point + Vite `/api` proxy
-- [ ] **A11** Seed script (10 universities, accounts from the private note, hashes only)
-- [ ] **A12** Manual smoke test + self-review
+- [x] **A1** Branch `backend` + scaffold `server/` (package.json, .gitignore, .env.example, vitest); commit pending `docs/` + `photo.js`
+- [x] **A2** Config (`loadConfig`, production secret check)
+- [x] **A3** Database + migrations (`openDb`, `001_init.sql`, WAL)
+- [x] **A4** Errors (`httpError`, Thai messages, error and 404 handlers)
+- [x] **A5** Users (lookups, cache, session version)
+- [x] **A6** Entry helpers (17 keys, blanks, sanitising, list)
+- [x] **A7** Save / submit / deadline helpers (409, 422, 423, hash)
+- [x] **A8** App + auth plugin + test helpers (login, logout, me, rate limit)
+- [x] **A9** Submissions routes (cross-university isolation tests)
+- [x] **A10** Entry point + Vite `/api` proxy
+- [x] **A11** Seed script (10 universities, accounts from the private note, hashes only)
+- [x] **A12** Manual smoke test + self-review
 
 ## B · Files + Google Drive video — [plan](2026-10-29-backend-b-files-drive.md)
 
@@ -118,3 +118,4 @@ These can follow later: the D6 admin page polish, and the D4 zip download. Until
 | Date | Task | Note |
 |---|---|---|
 | 29 Oct | — | All plans written; nothing implemented yet |
+| 29 Oct | A1–A12 | Plan A built on `backend`: 17 commits, 114 tests passing. Review fixes: atomic submit, input hardening, CSRF 415 hook, trusted proxy, login caps (10/min per IP+user, 30/min per IP), server-side 7-day session expiry, server-relative paths. Real accounts not seeded yet (needs you). |
