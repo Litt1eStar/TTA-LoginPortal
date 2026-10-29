@@ -6,6 +6,8 @@ import compress from '@fastify/compress';
 import { errorHandler, notFoundHandler, httpError } from './errors.js';
 import authPlugin from './auth.js';
 import submissionsPlugin from './submissions.js';
+import multipart from '@fastify/multipart';
+import filesRoutes from './files.js';
 
 const BODY_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const UPLOAD_PATH = /^\/api\/submissions\/[^/]+\/files$/;
@@ -50,5 +52,7 @@ export function buildApp({ db, config, logger = false }) {
 
   app.register(authPlugin, { db, config });
   app.register(submissionsPlugin, { db, config });
+  app.register(multipart, { limits: { files: 1, fields: 5 } });
+  app.register(filesRoutes, { prefix: '/api', db, config });
   return app;
 }
