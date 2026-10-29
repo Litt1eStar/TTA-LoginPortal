@@ -10,6 +10,7 @@ import { ProjectInfoSection } from './ProjectInfoSection';
 import { ExternalLinksSection } from './ExternalLinksSection';
 import { TeamMembersSection } from './TeamMembersSection';
 import { FileUploader } from './FileUploader';
+import { VideoUploader } from './VideoUploader';
 import { SubmissionChecklist } from './SubmissionChecklist';
 import { ConfirmSubmitModal } from './ConfirmSubmitModal';
 import { getRequirements, getFormErrors } from '../../utils/requirements';
@@ -193,6 +194,13 @@ export const SubmitView = () => {
                     number={next()}
                     done={hasLink}
                   />
+                  {activeTrack.id === 'clip' && (
+                    <VideoUploader
+                      trackId={entryId}
+                      isLocked={isLocked}
+                      number={next()}
+                    />
+                  )}
                   <FileUploader
                     trackId={entryId}
                     isLocked={isLocked}
