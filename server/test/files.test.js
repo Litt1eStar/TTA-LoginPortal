@@ -1,7 +1,8 @@
-import { existsSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { readdirSync } from 'node:fs';
+import { existsSync, rmSync, writeFileSync, mkdtempSync, readdirSync } from 'node:fs';
+import { sweepOrphanBlobs, moveIntoPlace } from '../src/files.js';
 import { makeTestApp, loginAs } from './helpers.js';
 import { multipartBody, jpegBytes, pdfBytes, cfbBytes, zipBytes } from './fixtures.js';
 
@@ -130,7 +131,7 @@ describe('GET /api/files/:id', () => {
     const admin = await loginAs(t.app, 'admin1', 'pass-admin-1');
     const ok = await t.app.inject({ method: 'GET', url: file.url, headers: { cookie: admin } });
     expect(ok.statusCode).toBe(200);
-    expect(ok.headers['content-disposition']).toBe("attachment; filename*=UTF-8''w.pdf");
+    expect(ok.headers['content-disposition']).toBe("attachment; filename=\"w.pdf\"; filename*=UTF-8''w.pdf");
   });
 
   it('is 404 for an unknown id and 401 without a session', async () => {
@@ -150,7 +151,11 @@ describe('DELETE /api/files/:id', () => {
 
     expect((await del(a.fileId, kmutt)).json()).toEqual({ ok: true });
     expect(existsSync(blobFile)).toBe(true);
+    expect(await sweepOrphanBlobs(t.db, t.config.uploadDir, 0)).toEqual([]); // still referenced
     expect((await del(b.fileId, kmutt)).statusCode).toBe(200);
+    expect(existsSync(blobFile)).toBe(true); // DELETE only removes the row
+    expect(await sweepOrphanBlobs(t.db, t.config.uploadDir)).toEqual([]); // too young to sweep
+    expect(await sweepOrphanBlobs(t.db, t.config.uploadDir, 0)).toEqual([blob]);
     expect(existsSync(blobFile)).toBe(false);
     expect(t.db.prepare('SELECT COUNT(*) AS n FROM files').get().n).toBe(0);
   });
@@ -162,5 +167,51 @@ describe('DELETE /api/files/:id', () => {
     t.db.prepare("UPDATE submissions SET status = 2 WHERE university_id = 1 AND entry_key = 'singing'").run();
     expect((await del(f.fileId, kmutt)).statusCode).toBe(423);
     expect(t.db.prepare('SELECT COUNT(*) AS n FROM files').get().n).toBe(1);
+  });
+});
+
+describe('hardening', () => {
+  it('moveIntoPlace keeps going when the target already exists', async () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'tta-mv-'));
+    try {
+      const target = path.join(dir, 'target');
+      const tmp = path.join(dir, 'tmpfile');
+      writeFileSync(target, 'a'); writeFileSync(tmp, 'a');
+      await moveIntoPlace(tmp, target);
+      expect(existsSync(tmp)).toBe(false);
+      expect(existsSync(target)).toBe(true);
+      await expect(moveIntoPlace(path.join(dir, 'nope'), path.join(dir, 'other'))).rejects.toThrow();
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('GET is 404 when the blob is missing from disk', async () => {
+    const { file } = (await upload(t.app, kmutt, 'singing', 'photo', 'a.jpg', jpegBytes())).json();
+    rmSync(path.join(t.config.uploadDir, blobs(t.config)[0]));
+    const res = await t.app.inject({ method: 'GET', url: file.dataUrl, headers: { cookie: kmutt } });
+    expect(res.statusCode).toBe(404);
+    expect(res.json().error).toBe('not_found');
+  });
+
+  it('refuses an upload once the entry was submitted meanwhile (423)', async () => {
+    expect((await upload(t.app, kmutt, 'singing', 'photo', 'a.jpg', jpegBytes())).statusCode).toBe(200);
+    t.db.prepare("UPDATE submissions SET status = 2 WHERE university_id = 1 AND entry_key = 'singing'").run();
+    expect((await upload(t.app, kmutt, 'singing', 'photo', 'b.jpg', jpegBytes(64, 3))).statusCode).toBe(423);
+  });
+
+  it('rejects an oversize work file with 413', async () => {
+    const small = await makeTestApp({ MAX_WORK_MB: '0.001' });
+    const cookie = await loginAs(small.app, 'kmutt', 'pass-kmutt-1');
+    const res = await upload(small.app, cookie, 'clip', 'work', 'big.pdf', Buffer.concat([pdfBytes(), Buffer.alloc(4096)]));
+    expect(res.statusCode).toBe(413);
+    expect(blobs(small.config)).toHaveLength(0);
+    await small.app.close();
+  });
+
+  it('sets nosniff and encodes a Thai filename with an ASCII fallback', async () => {
+    const { file } = (await upload(t.app, kmutt, 'clip', 'work', "งาน's (1).pdf", pdfBytes())).json();
+    const res = await t.app.inject({ method: 'GET', url: file.url, headers: { cookie: kmutt } });
+    expect(res.headers['x-content-type-options']).toBe('nosniff');
+    expect(res.headers['content-disposition']).toBe(
+      "attachment; filename=\"___'s (1).pdf\"; filename*=UTF-8''%E0%B8%87%E0%B8%B2%E0%B8%99%27s%20%281%29.pdf");
   });
 });

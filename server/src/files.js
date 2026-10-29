@@ -1,9 +1,10 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { createReadStream, createWriteStream, mkdirSync } from 'node:fs';
-import { rename, rm, stat } from 'node:fs/promises';
+import { readdir, rename, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
+import { tx } from './db.js';
 import { fileTypeFromFile } from 'file-type';
 import { httpError } from './errors.js';
 import { isValidEntryKey, getEntryRow, ensureRows, nowSec, assertBeforeDeadline } from './entries.js';
@@ -52,6 +53,39 @@ export function writableEntry(db, config, universityId, key) {
   return row;
 }
 
+// Move a temp file to its final path. If another upload won the race to the same
+// sha256 (rename collision), discard ours and keep the existing blob.
+export async function moveIntoPlace(tmpPath, target) {
+  try {
+    await rename(tmpPath, target);
+  } catch (err) {
+    if (!['EEXIST', 'EPERM', 'ENOTEMPTY'].includes(err.code)) throw err;
+    try {
+      await stat(target);
+    } catch {
+      throw err;
+    }
+    await rm(tmpPath, { force: true });
+  }
+}
+
+// Remove uploads/<sha256> files that no files row references. Files younger than
+// minAgeMs are skipped so in-flight uploads (blob stored, row not yet inserted) are safe.
+export async function sweepOrphanBlobs(db, uploadDir, minAgeMs = 10 * 60 * 1000) {
+  const removed = [];
+  for (const name of await readdir(uploadDir)) {
+    if (!/^[0-9a-f]{64}$/.test(name)) continue;
+    const file = path.join(uploadDir, name);
+    let st;
+    try { st = await stat(file); } catch { continue; }
+    if (!st.isFile() || Date.now() - st.mtimeMs < minAgeMs) continue;
+    if (db.prepare('SELECT 1 FROM files WHERE sha256 = ? LIMIT 1').get(name)) continue;
+    await rm(file, { force: true });
+    removed.push(name);
+  }
+  return removed;
+}
+
 // Stream to `dest` while hashing; never holds the whole file in memory.
 async function saveStream(source, dest) {
   const hash = createHash('sha256');
@@ -96,7 +130,7 @@ export default async function filesRoutes(app, { db, config }) {
     try {
       await stat(blobPath(sha256));
     } catch {
-      await rename(tmpPath, blobPath(sha256));
+      await moveIntoPlace(tmpPath, blobPath(sha256));
     }
   }
 
@@ -132,10 +166,17 @@ export default async function filesRoutes(app, { db, config }) {
       const name = cleanName(part.filename);
       const { ext, mime } = await checkType(kind, tmpPath, extOf(name));
       await storeBlob(tmpPath, sha256);
-      const { lastInsertRowid } = db.prepare(
-        `INSERT INTO files (university_id, entry_key, kind, sha256, size, mime, original_name, uploaded_by, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      ).run(universityId, key, KIND[kind], sha256, size, mime, name, request.user.id, nowSec());
+      const lastInsertRowid = tx(db, () => {
+        const cur = getEntryRow(db, universityId, key);
+        if (cur.status === 2) throw httpError(423, 'locked', 'ส่งผลงานแล้ว แก้ไขไม่ได้');
+        const { n: count } = db.prepare('SELECT COUNT(*) AS n FROM files WHERE university_id = ? AND entry_key = ?')
+          .get(universityId, key);
+        if (count >= MAX_FILES_PER_ENTRY) throw badRequest(`แนบไฟล์ได้สูงสุด ${MAX_FILES_PER_ENTRY} ไฟล์ต่อรายการ`);
+        return db.prepare(
+          `INSERT INTO files (university_id, entry_key, kind, sha256, size, mime, original_name, uploaded_by, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        ).run(universityId, key, KIND[kind], sha256, size, mime, name, request.user.id, nowSec()).lastInsertRowid;
+      });
       return { file: toRef(kind, Number(lastInsertRowid), { name, size, ext, mime }) };
     } finally {
       await rm(tmpPath, { force: true });
@@ -157,12 +198,19 @@ export default async function filesRoutes(app, { db, config }) {
   app.get('/files/:id', { preHandler: app.requireUser, schema: { params: idParams } }, async (request, reply) => {
     const row = getFileRow(request.params.id);
     if (request.user.role !== 'admin' && row.university_id !== request.user.universityId) throw forbidden();
+    try {
+      await stat(blobPath(row.sha256));
+    } catch {
+      throw httpError(404, 'not_found', 'ไม่พบข้อมูล');
+    }
     const disposition = row.kind === KIND.photo ? 'inline' : 'attachment';
+    const strict = (v) => encodeURIComponent(v).replace(/[!'()*]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase());
+    const fallback = row.original_name.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '');
     reply
       .header('content-type', row.mime)
       .header('content-length', row.size)
       .header('cache-control', 'private, max-age=31536000, immutable')
-      .header('content-disposition', `${disposition}; filename*=UTF-8''${encodeURIComponent(row.original_name)}`);
+      .header('content-disposition', `${disposition}; filename="${fallback}"; filename*=UTF-8''${strict(row.original_name)}`);
     return reply.send(createReadStream(blobPath(row.sha256)));
   });
 
@@ -171,8 +219,10 @@ export default async function filesRoutes(app, { db, config }) {
     if (row.university_id !== request.user.universityId) throw forbidden();
     writableEntry(db, config, row.university_id, row.entry_key);
     db.prepare('DELETE FROM files WHERE id = ?').run(row.id);
-    const { n } = db.prepare('SELECT COUNT(*) AS n FROM files WHERE sha256 = ?').get(row.sha256);
-    if (n === 0) await rm(blobPath(row.sha256), { force: true });
+    // Orphaned blobs are swept later, so a concurrent upload of the same bytes is never cut off.
+    setImmediate(() => {
+      sweepOrphanBlobs(db, uploadDir).catch(err => request.log.error({ err }, 'orphan sweep failed'));
+    });
     return { ok: true };
   });
 }
