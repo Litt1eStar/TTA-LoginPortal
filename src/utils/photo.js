@@ -41,3 +41,18 @@ export const processPhoto = (file) => new Promise((resolve) => {
   };
   reader.readAsDataURL(file);
 });
+
+// "data:image/webp;base64,..." -> Blob, so the resized photo can be uploaded
+export const dataUrlToBlob = (dataUrl) => {
+  const [head, b64 = ''] = String(dataUrl).split(',');
+  const mime = /^data:([^;,]+)/.exec(head)?.[1] || 'application/octet-stream';
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new Blob([bytes], { type: mime });
+};
+
+export const dataUrlToFile = (dataUrl, name) => {
+  const blob = dataUrlToBlob(dataUrl);
+  return new File([blob], name, { type: blob.type });
+};
