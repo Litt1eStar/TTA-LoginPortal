@@ -8,6 +8,7 @@ import authPlugin from './auth.js';
 import submissionsPlugin from './submissions.js';
 import multipart from '@fastify/multipart';
 import filesRoutes from './files.js';
+import videoRoutes from './video.js';
 import driveRoutes, { createDrive } from './drive.js';
 
 const BODY_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
@@ -57,5 +58,6 @@ export function buildApp({ db, config, logger = false, googleFetch = globalThis.
   app.register(filesRoutes, { prefix: '/api', db, config });
   const drive = createDrive({ db, config, fetch: googleFetch }); 
   app.register(driveRoutes, { prefix: '/api', db, config, drive });
+  app.register(videoRoutes, { prefix: '/api', db, config, drive });
   return app;
 }
