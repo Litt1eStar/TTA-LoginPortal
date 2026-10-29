@@ -18,6 +18,13 @@ export function buildApp({ db, config, logger = false }) {
 
   app.removeContentTypeParser('text/plain');
 
+  // Like Fastify's JSON parser, but an empty body parses as {} (bodyless POSTs with a JSON content-type).
+  const defaultJson = app.getDefaultJsonParser('error', 'error');
+  app.addContentTypeParser('application/json', { parseAs: 'string' }, (req, body, done) => {
+    if (body.trim() === '') return done(null, {});
+    defaultJson(req, body, done);
+  });
+
   // Block cross-site form posts: bodies must be JSON (or multipart on the upload route only).
   app.addHook('onRequest', async (request) => {
     if (!BODY_METHODS.has(request.method)) return;

@@ -187,3 +187,23 @@ describe('POST /api/logout', () => {
     expect(me.statusCode).toBe(401);
   });
 });
+
+describe('empty JSON body', () => {
+  it('json content-type with no body behaves like the body-less case', async () => {
+    const { app } = await makeTestApp();
+    const cookie = await loginAs(app, 'kmutt', 'pass-kmutt-1');
+    const headers = { 'content-type': 'application/json', cookie };
+    const submit = await app.inject({ method: 'POST', url: '/api/submissions/clip/submit', headers });
+    const submitBare = await app.inject({ method: 'POST', url: '/api/submissions/clip/submit', headers: { cookie } });
+    expect(submit.statusCode).toBe(submitBare.statusCode);
+    expect(submit.statusCode).toBe(422);
+    const out = await app.inject({ method: 'POST', url: '/api/logout', headers });
+    expect(out.statusCode).toBe(200);
+  });
+
+  it('malformed non-empty JSON is still 400', async () => {
+    const { app } = await makeTestApp();
+    const res = await app.inject({ method: 'POST', url: '/api/login', headers: { 'content-type': 'application/json' }, payload: '{bad' });
+    expect(res.statusCode).toBe(400);
+  });
+});

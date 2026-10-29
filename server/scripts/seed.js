@@ -50,6 +50,13 @@ export function parseAccounts(md) {
   return { coordinators, admins };
 }
 
+export function validateAccounts({ coordinators }) {
+  if (!coordinators.length) throw new Error('No coordinators found in the accounts file (expected a "## Coordinators" table).');
+  const codes = new Set(UNIVERSITY_CODES.map(u => u.code));
+  const bad = coordinators.filter(c => !codes.has(c.username)).map(c => c.username);
+  if (bad.length) throw new Error(`Unknown coordinator username(s) (must be a university code): ${bad.join(', ')}`);
+}
+
 export function seed(db, { coordinators, admins }, cost = 12) {
   const upsertUni = db.prepare('INSERT INTO universities (code, name) VALUES (?, ?) ON CONFLICT(code) DO UPDATE SET name = excluded.name');
   const uniId = db.prepare('SELECT id FROM universities WHERE code = ?');
@@ -83,8 +90,16 @@ if (isMain) {
   const file = process.argv[2] || path.resolve(serverDir, '../../data/TTA-portal-accounts.md');
   if (fs.existsSync(path.join(serverDir, '.env'))) process.loadEnvFile(path.join(serverDir, '.env'));
   const config = loadConfig(process.env);
+  let accounts;
+  try {
+    accounts = parseAccounts(fs.readFileSync(file, 'utf8'));
+    validateAccounts(accounts);
+  } catch (err) {
+    console.error(`Seed failed: ${err.message}`);
+    process.exit(1);
+  }
   const db = openDb(path.resolve(serverDir, config.dbPath));
-  const counts = seed(db, parseAccounts(fs.readFileSync(file, 'utf8')));
+  const counts = seed(db, accounts);
   db.close();
   console.log(`Seeded 10 universities, ${counts.coordinators} coordinators, ${counts.admins} admins (passwords not shown).`);
 }

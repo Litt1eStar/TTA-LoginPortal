@@ -53,3 +53,25 @@ describe('seed', () => {
     expect(() => seed(db, { coordinators: [{ username: 'xyz', password: 'p' }], admins: [] }, 4)).toThrow(/xyz/);
   });
 });
+
+import { validateAccounts } from '../scripts/seed.js';
+
+describe('seed parsing strictness', () => {
+  it('ignores a leading BOM and CRLF line endings', () => {
+    const a = parseAccounts('\uFEFF' + MD.replace(/\n/g, '\r\n'));
+    expect(a.coordinators).toHaveLength(2);
+    expect(a.admins).toHaveLength(2);
+  });
+
+  it('validateAccounts rejects zero coordinators', () => {
+    expect(() => validateAccounts({ coordinators: [], admins: [] })).toThrow(/no coordinators/i);
+  });
+
+  it('validateAccounts rejects unknown coordinator usernames', () => {
+    expect(() => validateAccounts({ coordinators: [{ username: 'nope', password: 'p' }], admins: [] })).toThrow(/nope/);
+  });
+
+  it('validateAccounts accepts valid accounts', () => {
+    expect(() => validateAccounts(parseAccounts(MD))).not.toThrow();
+  });
+});
