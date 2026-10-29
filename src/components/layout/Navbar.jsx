@@ -7,14 +7,40 @@ import {
   PaperPlaneTilt,
   ClockCounterClockwise,
   SignOut,
-  ArrowsClockwise,
-  Certificate
+  Certificate,
+  CloudArrowUp,
+  CloudCheck,
+  CloudWarning
 } from '@phosphor-icons/react';
+
+const SAVE_STATES = {
+  saving: { Icon: CloudArrowUp, text: 'กำลังบันทึก…', color: 'var(--text-muted)' },
+  saved: { Icon: CloudCheck, text: 'บันทึกแล้ว', color: '#1F7A3D' },
+  error: { Icon: CloudWarning, text: 'บันทึกไม่สำเร็จ', color: 'var(--danger)' }
+};
+
+// Autosave state: "กำลังบันทึก… / บันทึกแล้ว"; nothing before the first save
+const SaveIndicator = ({ state }) => {
+  const meta = SAVE_STATES[state];
+  if (!meta) return null;
+  const { Icon, text, color } = meta;
+  return (
+    <span
+      className="nav-save"
+      role="status"
+      aria-live="polite"
+      style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13.5px', fontWeight: 600, color, whiteSpace: 'nowrap' }}
+    >
+      <Icon size={18} weight="bold" />
+      <span>{text}</span>
+    </span>
+  );
+};
 
 export const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout, activeTrackId, resetAllDataToDefault } = usePortal();
+  const { user, logout, activeTrackId, saveState } = usePortal();
 
   if (!user) return null;
 
@@ -111,6 +137,7 @@ export const Navbar = () => {
 
         {/* User & actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <SaveIndicator state={saveState} />
           <div
             className="nav-user"
             title={`${user.name} · ${user.university}`}
@@ -137,17 +164,6 @@ export const Navbar = () => {
               {user.name}
             </span>
           </div>
-
-          <button
-            type="button"
-            className="nav-reset"
-            onClick={resetAllDataToDefault}
-            title="รีเซ็ตข้อมูลตัวอย่างกลับเป็นค่าเริ่มต้น"
-            aria-label="รีเซ็ตข้อมูลตัวอย่าง"
-            style={{ ...ghostBtn, width: '40px' }}
-          >
-            <ArrowsClockwise size={18} />
-          </button>
 
           <button
             type="button"

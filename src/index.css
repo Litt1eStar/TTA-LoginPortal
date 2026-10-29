@@ -695,7 +695,7 @@ a:hover {
     height: 34px !important;
   }
   .nav-user,
-  .nav-reset {
+  .nav-save {
     display: none !important;
   }
   /* Four icon-only menu items must fit next to the logo and logout button */
