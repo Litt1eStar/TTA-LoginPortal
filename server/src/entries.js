@@ -159,7 +159,10 @@ export function saveDraft(db, universityId, key, data, version) {
   if (clean.video) {
     const id = clean.video.driveFileId;
     const confirmed = db.prepare('SELECT 1 FROM video_confirmations WHERE university_id = ? AND drive_file_id = ?').get(universityId, id);
-    if (!confirmed && rowToEntry(row).video?.driveFileId !== id) clean.video = null;
+    if (!confirmed) {
+      const stored = rowToEntry(row).video;
+      clean.video = stored?.driveFileId === id ? stored : null; // keep the stored meta, never the client's
+    }
   }
   const res = db.prepare(`
     UPDATE submissions SET data = ?, status = 1, draft_at = ?, version = version + 1

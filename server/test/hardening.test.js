@@ -224,3 +224,33 @@ describe('deadline', () => {
     }
   });
 });
+
+describe('stored video handling', () => {
+  const put = (video, version) => t.app.inject({
+    method: 'PUT', url: '/api/submissions/clip', headers: { cookie: kmutt }, payload: { data: { video }, version }
+  });
+  const ref = { driveFileId: 'vid-ok-0001', name: 'clip.mp4', size: 5, mime: 'video/mp4' };
+  async function saved() {
+    await setup();
+    await session();
+    google.addFile({ id: 'vid-ok-0001', name: 'clip.mp4', size: '5', mimeType: 'video/mp4', parents: [getSetting(t.db, 'drive.folder.kmutt')] });
+    await post('/confirm', { driveFileId: 'vid-ok-0001' });
+    return (await put(ref, 1)).json().entry;
+  }
+  it('DELETE clears the stored video and bumps the version; re-saving stays null', async () => {
+    const entry = await saved();
+    expect(entry.video.driveFileId).toBe('vid-ok-0001');
+    expect((await del('vid-ok-0001')).statusCode).toBe(200);
+    const row = t.db.prepare("SELECT data, version FROM submissions WHERE university_id = 1 AND entry_key = 'clip'").get();
+    expect(JSON.parse(row.data).video).toBeNull();
+    expect(row.version).toBe(entry.version + 1);
+    const again = await put(ref, row.version);
+    expect(again.json().entry.video).toBeNull();
+  });
+  it('an unconfirmed id equal to the stored one keeps the stored object', async () => {
+    const entry = await saved();
+    t.db.prepare('DELETE FROM video_confirmations').run();
+    const r = await put({ ...ref, name: 'evil.mp4', size: 999, mime: 'video/quicktime' }, entry.version);
+    expect(r.json().entry.video).toEqual(ref);
+  });
+});

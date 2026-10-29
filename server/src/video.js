@@ -103,8 +103,18 @@ export default async function videoRoutes(app, { db, config, drive }) {
       throw httpError(403, 'forbidden', 'ไม่มีสิทธิ์เข้าถึง');
     }
     await drive.deleteFile(driveFileId);
-    db.prepare('DELETE FROM video_confirmations WHERE university_id = ? AND drive_file_id = ?')
-      .run(request.user.universityId, driveFileId);
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      db.prepare('DELETE FROM video_confirmations WHERE university_id = ? AND drive_file_id = ?')
+        .run(request.user.universityId, driveFileId);
+      db.prepare(`UPDATE submissions SET data = json_set(data, '$.video', json('null')), version = version + 1
+        WHERE university_id = ? AND entry_key = ? AND status <> 2 AND json_extract(data, '$.video.driveFileId') = ?`)
+        .run(request.user.universityId, CLIP_KEY, driveFileId);
+      db.exec('COMMIT');
+    } catch (err) {
+      db.exec('ROLLBACK');
+      throw err;
+    }
     return { ok: true };
   });
 }
