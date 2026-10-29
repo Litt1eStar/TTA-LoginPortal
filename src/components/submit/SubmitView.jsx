@@ -60,14 +60,15 @@ export const SubmitView = () => {
   const isLocked = sub.status === 'submitted';
   const daysLeft = daysUntil(activeTrack.deadline);
 
-  const handleSaveDraft = () => {
-    const res = saveDraft(entryId);
-    if (!res.success) {
-      setFormErrors({ projectName: res.error });
-      showToast(res.error);
-    } else {
+  const handleSaveDraft = async () => {
+    const res = await saveDraft(entryId);
+    if (res.success) {
       setFormErrors({});
+    } else if (res.field) {
+      setFormErrors({ [res.field]: res.error });
+      showToast(res.error);
     }
+    // Server errors were already shown as a toast by PortalContext
   };
 
   const handleAttemptSubmit = () => {
@@ -83,9 +84,11 @@ export const SubmitView = () => {
     setConfirmModalOpen(true);
   };
 
-  const handleConfirmSubmit = () => {
-    confirmSubmit(entryId);
-    setConfirmModalOpen(false);
+  // Returns the result so the modal can show the server's reason when it refuses
+  const handleConfirmSubmit = async () => {
+    const res = await confirmSubmit(entryId);
+    if (res.success) setConfirmModalOpen(false);
+    return res;
   };
 
   // Section numbers follow the order they appear on the page

@@ -8,15 +8,36 @@ const SummaryItem = ({ label, children, wide }) => (
   </div>
 );
 
+// onConfirm: async () => { success, error?, failed?: [{ key, label, error }] }
 export const ConfirmSubmitModal = ({ isOpen, onClose, onConfirm, track, submission }) => {
   const [acknowledged, setAcknowledged] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [failed, setFailed] = useState([]);
 
-  // Untick the checkbox every time the popup opens
+  // Reset every time the popup opens
   useEffect(() => {
-    if (isOpen) setAcknowledged(false);
+    if (isOpen) {
+      setAcknowledged(false);
+      setSubmitting(false);
+      setError('');
+      setFailed([]);
+    }
   }, [isOpen]);
 
   if (!isOpen) return null;
+
+  const handleConfirm = async () => {
+    setSubmitting(true);
+    setError('');
+    setFailed([]);
+    const res = await onConfirm();
+    if (!res?.success) {
+      setSubmitting(false);
+      setError(res?.error || 'ส่งผลงานไม่สำเร็จ กรุณาลองใหม่');
+      setFailed(res?.failed || []);
+    }
+  };
 
   const showWorkInfo = !!track?.needsWorkInfo;
   const advisors = (submission.members || []).filter(m => m.type === 'advisor').length;
@@ -47,7 +68,7 @@ export const ConfirmSubmitModal = ({ isOpen, onClose, onConfirm, track, submissi
               <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-muted)' }}>{track?.full}</p>
             </div>
           </div>
-          <button type="button" className="icon-btn" onClick={onClose} aria-label="ปิด">
+          <button type="button" className="icon-btn" onClick={onClose} disabled={submitting} aria-label="ปิด">
             <X size={20} weight="bold" />
           </button>
         </div>
@@ -57,6 +78,22 @@ export const ConfirmSubmitModal = ({ isOpen, onClose, onConfirm, track, submissi
             <WarningCircle size={20} weight="fill" />
             <span>เมื่อยืนยันแล้ว <strong>ระบบจะล็อกข้อมูลและแก้ไขไม่ได้</strong></span>
           </div>
+
+          {error && (
+            <div className="alert alert-error" role="alert" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700 }}>
+                <WarningCircle size={20} weight="fill" />
+                <span>{error}</span>
+              </div>
+              {failed.length > 0 && (
+                <ul style={{ margin: '4px 0 0 28px', padding: 0 }}>
+                  {failed.map(f => (
+                    <li key={f.key}>{f.label}{f.error ? `: ${f.error}` : ''}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
 
           <div style={{
             background: '#FAFAFC',
@@ -72,7 +109,7 @@ export const ConfirmSubmitModal = ({ isOpen, onClose, onConfirm, track, submissi
             )}
             <SummaryItem label="ทีม">อาจารย์ {advisors} · ผู้แข่งขัน {students}</SummaryItem>
             {showWorkInfo
-              ? <SummaryItem label="ไฟล์และลิงก์">{filesCount} ไฟล์ · {linksCount} ลิงก์</SummaryItem>
+              ? <SummaryItem label="ไฟล์และลิงก์">{filesCount} ไฟล์ · {linksCount} ลิงก์{submission.video ? ' · วิดีโอ 1' : ''}</SummaryItem>
               : <SummaryItem label="รูปถ่าย">
                   {(submission.members || []).filter(m => m.photo?.dataUrl).length}/{(submission.members || []).length} คน
                 </SummaryItem>}
@@ -96,6 +133,7 @@ export const ConfirmSubmitModal = ({ isOpen, onClose, onConfirm, track, submissi
             <input
               type="checkbox"
               checked={acknowledged}
+              disabled={submitting}
               onChange={(e) => setAcknowledged(e.target.checked)}
               style={{ width: '20px', height: '20px', accentColor: 'var(--primary)', flexShrink: 0 }}
             />
@@ -104,10 +142,10 @@ export const ConfirmSubmitModal = ({ isOpen, onClose, onConfirm, track, submissi
         </div>
 
         <div className="modal-footer">
-          <button type="button" className="btn" onClick={onClose}>กลับไปตรวจสอบ</button>
-          <button type="button" className="btn btn-primary" onClick={onConfirm} disabled={!acknowledged}>
+          <button type="button" className="btn" onClick={onClose} disabled={submitting}>กลับไปตรวจสอบ</button>
+          <button type="button" className="btn btn-primary" onClick={handleConfirm} disabled={!acknowledged || submitting}>
             <Check size={18} weight="bold" />
-            <span>ยืนยันส่งผลงาน</span>
+            <span>{submitting ? 'กำลังส่ง…' : 'ยืนยันส่งผลงาน'}</span>
           </button>
         </div>
       </div>
