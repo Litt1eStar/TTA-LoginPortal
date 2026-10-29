@@ -1,0 +1,82 @@
+import fp from 'fastify-plugin';
+import bcrypt from 'bcryptjs';
+import { httpError } from './errors.js';
+import { getUserAuth, getUserByUsername, bumpSessionVersion, toClientUser } from './users.js';
+import { listEntries } from './entries.js';
+
+export const COOKIE_NAME = 'tta_session';
+const MAX_AGE = 7 * 24 * 3600;
+let dummyHash = null; // compared when the username is unknown, so timing does not reveal it
+
+function cookieOptions(config) {
+  return { signed: true, httpOnly: true, sameSite: 'lax', secure: config.cookieSecure, path: '/', maxAge: MAX_AGE };
+}
+
+function submissionsFor(db, user) {
+  return user.role === 'coordinator' ? listEntries(db, user.universityId) : {};
+}
+
+async function authPlugin(app, { db, config }) {
+  app.decorateRequest('user', null);
+
+  async function requireUser(request) {
+    const raw = request.cookies[COOKIE_NAME];
+    if (!raw) throw httpError(401, 'unauthenticated');
+    const { valid, value } = request.unsignCookie(raw);
+    const m = valid && /^(\d+)\.(\d+)$/.exec(value);
+    if (!m) throw httpError(401, 'unauthenticated');
+    const record = getUserAuth(db, Number(m[1]));
+    if (!record || record.disabled || record.sessionVersion !== Number(m[2])) throw httpError(401, 'unauthenticated');
+    request.user = record.user;
+  }
+
+  async function requireAdmin(request) {
+    await requireUser(request);
+    if (request.user.role !== 'admin') throw httpError(403, 'forbidden');
+  }
+
+  async function requireCoordinator(request) {
+    await requireUser(request);
+    if (request.user.role !== 'coordinator') throw httpError(403, 'forbidden');
+  }
+
+  app.decorate('requireUser', requireUser);
+  app.decorate('requireAdmin', requireAdmin);
+  app.decorate('requireCoordinator', requireCoordinator);
+
+  app.post('/api/login', {
+    config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    schema: {
+      body: {
+        type: 'object',
+        required: ['username', 'password'],
+        properties: { username: { type: 'string', minLength: 1, maxLength: 100 }, password: { type: 'string', minLength: 1, maxLength: 200 } }
+      }
+    }
+  }, async (request, reply) => {
+    const { username, password } = request.body;
+    const row = getUserByUsername(db, username.trim().toLowerCase());
+    if (!row) {
+      dummyHash ??= await bcrypt.hash('dummy-password', 12);
+      await bcrypt.compare(password, dummyHash);
+      throw httpError(401, 'bad_credentials');
+    }
+    const ok = await bcrypt.compare(password, row.password_hash);
+    if (!ok || row.disabled === 1) throw httpError(401, 'bad_credentials');
+    const record = getUserAuth(db, row.id);
+    reply.setCookie(COOKIE_NAME, `${row.id}.${record.sessionVersion}`, cookieOptions(config));
+    return { user: toClientUser(record.user), submissions: submissionsFor(db, record.user) };
+  });
+
+  app.post('/api/logout', { preHandler: requireUser }, async (request, reply) => {
+    bumpSessionVersion(db, request.user.id);
+    reply.clearCookie(COOKIE_NAME, { path: '/' });
+    return { ok: true };
+  });
+
+  app.get('/api/me', { preHandler: requireUser }, async (request) => {
+    return { user: toClientUser(request.user), submissions: submissionsFor(db, request.user) };
+  });
+}
+
+export default fp(authPlugin, { name: 'tta-auth' });
