@@ -75,13 +75,21 @@ function sanitizeMember(m) {
   return out;
 }
 
+const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+
 function sanitizeVideo(v) {
-  if (!v || typeof v.driveFileId !== 'string' || !v.driveFileId) return null;
+  if (!isObj(v) || typeof v.driveFileId !== 'string' || !v.driveFileId) return null;
   return { driveFileId: str(v.driveFileId, 200), name: str(v.name, LIMITS.name), size: num(v.size), mime: str(v.mime, 100) };
 }
 
+function capAdvisors(members, max) {
+  let seen = 0;
+  return members.filter(m => m.type !== 'advisor' || ++seen <= max);
+}
+
 // Keeps only known keys; never trusts status/hash/version/times from the client.
-export function sanitizeData(key, data = {}) {
+export function sanitizeData(key, rawData) {
+  const data = isObj(rawData) ? rawData : {};
   const track = getTrack(key);
   const maxMembers = track.maxCompetitors + (track.advisorCount || 1);
   const list = (v) => (Array.isArray(v) ? v : []);
@@ -89,7 +97,7 @@ export function sanitizeData(key, data = {}) {
     projectName: str(data.projectName, LIMITS.name),
     summary: str(data.summary, LIMITS.text),
     notes: str(data.notes, LIMITS.text),
-    members: list(data.members).map(sanitizeMember).filter(Boolean).slice(0, maxMembers),
+    members: capAdvisors(list(data.members).slice(0, maxMembers).map(sanitizeMember).filter(Boolean), track.advisorCount || 1),
     files: list(data.files).map(sanitizeFile).filter(Boolean).slice(0, MAX_FILES),
     links: { video: str(data.links?.video, LIMITS.url) },
     video: track.id === 'clip' ? sanitizeVideo(data.video) : null,
@@ -134,7 +142,8 @@ export function listEntries(db, universityId) {
 export { nowSec, ensureRows };
 
 export function assertBeforeDeadline(config) {
-  if (Date.now() > Date.parse(config.deadline)) throw httpError(403, 'deadline_passed');
+  const deadline = Date.parse(config?.deadline);
+  if (Number.isNaN(deadline) || Date.now() > deadline) throw httpError(403, 'deadline_passed');
 }
 
 function loadRow(db, universityId, key) {
@@ -162,13 +171,13 @@ export function saveDraft(db, universityId, key, data, version) {
 const FILES_LABEL = 'ไฟล์แนบไม่ถูกต้อง';
 
 function missingFileRefs(db, universityId, key, entry) {
-  const ids = [
-    ...(entry.members || []).map(m => m.photo?.fileId).filter(Boolean),
-    ...(entry.files || []).map(f => f.fileId)
+  const refs = [
+    ...(entry.members || []).map(m => m.photo?.fileId).filter(Boolean).map(id => [id, 0]),
+    ...(entry.files || []).map(f => [f.fileId, 1])
   ];
-  if (!ids.length) return false;
-  const known = new Set(db.prepare('SELECT id FROM files WHERE university_id = ? AND entry_key = ?').all(universityId, key).map(r => r.id));
-  return ids.some(id => !known.has(id));
+  if (!refs.length) return false;
+  const kinds = new Map(db.prepare('SELECT id, kind FROM files WHERE university_id = ? AND entry_key = ?').all(universityId, key).map(r => [r.id, r.kind]));
+  return refs.some(([id, kind]) => kinds.get(id) !== kind);
 }
 
 export function submitEntry(db, universityId, key) {
@@ -183,9 +192,10 @@ export function submitEntry(db, universityId, key) {
   }
   if (failed.length) throw httpError(422, 'incomplete', undefined, { failed });
   const hash = crypto.randomBytes(6).toString('hex');
-  db.prepare(`
+  const res = db.prepare(`
     UPDATE submissions SET status = 2, submitted_at = ?, hash = ?, version = version + 1
     WHERE university_id = ? AND entry_key = ? AND status <> 2`
   ).run(nowSec(), hash, universityId, key);
+  if (res.changes !== 1) throw httpError(423, 'locked');
   return rowToEntry(getEntryRow(db, universityId, key));
 }

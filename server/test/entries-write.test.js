@@ -71,11 +71,50 @@ describe('submitEntry', () => {
   });
 });
 
+describe('hardening', () => {
+  it('submitting twice gives 423 on the second call', () => {
+    addFile(1, 'hardware'); addFile(2, 'hardware');
+    saveDraft(db, 1, 'hardware', completeHardware(), 1);
+    submitEntry(db, 1, 'hardware');
+    expect(code(() => submitEntry(db, 1, 'hardware')).statusCode).toBe(423);
+  });
+  it('stale save on a submitted entry gives 423 not 409', () => {
+    addFile(1, 'hardware'); addFile(2, 'hardware');
+    saveDraft(db, 1, 'hardware', completeHardware(), 1);
+    submitEntry(db, 1, 'hardware');
+    expect(code(() => saveDraft(db, 1, 'hardware', {}, 1)).statusCode).toBe(423);
+  });
+  it('missing files[] reference gives 422 with key files', () => {
+    addFile(1, 'hardware'); addFile(2, 'hardware');
+    saveDraft(db, 1, 'hardware', { ...completeHardware(), files: [{ fileId: 99, name: 'a.pdf', size: 1, ext: 'pdf', mime: 'application/pdf' }] }, 1);
+    const err = code(() => submitEntry(db, 1, 'hardware'));
+    expect(err.statusCode).toBe(422);
+    expect(err.extra.failed.map(f => f.key)).toEqual(['files']);
+  });
+  it('photo ref must be kind 0 and files ref kind 1', () => {
+    addFile(1, 'hardware');
+    db.prepare("INSERT INTO files (id, university_id, entry_key, kind, sha256, size, mime, original_name, uploaded_by, created_at) VALUES (2, 1, 'hardware', 1, 'x', 1, 'application/pdf', 'a.pdf', 1, 0)").run();
+    saveDraft(db, 1, 'hardware', completeHardware(), 1); // photo 2 is kind 1
+    expect(code(() => submitEntry(db, 1, 'hardware')).extra.failed[0].key).toBe('files');
+    addFile(3, 'hardware'); // kind 0 used as work file
+    saveDraft(db, 1, 'hardware', { members: [
+      { id: 'a', type: 'advisor', fullName: 'x', dept: 'D', photo: photo(1) },
+      { id: 's', type: 'student', fullName: 'y', dept: 'D', isLeader: true, photo: photo(1) }],
+      files: [{ fileId: 3, name: 'a.pdf', size: 1, ext: 'pdf', mime: 'application/pdf' }] }, 2);
+    expect(code(() => submitEntry(db, 1, 'hardware')).extra.failed[0].key).toBe('files');
+  });
+});
+
 describe('assertBeforeDeadline', () => {
   it('throws deadline_passed after the deadline', () => {
     expect(() => assertBeforeDeadline({ deadline: '2999-01-01T00:00:00Z' })).not.toThrow();
     const err = code(() => assertBeforeDeadline({ deadline: '2000-01-01T00:00:00Z' }));
     expect(err.statusCode).toBe(403);
     expect(err.code).toBe('deadline_passed');
+  });
+
+  it('fails closed on an unparseable deadline', () => {
+    expect(code(() => assertBeforeDeadline({ deadline: 'garbage' })).code).toBe('deadline_passed');
+    expect(code(() => assertBeforeDeadline({})).statusCode).toBe(403);
   });
 });

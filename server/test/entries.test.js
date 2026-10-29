@@ -12,7 +12,7 @@ describe('isValidEntryKey', () => {
   it.each([
     ['clip', true], ['hardware', true], ['theory.g0', true], ['theory.g4', true], ['practice.g3', true],
     ['theory.g5', false], ['practice.g4', false], ['theory', false], ['practice', false],
-    ['clip.g0', false], ['theory.g01', false], ['nope', false], ['', false], [undefined, false]
+    ['clip.g0', false], ['__proto__', false], ['constructor', false], ['constructor.g0', false], ['theory.g01', false], ['nope', false], ['', false], [undefined, false]
   ])('%s -> %s', (key, ok) => {
     expect(isValidEntryKey(key)).toBe(ok);
   });
@@ -68,6 +68,25 @@ describe('sanitizeData', () => {
 
   it('forces the subject group from the key', () => {
     expect(sanitizeData('theory.g0', { subjectGroup: 'hack' }).subjectGroup).toBe('กลุ่มสาขาวิชาไฟฟ้า');
+  });
+});
+
+describe('sanitizeData robustness', () => {
+  it.each([[null], [[]], ['str'], [42]])('treats non-object data %j as {}', (bad) => {
+    const d = sanitizeData('hardware', bad);
+    expect(d.projectName).toBe('');
+    expect(d.members).toEqual([]);
+  });
+  it.each([['str'], [[]], [42], [null]])('non-object video %j becomes null on clip', (v) => {
+    expect(sanitizeData('clip', { video: v }).video).toBeNull();
+  });
+  it('slices raw members before mapping and caps advisors', () => {
+    const adv = (i) => ({ id: 'a' + i, type: 'advisor', fullName: 'a' });
+    const stu = (i) => ({ id: 's' + i, type: 'student', fullName: 's' });
+    const d = sanitizeData('hardware', { members: [adv(1), adv(2), stu(1), stu(2)] });
+    expect(d.members.map(m => m.id)).toEqual(['a1', 's1', 's2']);
+    const many = [...Array(5000).fill(null), stu(1)];
+    expect(sanitizeData('hardware', { members: many }).members).toEqual([]);
   });
 });
 
