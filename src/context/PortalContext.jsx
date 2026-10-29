@@ -1,58 +1,32 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ACCOUNTS, DEMO_PASSWORD } from '../data/accounts';
-import { TRACKS, getTrack, entryKey, isGrouped } from '../data/tracks';
-import { createSeedSubmissions, emptySubmission } from '../data/seedData';
-import { generateReceiptHash, generateId } from '../utils/formatters';
-import { getRequirements } from '../utils/requirements';
+import { getTrack } from '../data/tracks';
+import { generateId } from '../utils/formatters';
+import { api, ApiError, onUnauthenticated, uploadFile } from '../api';
+import { createAutosaver, entryData } from '../utils/autosave';
 import confetti from 'canvas-confetti';
 
 const PortalContext = createContext(null);
 
-const STORAGE_KEY_AUTH = 'ttaa13_auth';
-const STORAGE_KEY_SUBMISSIONS = 'tta27_submissions_v5';
 const STORAGE_KEY_TRACK = 'ttaa13_track';
+const WORK_EXTS = ['pdf', 'zip', 'ppt', 'pptx'];
+const MAX_WORK_MB = 50;
 
-// A locked (submitted) entry must pass every requirement. If one doesn't
-// (old data, or rules changed), unlock it as a draft so it can be completed.
-// Also makes sure every entry exists: each theory / practice กลุ่มสาขาวิชา is a
-// sub-type of its own, created blank automatically (like the culture sub-types).
-const normalizeSubmissions = (data) => {
-  const out = { ...data };
-  TRACKS.forEach(t => {
-    if (isGrouped(t)) {
-      delete out[t.id]; // old "which groups were chosen" marker, no longer used
-      t.subjectGroups.forEach((group, i) => {
-        const key = entryKey(t.id, i);
-        if (!out[key]) out[key] = emptySubmission({ subjectGroup: group });
-      });
-    } else if (!out[t.id]) {
-      out[t.id] = emptySubmission();
-    }
-  });
-  Object.entries(out).forEach(([key, sub]) => {
-    if (!sub || sub.status !== 'submitted') return;
-    const complete = getRequirements(getTrack(key), sub).every(r => r.ok);
-    if (complete) return;
-    const { hash, submittedAt, ...rest } = sub;
-    out[key] = { ...rest, status: 'draft', draftAt: submittedAt || rest.draftAt };
-  });
-  return out;
+const loginErrorMessage = (err) => {
+  if (!(err instanceof ApiError)) return 'เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่';
+  if (err.status === 401) return 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง';
+  if (err.status === 429) return 'เข้าสู่ระบบผิดหลายครั้งเกินไป กรุณารอ 1 นาทีแล้วลองใหม่';
+  return err.message;
 };
 
 export const PortalProvider = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Auth state
-  const [user, setUser] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_AUTH);
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
+  // Auth state: comes from the server session cookie, never from localStorage
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saveState, setSaveState] = useState('idle'); // 'idle' | 'saving' | 'saved' | 'error'
 
   const [loginStyle, setLoginStyle] = useState('mosaic'); // 'mosaic' | 'classic'
 
@@ -71,36 +45,11 @@ export const PortalProvider = ({ children }) => {
     }
   });
 
-  const [submissions, setSubmissions] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_SUBMISSIONS);
-      return normalizeSubmissions(saved ? JSON.parse(saved) : createSeedSubmissions());
-    } catch {
-      return normalizeSubmissions(createSeedSubmissions());
-    }
-  });
+  // { [entryKey]: Entry } as returned by the API
+  const [submissions, setSubmissions] = useState({});
 
   const [toast, setToast] = useState(null);
   const [toastUndo, setToastUndo] = useState(null);
-
-  // Sync state to local storage
-  useEffect(() => {
-    try {
-      if (user) localStorage.setItem(STORAGE_KEY_AUTH, JSON.stringify(user));
-      else localStorage.removeItem(STORAGE_KEY_AUTH);
-    } catch (e) {
-      console.error(e);
-    }
-  }, [user]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY_SUBMISSIONS, JSON.stringify(submissions));
-    } catch (e) {
-      console.error(e);
-    }
-  }, [submissions]);
-
 
   useEffect(() => {
     try {
@@ -129,25 +78,173 @@ export const PortalProvider = ({ children }) => {
     }
   };
 
-  // Login & Logout
-  const login = (username, password) => {
-    const cleanUser = (username || '').trim().toLowerCase();
-    const account = ACCOUNTS[cleanUser];
+  // Callbacks made once (autosaver, 401 handler) read the latest values through refs
+  const userRef = useRef(user);
+  userRef.current = user;
+  const saveErrorRef = useRef(null);
 
+  const autosaverRef = useRef(null);
+  if (!autosaverRef.current) {
+    autosaverRef.current = createAutosaver({
+      delay: 1000,
+      save: async (key, data, version) => {
+        const { entry } = await api.put(`/submissions/${key}`, { data, version });
+        // Keep what was typed meanwhile; take status, time and version from the server
+        setSubmissions(prev => (prev[key]
+          ? { ...prev, [key]: { ...prev[key], status: entry.status, draftAt: entry.draftAt, version: entry.version } }
+          : prev));
+        return entry;
+      },
+      onStateChange: (s) => setSaveState(s),
+      onError: (key, err) => saveErrorRef.current?.(key, err)
+    });
+  }
+  const autosaver = autosaverRef.current;
+
+  // Put a server entry into state and mark it as the saved baseline
+  const replaceEntry = (key, entry) => {
+    autosaver.setBaseline(key, entryData(entry), entry.version);
+    setSubmissions(prev => ({ ...prev, [key]: entry }));
+  };
+
+  // 423 has no entry in its body: reload the list and take that entry
+  const refreshEntry = async (key) => {
+    try {
+      const { submissions: all } = await api.get('/submissions');
+      if (all[key]) replaceEntry(key, all[key]);
+    } catch {
+      // the next action will show the error
+    }
+  };
+
+  // Some server routes change an entry's stored data themselves and bump its version
+  // (deleting the clip video). Take the server's version but keep what is typed here:
+  // the baseline is the server's data, so any difference is autosaved afterwards.
+  const syncVersion = async (key) => {
+    try {
+      const { submissions: all } = await api.get('/submissions');
+      const server = all[key];
+      if (!server) return;
+      autosaver.setBaseline(key, entryData(server), server.version);
+      setSubmissions(prev => (prev[key]
+        ? { ...prev, [key]: { ...prev[key], version: server.version, status: server.status } }
+        : prev));
+    } catch {
+      // a later save that hits a version conflict reloads the entry anyway
+    }
+  };
+
+  // Save pending changes of one entry before a server action that depends on them
+  const flushEntry = async (key) => {
+    try {
+      await autosaver.flush(key);
+    } catch {
+      // already shown through onError
+    }
+  };
+
+  saveErrorRef.current = (key, err) => {
+    if (!(err instanceof ApiError)) {
+      showToast('บันทึกไม่สำเร็จ กรุณาลองใหม่');
+      return;
+    }
+    if (err.code === 'unauthenticated') return; // handled by onUnauthenticated
+    if (err.code === 'version_conflict' && err.extra.entry) {
+      replaceEntry(key, err.extra.entry);
+      setSaveState('idle');
+      showToast('ข้อมูลถูกแก้ไขจากที่อื่น ระบบโหลดข้อมูลล่าสุดให้แล้ว');
+      return;
+    }
+    if (err.code === 'locked') {
+      refreshEntry(key);
+      setSaveState('idle');
+    }
+    showToast(err.message); // deadline_passed, locked, network, server_error …
+  };
+
+  const startSession = (u, subs) => {
+    autosaver.reset();
+    Object.entries(subs || {}).forEach(([key, e]) => autosaver.setBaseline(key, entryData(e), e.version));
+    setSubmissions(subs || {});
+    setUser(u);
+    setSaveState('idle');
+  };
+
+  const endSession = () => {
+    autosaver.reset();
+    setUser(null);
+    setSubmissions({});
+    setSaveState('idle');
+  };
+
+  // Boot: is there a session cookie already?
+  useEffect(() => {
+    let cancelled = false;
+    api.get('/me')
+      .then(({ user: u, submissions: subs }) => { if (!cancelled) startSession(u, subs); })
+      .catch((err) => { if (!cancelled && err.status !== 401) showToast(err.message); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Session expired or revoked while using the app
+  useEffect(() => {
+    onUnauthenticated(() => {
+      if (!userRef.current) return;
+      endSession();
+      showToast('หมดเวลาการใช้งาน กรุณาเข้าสู่ระบบอีกครั้ง');
+      navigate('/login');
+    });
+    return () => onUnauthenticated(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Autosave: hand every editable entry to the autosaver; it sends only changed ones
+  useEffect(() => {
+    if (!user || user.role !== 'coordinator') return;
+    Object.entries(submissions).forEach(([key, sub]) => {
+      if (sub.status === 'submitted') return;
+      autosaver.schedule(key, entryData(sub));
+    });
+  }, [submissions, user, autosaver]);
+
+  // Warn before closing the tab with unsaved changes
+  useEffect(() => {
+    const onBeforeUnload = (e) => {
+      if (!autosaver.hasUnsaved()) return;
+      autosaver.flushAll();
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [autosaver]);
+
+  // Login & Logout
+  const login = async (username, password) => {
+    const cleanUser = (username || '').trim().toLowerCase();
     if (!cleanUser || !password) {
       return { success: false, error: 'กรุณากรอกชื่อผู้ใช้และรหัสผ่าน' };
     }
-    if (!account || password !== DEMO_PASSWORD) {
-      return { success: false, error: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง (ทดลองใช้ rep.rtc / ttaa2026)' };
+    try {
+      const { user: u, submissions: subs } = await api.post('/login', { username: cleanUser, password });
+      startSession(u, subs);
+      showToast(`ยินดีต้อนรับ คุณ${u.name}`);
+      return { success: true, user: u };
+    } catch (err) {
+      return { success: false, error: loginErrorMessage(err) };
     }
-
-    setUser(account);
-    showToast(`ยินดีต้อนรับ คุณ${account.name}`);
-    return { success: true };
   };
 
-  const logout = () => {
-    setUser(null);
+  const logout = async () => {
+    await autosaver.flushAll();
+    try {
+      await api.post('/logout');
+    } catch {
+      // the cookie may already be gone; log out on this side anyway
+    }
+    endSession();
     showToast('ออกจากระบบเรียบร้อยแล้ว');
     navigate('/login');
   };
@@ -166,32 +263,18 @@ export const PortalProvider = ({ children }) => {
     }
   };
 
-  // Submissions operations
-  const updateSubmission = (trackId, patch) => {
-    setSubmissions(prev => ({
-      ...prev,
-      [trackId]: {
-        ...prev[trackId],
-        ...patch
-      }
-    }));
-  };
+  // Submissions operations (functional updates: uploads finish in any order)
+  const patchEntry = (key, fn) =>
+    setSubmissions(prev => (prev[key] ? { ...prev, [key]: fn(prev[key]) } : prev));
+
+  const updateSubmission = (trackId, patch) => patchEntry(trackId, sub => ({ ...sub, ...patch }));
 
   const updateField = (trackId, field, value) => {
     updateSubmission(trackId, { [field]: value });
   };
 
   const updateLink = (trackId, linkField, value) => {
-    setSubmissions(prev => ({
-      ...prev,
-      [trackId]: {
-        ...prev[trackId],
-        links: {
-          ...prev[trackId].links,
-          [linkField]: value
-        }
-      }
-    }));
+    patchEntry(trackId, sub => ({ ...sub, links: { ...sub.links, [linkField]: value } }));
   };
 
   // Keep at most `limit` advisors, dropping the oldest ones first
@@ -276,76 +359,91 @@ export const PortalProvider = ({ children }) => {
     });
   };
 
-  // Files
+  // Files (work files: upload to the server, then the FileRef is autosaved with the entry)
+  const patchFile = (key, localId, patch) =>
+    patchEntry(key, sub => ({ ...sub, files: sub.files.map(f => (f.id === localId ? { ...f, ...patch } : f)) }));
+
   const addFiles = (trackId, fileList) => {
-    const sub = submissions[trackId];
-    const newFiles = Array.from(fileList || []).map(f => {
-      const ext = (f.name.split('.').pop() || '').toLowerCase();
-      const isAllowed = ['pdf', 'zip', 'ppt', 'pptx'].includes(ext);
+    const picked = Array.from(fileList || []);
+    if (!picked.length) return;
+
+    const rows = picked.map(file => {
+      const ext = (file.name.split('.').pop() || '').toLowerCase();
+      let error = '';
+      if (!WORK_EXTS.includes(ext)) error = 'ไม่รองรับไฟล์ประเภทนี้ (รองรับ PDF, ZIP, PPT, PPTX)';
+      else if (file.size > MAX_WORK_MB * 1024 * 1024) error = `ไฟล์มีขนาดใหญ่เกิน ${MAX_WORK_MB} MB`;
       return {
-        id: generateId('f'),
-        name: f.name,
-        size: f.size,
-        ext,
-        progress: isAllowed ? 100 : 0,
-        status: isAllowed ? 'done' : 'error',
-        error: isAllowed ? '' : 'ไม่รองรับไฟล์ประเภทนี้ (รองรับ PDF, ZIP, PPT, PPTX)'
+        file,
+        row: { id: generateId('f'), name: file.name, size: file.size, ext, progress: 0, status: error ? 'error' : 'uploading', error }
       };
     });
+    patchEntry(trackId, sub => ({ ...sub, files: [...sub.files, ...rows.map(r => r.row)] }));
 
-    updateSubmission(trackId, { files: [...sub.files, ...newFiles] });
-    showToast(`อัปโหลด ${newFiles.length} ไฟล์เรียบร้อย`);
+    rows.filter(r => r.row.status === 'uploading').forEach(({ file, row }) => {
+      uploadFile(`/submissions/${trackId}/files?kind=work`, file, {
+        onProgress: (p) => patchFile(trackId, row.id, { progress: p })
+      })
+        .then(({ file: ref }) => {
+          patchFile(trackId, row.id, { ...ref, error: '' });
+          showToast(`อัปโหลด ${ref.name} เรียบร้อย`);
+        })
+        .catch(err => patchFile(trackId, row.id, { status: 'error', progress: 0, error: err.message }));
+    });
   };
 
-  const removeFile = (trackId, fileId) => {
-    const sub = submissions[trackId];
-    const prevFiles = sub.files;
-    const fileToRemove = prevFiles.find(f => f.id === fileId);
-    const updated = prevFiles.filter(f => f.id !== fileId);
+  const removeFile = async (trackId, fileId) => {
+    const target = (submissions[trackId]?.files || []).find(f => f.id === fileId);
+    if (!target || target.status === 'uploading') return;
 
-    updateSubmission(trackId, { files: updated });
-    showToast(`ลบไฟล์ ${fileToRemove ? fileToRemove.name : ''} แล้ว`, () => {
-      updateSubmission(trackId, { files: prevFiles });
-    });
+    patchEntry(trackId, sub => ({ ...sub, files: sub.files.filter(f => f.id !== fileId) }));
+    if (target.fileId == null) {
+      showToast(`ลบไฟล์ ${target.name} แล้ว`); // a failed upload, only on this screen
+      return;
+    }
+    try {
+      await api.del(`/files/${target.fileId}`);
+      showToast(`ลบไฟล์ ${target.name} แล้ว`);
+    } catch (err) {
+      if (err.status === 404) {
+        showToast(`ลบไฟล์ ${target.name} แล้ว`);
+        return;
+      }
+      patchEntry(trackId, sub => ({ ...sub, files: [...sub.files, target] }));
+      showToast(err.message);
+    }
   };
 
   // Draft & Submit
-  const saveDraft = (trackId) => {
+  const saveDraft = async (trackId) => {
     const sub = submissions[trackId];
     if (getTrack(trackId).needsWorkInfo && !(sub.projectName || '').trim()) {
-      return { success: false, error: 'กรุณาตั้งชื่อผลงานก่อนบันทึกฉบับร่าง' };
+      return { success: false, field: 'projectName', error: 'กรุณาตั้งชื่อผลงานก่อนบันทึกฉบับร่าง' };
     }
-    updateSubmission(trackId, {
-      status: 'draft',
-      draftAt: new Date().toISOString()
-    });
-    showToast('บันทึกฉบับร่างเรียบร้อยแล้ว');
-    return { success: true };
+    autosaver.schedule(trackId, entryData(sub));
+    try {
+      await autosaver.flush(trackId, { force: true });
+      showToast('บันทึกฉบับร่างเรียบร้อยแล้ว');
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message }; // the toast came from onError
+    }
   };
 
-  const confirmSubmit = (trackId) => {
-    const hash = generateReceiptHash();
-    updateSubmission(trackId, {
-      status: 'submitted',
-      submittedAt: new Date().toISOString(),
-      hash
-    });
-
-    confetti({
-      particleCount: 100,
-      spread: 70,
-      origin: { y: 0.6 }
-    });
-
-    showToast('ส่งผลงานเรียบร้อยและระบบทำการล็อกข้อมูลแล้ว');
-    return hash;
-  };
-
-  const resetAllDataToDefault = () => {
-    const defaultData = normalizeSubmissions(createSeedSubmissions());
-    setSubmissions(defaultData);
-    localStorage.setItem(STORAGE_KEY_SUBMISSIONS, JSON.stringify(defaultData));
-    showToast('รีเซ็ตข้อมูลตัวอย่างเรียบร้อยแล้ว');
+  const confirmSubmit = async (trackId) => {
+    try {
+      await autosaver.flush(trackId);
+      const { entry } = await api.post(`/submissions/${trackId}/submit`);
+      replaceEntry(trackId, entry); // submit bumps version: take the server's
+      confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+      showToast('ส่งผลงานเรียบร้อยและระบบทำการล็อกข้อมูลแล้ว');
+      return { success: true, hash: entry.hash };
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'incomplete') {
+        return { success: false, error: err.message, failed: err.extra.failed || [] };
+      }
+      if (err instanceof ApiError && err.code === 'locked') refreshEntry(trackId);
+      return { success: false, error: err.message || 'ส่งผลงานไม่สำเร็จ กรุณาลองใหม่', failed: [] };
+    }
   };
 
   return (
@@ -353,6 +451,9 @@ export const PortalProvider = ({ children }) => {
       value={{
         user,
         isAuthenticated: !!user,
+        isAdmin: user?.role === 'admin',
+        loading,
+        saveState,
         login,
         logout,
         loginStyle,
@@ -372,9 +473,10 @@ export const PortalProvider = ({ children }) => {
         importCsvMembers,
         addFiles,
         removeFile,
+        flushEntry,
+        syncVersion,
         saveDraft,
         confirmSubmit,
-        resetAllDataToDefault,
         toast,
         toastUndo,
         showToast,

@@ -2,15 +2,14 @@ import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { usePortal } from '../../context/PortalContext';
 import { MosaicHero } from './MosaicHero';
-import { Eye, EyeSlash, LockKey, User, Sparkle, WarningCircle } from '@phosphor-icons/react';
-import { DEMO_PASSWORD } from '../../data/accounts';
+import { Eye, EyeSlash, LockKey, User, WarningCircle } from '@phosphor-icons/react';
 
 export const LoginView = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = usePortal();
 
-  const [username, setUsername] = useState('rep.rtc');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -22,7 +21,7 @@ export const LoginView = () => {
     setTimeout(() => setShake(false), 500);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
@@ -33,24 +32,17 @@ export const LoginView = () => {
     }
 
     setIsLoading(true);
-
-    setTimeout(() => {
-      const res = login(username, password);
-      setIsLoading(false);
-      if (!res.success) {
-        setError(res.error);
-        triggerShake();
-      } else {
-        const destination = location.state?.from?.pathname || '/dashboard';
-        navigate(destination, { replace: true });
-      }
-    }, 450);
-  };
-
-  const handleFillDemo = () => {
-    setUsername('rep.rtc');
-    setPassword(DEMO_PASSWORD);
-    setError('');
+    const res = await login(username, password);
+    setIsLoading(false);
+    if (!res.success) {
+      setError(res.error);
+      triggerShake();
+      return;
+    }
+    const destination = res.user.role === 'admin'
+      ? '/admin'
+      : (location.state?.from?.pathname || '/dashboard');
+    navigate(destination, { replace: true });
   };
 
   return (
@@ -138,7 +130,7 @@ export const LoginView = () => {
                     setUsername(e.target.value);
                     if (error) setError('');
                   }}
-                  placeholder="เช่น rep.rtc หรือ rep.svu"
+                  placeholder="เช่น kmutt"
                   style={{
                     width: '100%',
                     padding: '13px 16px 13px 46px',
@@ -154,27 +146,15 @@ export const LoginView = () => {
 
             {/* Password Input */}
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <label style={{ fontSize: '13.5px', fontWeight: 700, color: '#1B1D29' }}>
-                  รหัสผ่าน (Password)
-                </label>
-                <button
-                  type="button"
-                  onClick={handleFillDemo}
-                  style={{
-                    fontSize: '12.5px',
-                    color: '#FF5F1C',
-                    fontWeight: 700,
-                    background: 'transparent',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
-                >
-                  <Sparkle size={13} weight="fill" />
-                  <span>กรอกบัญชีทดลอง</span>
-                </button>
-              </div>
+              <label style={{
+                display: 'block',
+                fontSize: '13.5px',
+                fontWeight: 700,
+                color: '#1B1D29',
+                marginBottom: '8px'
+              }}>
+                รหัสผ่าน (Password)
+              </label>
               <div style={{ position: 'relative' }}>
                 <LockKey
                   size={19}
@@ -216,38 +196,6 @@ export const LoginView = () => {
                   {showPassword ? <EyeSlash size={19} /> : <Eye size={19} />}
                 </button>
               </div>
-            </div>
-
-            {/* Demo Helper Banner */}
-            <div style={{
-              background: '#F6F6F9',
-              border: '1px dashed #D5D7E0',
-              padding: '10px 14px',
-              borderRadius: '12px',
-              fontSize: '12.5px',
-              color: '#6B6F80',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between'
-            }}>
-              <span>
-                ผู้ประสานงานทดลอง: <strong>rep.rtc</strong> / รหัส: <strong>ttaa2026</strong>
-              </span>
-              <button
-                type="button"
-                onClick={handleFillDemo}
-                style={{
-                  background: '#FFFFFF',
-                  border: '1px solid #ECECF1',
-                  color: '#FF5F1C',
-                  padding: '3px 8px',
-                  borderRadius: '8px',
-                  fontSize: '11.5px',
-                  fontWeight: 700
-                }}
-              >
-                กรอกให้
-              </button>
             </div>
 
             {/* Submit Button */}
