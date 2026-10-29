@@ -12,9 +12,9 @@ One list for the whole backend build. Tick a box when its task is done and commi
 |---|---|---|---|---|
 | A | [Server core](2026-10-29-backend-a-server-core.md) | 12 | 12 ✅ approved | 29–30 Oct |
 | B | [Files + Google Drive video](2026-10-29-backend-b-files-drive.md) | 8 | 8 ✅ approved |  30–31 Oct |
-| C | [Frontend wiring](2026-10-29-backend-c-frontend.md) | 14 | 0 | 30–31 Oct |
+| C | [Frontend wiring](2026-10-29-backend-c-frontend.md) | 14 | 14 ✅ | 30–31 Oct |
 | D | [Admin, export, deploy](2026-10-29-backend-d-admin-deploy.md) | 13 | 0 | 31 Oct–3 Nov |
-| **All** | | **47** | **20** | **go-live 4 Nov** |
+| **All** | | **47** | **34** | **go-live 4 Nov** |
 
 **Order:** A must be finished before anything else. After that, B and C can run side by side. Exceptions:
 - C11 (video UI) needs B7.
@@ -59,20 +59,20 @@ These can follow later: the D6 admin page polish, and the D4 zip download. Until
 
 ## C · Frontend wiring — [plan](2026-10-29-backend-c-frontend.md)
 
-- [ ] **C0** Preflight (branch, commit pending `photo.js` change)
-- [ ] **C1** Vitest + dev proxy
-- [ ] **C2** `src/api.js` (ApiError, JSON calls, upload with progress)
-- [ ] **C3** Autosave helper (1 s debounce, skip unchanged, versions)
-- [ ] **C4** Photo data URL → File
-- [ ] **C5** Resumable Drive upload helper (8 MB chunks, resume, cancel)
-- [ ] **C6** PortalContext on the server + loader + routes + login
-- [ ] **C7** Async draft / submit (SubmitView, ConfirmSubmitModal, 422 list)
-- [ ] **C8** Navbar save indicator (replaces reset-demo button)
-- [ ] **C9** Photo upload in MemberModal
-- [ ] **C10** FileUploader with real progress
-- [ ] **C11** Video upload for สื่อสร้างสรรค์ *(needs B7)*
-- [ ] **C12** Remove demo data from the live build
-- [ ] **C13** Full flow check in the browser
+- [x] **C0** Preflight (branch, commit pending `photo.js` change)
+- [x] **C1** Vitest + dev proxy
+- [x] **C2** `src/api.js` (ApiError, JSON calls, upload with progress)
+- [x] **C3** Autosave helper (1 s debounce, skip unchanged, versions)
+- [x] **C4** Photo data URL → File
+- [x] **C5** Resumable Drive upload helper (8 MB chunks, resume, cancel)
+- [x] **C6** PortalContext on the server + loader + routes + login
+- [x] **C7** Async draft / submit (SubmitView, ConfirmSubmitModal, 422 list)
+- [x] **C8** Navbar save indicator (replaces reset-demo button)
+- [x] **C9** Photo upload in MemberModal
+- [x] **C10** FileUploader with real progress
+- [x] **C11** Video upload for สื่อสร้างสรรค์ *(needs B7)*
+- [x] **C12** Remove demo data from the live build
+- [x] **C13** Full flow check in the browser
 
 ## D · Admin, export, deploy — [plan](2026-10-29-backend-d-admin-deploy.md)
 
@@ -120,3 +120,4 @@ These can follow later: the D6 admin page polish, and the D4 zip download. Until
 | 29 Oct | — | All plans written; nothing implemented yet |
 | 29 Oct | A1–A12 | Plan A built on `backend`: 17 commits, 114 tests passing. Review fixes: atomic submit, input hardening, CSRF 415 hook, trusted proxy, login caps (10/min per IP+user, 30/min per IP), server-side 7-day session expiry, server-relative paths. Real accounts not seeded yet (needs you). |
 | 30 Oct | B1–B8 | Plan B built: files, Drive OAuth, video routes; 190 tests passing. Approved. |
+| 30 Oct | C0–C13 | Frontend wired to server; 36 frontend + 190 server tests. Drive connected, video upload checked in browser. |
