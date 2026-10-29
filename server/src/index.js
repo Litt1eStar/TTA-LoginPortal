@@ -1,0 +1,22 @@
+import fs from 'node:fs';
+import { loadConfig } from './config.js';
+import { openDb } from './db.js';
+import { buildApp } from './app.js';
+
+// Node ≥ 22.13 reads .env itself when present (process.loadEnvFile)
+if (fs.existsSync('.env')) process.loadEnvFile('.env');
+
+const config = loadConfig(process.env);
+fs.mkdirSync(config.uploadDir, { recursive: true });
+const db = openDb(config.dbPath);
+const app = buildApp({ db, config, logger: { level: process.env.NODE_ENV === 'production' ? 'info' : 'debug' } });
+
+const shutdown = async () => {
+  await app.close();
+  db.close();
+  process.exit(0);
+};
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
+
+await app.listen({ port: config.port, host: process.env.HOST || '127.0.0.1' });
