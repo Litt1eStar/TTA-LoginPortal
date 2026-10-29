@@ -6,6 +6,9 @@ import { listEntries } from './entries.js';
 
 export const COOKIE_NAME = 'tta_session';
 const MAX_AGE = 7 * 24 * 3600;
+const MAX_FUTURE_SKEW = 60;
+const IP_LOGIN_MAX = 30;
+const IP_LOGIN_WINDOW_MS = 60_000;
 // Compared when the username is unknown, so timing does not reveal it. Computed once, same cost as real users.
 let dummyHash = null;
 
@@ -25,8 +28,10 @@ async function authPlugin(app, { db, config }) {
     const raw = request.cookies[COOKIE_NAME];
     if (!raw) throw httpError(401, 'unauthenticated');
     const { valid, value } = request.unsignCookie(raw);
-    const m = valid && /^(\d+)\.(\d+)$/.exec(value);
+    const m = valid && /^(\d+)\.(\d+)\.(\d+)$/.exec(value);
     if (!m) throw httpError(401, 'unauthenticated');
+    const age = Math.floor(Date.now() / 1000) - Number(m[3]);
+    if (age > MAX_AGE || age < -MAX_FUTURE_SKEW) throw httpError(401, 'unauthenticated');
     const record = getUserAuth(db, Number(m[1]));
     if (!record || record.disabled || record.sessionVersion !== Number(m[2])) throw httpError(401, 'unauthenticated');
     request.user = record.user;
@@ -46,7 +51,18 @@ async function authPlugin(app, { db, config }) {
   app.decorate('requireAdmin', requireAdmin);
   app.decorate('requireCoordinator', requireCoordinator);
 
+  // Second login cap: per IP alone, whatever the username (in-memory, fixed window).
+  const ipHits = new Map();
+  async function ipLoginCap(request) {
+    const now = Date.now();
+    if (ipHits.size > 10000) for (const [k, v] of ipHits) if (v.reset <= now) ipHits.delete(k);
+    let hit = ipHits.get(request.ip);
+    if (!hit || hit.reset <= now) { hit = { count: 0, reset: now + IP_LOGIN_WINDOW_MS }; ipHits.set(request.ip, hit); }
+    if (++hit.count > IP_LOGIN_MAX) throw httpError(429, 'rate_limited');
+  }
+
   app.post('/api/login', {
+    preHandler: ipLoginCap,
     config: {
       rateLimit: {
         max: 10,
@@ -71,7 +87,7 @@ async function authPlugin(app, { db, config }) {
     const ok = await bcrypt.compare(password, row.password_hash);
     if (!ok || row.disabled === 1) throw httpError(401, 'bad_credentials');
     const record = getUserAuth(db, row.id);
-    reply.setCookie(COOKIE_NAME, `${row.id}.${record.sessionVersion}`, cookieOptions(config));
+    reply.setCookie(COOKIE_NAME, `${row.id}.${record.sessionVersion}.${Math.floor(Date.now() / 1000)}`, cookieOptions(config));
     return { user: toClientUser(record.user), submissions: submissionsFor(db, record.user) };
   });
 

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { makeTestApp, loginAs } from './helpers.js';
 import { clearUserCache } from '../src/users.js';
 
@@ -205,5 +205,59 @@ describe('empty JSON body', () => {
     const { app } = await makeTestApp();
     const res = await app.inject({ method: 'POST', url: '/api/login', headers: { 'content-type': 'application/json' }, payload: '{bad' });
     expect(res.statusCode).toBe(400);
+  });
+});
+
+describe('login per-IP cap', () => {
+  it('30 attempts per minute per IP across different usernames, 429 at the 31st', async () => {
+    const { app } = await makeTestApp();
+    for (let i = 0; i < 30; i++) expect((await login(app, `user${i}`, 'wrong')).statusCode).toBe(401);
+    const res = await login(app, 'user30', 'wrong');
+    expect(res.statusCode).toBe(429);
+    expect(res.json().error).toBe('rate_limited');
+  }, 60000);
+});
+
+describe('server-side session expiry', () => {
+  afterEach(() => vi.useRealTimers());
+  const sign = (app, v) => `tta_session=${app.signCookie(v)}`;
+
+  it('fresh cookie 200; 3-part value format', async () => {
+    const { app } = await makeTestApp();
+    const res = await login(app, 'kmutt', 'pass-kmutt-1');
+    const c = res.cookies.find(x => x.name === 'tta_session');
+    expect(app.unsignCookie(c.value).value).toMatch(/^\d+\.\d+\.\d+$/);
+    const me = await app.inject({ method: 'GET', url: '/api/me', headers: { cookie: `tta_session=${c.value}` } });
+    expect(me.statusCode).toBe(200);
+  });
+
+  it('cookie older than 7 days -> 401, just under -> 200', async () => {
+    const { app } = await makeTestApp();
+    const now = Math.floor(Date.now() / 1000);
+    const get = (v) => app.inject({ method: 'GET', url: '/api/me', headers: { cookie: sign(app, v) } });
+    expect((await get(`1.0.${now - 7 * 86400 - 5}`)).statusCode).toBe(401);
+    expect((await get(`1.0.${now - 7 * 86400 + 60}`)).statusCode).toBe(200);
+  });
+
+  it('expires with the clock moving forward', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const { app } = await makeTestApp();
+    const cookie = await loginAs(app, 'kmutt', 'pass-kmutt-1');
+    vi.setSystemTime(Date.now() + 8 * 86400 * 1000);
+    expect((await app.inject({ method: 'GET', url: '/api/me', headers: { cookie } })).statusCode).toBe(401);
+  });
+
+  it('cookie issued more than 60s in the future -> 401', async () => {
+    const { app } = await makeTestApp();
+    const now = Math.floor(Date.now() / 1000);
+    const get = (v) => app.inject({ method: 'GET', url: '/api/me', headers: { cookie: sign(app, v) } });
+    expect((await get(`1.0.${now + 120}`)).statusCode).toBe(401);
+    expect((await get(`1.0.${now + 30}`)).statusCode).toBe(200);
+  });
+
+  it('old 2-part format is rejected', async () => {
+    const { app } = await makeTestApp();
+    const res = await app.inject({ method: 'GET', url: '/api/me', headers: { cookie: sign(app, '1.0') } });
+    expect(res.statusCode).toBe(401);
   });
 });

@@ -1,4 +1,13 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { FINAL_DEADLINE } from '../../src/data/tracks.js';
+
+export const SERVER_DIR = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
+
+// Relative paths are resolved against the server folder (not the cwd); absolute paths are kept.
+export function resolveServerPath(p) {
+  return path.isAbsolute(p) ? p : path.resolve(SERVER_DIR, p);
+}
 
 export function loadConfig(env = process.env) {
   if (env.NODE_ENV === 'production' && (!env.SESSION_SECRET || env.SESSION_SECRET.length < 32)) {

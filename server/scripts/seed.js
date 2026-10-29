@@ -2,10 +2,10 @@
 // Stores bcrypt hashes only. Never prints passwords.
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { pathToFileURL } from 'node:url';
 import bcrypt from 'bcryptjs';
 import { openDb, tx } from '../src/db.js';
-import { loadConfig } from '../src/config.js';
+import { loadConfig, resolveServerPath, SERVER_DIR } from '../src/config.js';
 
 // Same order as UNIVERSITIES in src/data/referenceData.js (not imported: it uses extensionless imports)
 export const UNIVERSITY_CODES = [
@@ -86,7 +86,7 @@ export function seed(db, { coordinators, admins }, cost = 12) {
 
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
 if (isMain) {
-  const serverDir = fileURLToPath(new URL('..', import.meta.url));
+  const serverDir = SERVER_DIR;
   const file = process.argv[2] || path.resolve(serverDir, '../../data/TTA-portal-accounts.md');
   if (fs.existsSync(path.join(serverDir, '.env'))) process.loadEnvFile(path.join(serverDir, '.env'));
   const config = loadConfig(process.env);
@@ -98,7 +98,7 @@ if (isMain) {
     console.error(`Seed failed: ${err.message}`);
     process.exit(1);
   }
-  const db = openDb(path.resolve(serverDir, config.dbPath));
+  const db = openDb(resolveServerPath(config.dbPath));
   const counts = seed(db, accounts);
   db.close();
   console.log(`Seeded 10 universities, ${counts.coordinators} coordinators, ${counts.admins} admins (passwords not shown).`);

@@ -180,7 +180,7 @@ Times in the database are **epoch seconds**. Times in the API are **ISO strings*
 
 ## Session and user (`src/auth.js`, `src/users.js`)
 
-- **Cookie:** the name is `tta_session`; it is signed with `config.sessionSecret`. The value is `"<userId>.<sessionVersion>"`.
+- **Cookie:** the name is `tta_session`; it is signed with `config.sessionSecret`. The value is `"<userId>.<sessionVersion>.<issuedAtEpochSec>"`. `requireUser` also gives 401 when it is more than 7 days old or more than 60 s in the future, and rejects the old 2-part format.
   - Flags: `httpOnly`, `sameSite: 'lax'`, `secure: config.cookieSecure`, `path: '/'`, `maxAge` 7 days.
 - **`users.js`:**
   - `getUserById(db, id)` returns `PublicUser` or `null`.
@@ -192,7 +192,7 @@ Times in the database are **epoch seconds**. Times in the API are **ISO strings*
   { id, username, name, role: 'coordinator' | 'admin', universityId: number | null, university: string | null, universityCode: string | null }
   ```
 - **Hooks:**
-  - `app.requireUser` (a preHandler) gives **401 `unauthenticated`** when there's no or a bad cookie, the user is disabled, or the version doesn't match.
+  - `app.requireUser` (a preHandler) gives **401 `unauthenticated`** when there's no or a bad or expired cookie, the user is disabled, or the version doesn't match.
   - `app.requireAdmin` runs `requireUser`, then gives **403 `forbidden`** unless the role is admin.
   - `app.requireCoordinator` runs `requireUser`, then gives **403 `forbidden`** unless the role is coordinator.
 
@@ -262,7 +262,7 @@ All under `/api`. "Own" means `request.user.universityId`. **Coordinator routes 
 
 | Method | Path | Auth | Body | 200 response |
 |---|---|---|---|---|
-| POST | `/login` | public, rate-limited 10/min/IP | `{ username, password }` | `{ user, submissions }`, plus it sets the cookie |
+| POST | `/login` | public, rate-limited 10/min per IP+username and 30/min per IP | `{ username, password }` | `{ user, submissions }`, plus it sets the cookie |
 | POST | `/logout` | user | none | `{ ok: true }`, clears the cookie, bumps `session_version` |
 | GET | `/me` | user | none | `{ user, submissions }` (`submissions` is `{}` for admins) |
 | GET | `/submissions` | coordinator | none | `{ submissions }` |

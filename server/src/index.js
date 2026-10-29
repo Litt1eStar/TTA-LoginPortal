@@ -1,20 +1,32 @@
 import fs from 'node:fs';
-import { loadConfig } from './config.js';
+import path from 'node:path';
+import { loadConfig, resolveServerPath, SERVER_DIR } from './config.js';
 import { openDb } from './db.js';
 import { buildApp } from './app.js';
 
 // Node ≥ 22.13 reads .env itself when present (process.loadEnvFile)
-if (fs.existsSync('.env')) process.loadEnvFile('.env');
+const envFile = path.join(SERVER_DIR, '.env');
+if (fs.existsSync(envFile)) process.loadEnvFile(envFile);
 
 const config = loadConfig(process.env);
+config.dbPath = resolveServerPath(config.dbPath);
+config.uploadDir = resolveServerPath(config.uploadDir);
 fs.mkdirSync(config.uploadDir, { recursive: true });
 const db = openDb(config.dbPath);
 const app = buildApp({ db, config, logger: { level: process.env.NODE_ENV === 'production' ? 'info' : 'debug' } });
 
+let shuttingDown = false;
 const shutdown = async () => {
-  await app.close();
-  db.close();
-  process.exit(0);
+  if (shuttingDown) return;
+  shuttingDown = true;
+  try {
+    await app.close();
+    db.close();
+    process.exit(0);
+  } catch (err) {
+    console.error('Shutdown failed:', err);
+    process.exit(1);
+  }
 };
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);

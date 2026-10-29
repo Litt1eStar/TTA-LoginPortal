@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { loadConfig } from '../src/config.js';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { loadConfig, resolveServerPath, SERVER_DIR } from '../src/config.js';
 import { FINAL_DEADLINE } from '../../src/data/tracks.js';
 
 describe('loadConfig', () => {
@@ -37,5 +39,16 @@ describe('loadConfig', () => {
   it('accepts a 32-char secret in production', () => {
     const c = loadConfig({ NODE_ENV: 'production', SESSION_SECRET: 'x'.repeat(32) });
     expect(c.sessionSecret).toBe('x'.repeat(32));
+  });
+});
+
+describe('resolveServerPath', () => {
+  it('resolves relative paths against the server folder', () => {
+    expect(SERVER_DIR).toBe(path.resolve(fileURLToPath(new URL('..', import.meta.url))));
+    expect(resolveServerPath('data/portal.db')).toBe(path.join(SERVER_DIR, 'data', 'portal.db'));
+  });
+  it('leaves absolute paths alone', () => {
+    const abs = path.resolve(path.parse(SERVER_DIR).root, 'somewhere', 'x.db');
+    expect(resolveServerPath(abs)).toBe(abs);
   });
 });
