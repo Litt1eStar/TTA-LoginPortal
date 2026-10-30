@@ -10,6 +10,7 @@ import multipart from '@fastify/multipart';
 import filesRoutes from './files.js';
 import videoRoutes from './video.js';
 import driveRoutes, { createDrive } from './drive.js';
+import adminPlugin from './admin.js';
 
 const BODY_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const UPLOAD_PATH = /^\/api\/submissions\/[^/]+\/files$/;
@@ -54,6 +55,7 @@ export function buildApp({ db, config, logger = false, googleFetch = globalThis.
 
   app.register(authPlugin, { db, config });
   app.register(submissionsPlugin, { db, config });
+  app.register(adminPlugin, { db, config });
   app.register(multipart, { limits: { files: 1, fields: 5 } });
   app.register(filesRoutes, { prefix: '/api', db, config });
   const drive = createDrive({ db, config, fetch: googleFetch });
