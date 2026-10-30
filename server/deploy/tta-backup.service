@@ -1,0 +1,10 @@
+[Unit]
+Description=TTA Portal daily backup
+
+[Service]
+Type=oneshot
+User=tta
+Group=tta
+WorkingDirectory=/opt/tta/server
+EnvironmentFile=/opt/tta/server/.env
+ExecStart=/usr/bin/node scripts/backup.js

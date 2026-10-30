@@ -1,0 +1,25 @@
+[Unit]
+Description=TTA Portal API (Fastify + SQLite, serves dist/)
+After=network.target
+
+[Service]
+Type=simple
+User=tta
+Group=tta
+WorkingDirectory=/opt/tta/server
+Environment=NODE_ENV=production
+Environment=HOST=127.0.0.1
+Environment=SERVE_STATIC=true
+Environment=STATIC_DIR=/opt/tta/dist
+EnvironmentFile=/opt/tta/server/.env
+ExecStart=/usr/bin/node src/index.js
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/tta/server/data /opt/tta/server/backups
+
+[Install]
+WantedBy=multi-user.target
