@@ -207,3 +207,18 @@ export function submitEntry(db, universityId, key) {
   if (res.changes !== 1) throw httpError(423, 'locked');
   return rowToEntry(getEntryRow(db, universityId, key));
 }
+
+// Admin only: a submitted entry goes back to draft. The version is bumped so a coordinator tab
+// still holding the submitted copy reloads before it can save.
+export function unlockEntry(db, universityId, key) {
+  ensureRows(db, universityId);
+  const row = getEntryRow(db, universityId, key);
+  if (!row) throw httpError(404, 'not_found');
+  if (row.status === 2) {
+    db.prepare(`
+      UPDATE submissions SET status = 1, submitted_at = NULL, hash = NULL, draft_at = ?, version = version + 1
+      WHERE university_id = ? AND entry_key = ? AND status = 2`
+    ).run(nowSec(), universityId, key);
+  }
+  return rowToEntry(getEntryRow(db, universityId, key));
+}
