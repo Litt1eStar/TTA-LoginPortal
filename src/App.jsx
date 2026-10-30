@@ -9,6 +9,7 @@ import { DashboardView } from './components/dashboard/DashboardView';
 import { SubmitView } from './components/submit/SubmitView';
 import { HistoryView } from './components/history/HistoryView';
 import { CertificatesView } from './components/certificates/CertificatesView';
+import { AdminView } from './components/admin/AdminView';
 
 const homeFor = (user) => (user?.role === 'admin' ? '/admin' : '/dashboard');
 
@@ -37,7 +38,7 @@ function ProtectedLayout() {
   );
 }
 
-// Admin routes: guard & layout (plan D fills in the page)
+// Admin routes: guard & layout
 function AdminLayout() {
   const { isAuthenticated, user } = usePortal();
   const location = useLocation();
@@ -51,26 +52,11 @@ function AdminLayout() {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <Navbar />
       <main style={{ flex: 1 }}>
         <Outlet />
       </main>
       <Toast />
-    </div>
-  );
-}
-
-// Placeholder until plan D replaces this route element with the real admin page
-function AdminHome() {
-  const { user, logout } = usePortal();
-  return (
-    <div className="app-container" style={{ padding: '48px 20px' }}>
-      <div className="card">
-        <h1 style={{ fontSize: '26px', fontWeight: 700 }}>ผู้ดูแลระบบ</h1>
-        <p style={{ color: 'var(--text-muted)' }}>สวัสดี คุณ{user.name} หน้าสำหรับผู้ดูแลระบบกำลังจัดทำ</p>
-        <div>
-          <button type="button" className="btn" onClick={logout}>ออกจากระบบ</button>
-        </div>
-      </div>
     </div>
   );
 }
@@ -122,7 +108,7 @@ export default function App() {
 
       {/* Admin routes */}
       <Route element={<AdminLayout />}>
-        <Route path="/admin" element={<AdminHome />} />
+        <Route path="/admin" element={<AdminView />} />
       </Route>
 
       {/* Fallback route */}

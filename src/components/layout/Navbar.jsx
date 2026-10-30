@@ -10,7 +10,8 @@ import {
   Certificate,
   CloudArrowUp,
   CloudCheck,
-  CloudWarning
+  CloudWarning,
+  ShieldCheck
 } from '@phosphor-icons/react';
 
 const SAVE_STATES = {
@@ -44,7 +45,11 @@ export const Navbar = () => {
 
   if (!user) return null;
 
-  const navItems = [
+  const isAdmin = user.role === 'admin';
+  const homePath = isAdmin ? '/admin' : '/dashboard';
+  const navItems = isAdmin ? [
+    { id: 'admin', path: '/admin', label: 'ผู้ดูแลระบบ', icon: ShieldCheck, isActive: location.pathname === '/admin' }
+  ] : [
     { id: 'dashboard', path: '/dashboard', label: 'หน้าหลัก', icon: SquaresFour, isActive: location.pathname === '/dashboard' || location.pathname === '/' },
     { id: 'submit', path: `/submit/${activeTrackId || 'theory'}`, label: 'ส่งผลงาน', icon: PaperPlaneTilt, isActive: location.pathname.startsWith('/submit') },
     { id: 'history', path: '/history', label: 'ประวัติการส่ง', icon: ClockCounterClockwise, isActive: location.pathname === '/history' },
@@ -85,7 +90,7 @@ export const Navbar = () => {
         {/* Brand: logo sits on a white tile so its navy lettering stays readable */}
         <button
           type="button"
-          onClick={() => navigate('/dashboard')}
+          onClick={() => navigate(homePath)}
           aria-label="ไปหน้าหลัก"
           style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'transparent', padding: 0 }}
         >
@@ -137,10 +142,10 @@ export const Navbar = () => {
 
         {/* User & actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <SaveIndicator state={saveState} />
+          {!isAdmin && <SaveIndicator state={saveState} />}
           <div
             className="nav-user"
-            title={`${user.name} · ${user.university}`}
+            title={user.university ? `${user.name} · ${user.university}` : user.name}
             style={{ display: 'flex', alignItems: 'center', gap: '10px' }}
           >
             <div style={{
