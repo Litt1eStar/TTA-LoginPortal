@@ -30,6 +30,8 @@ export function loadConfig(env = process.env) {
       clientSecret: env.GOOGLE_CLIENT_SECRET || '',
       redirectUri: env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/api/admin/google/callback'
     },
-    appOrigin: env.APP_ORIGIN || 'http://localhost:3000'
+    appOrigin: env.APP_ORIGIN || 'http://localhost:3000',
+    serveStatic: env.SERVE_STATIC === 'true',          // production: serve ../dist from the API
+    staticDir: env.STATIC_DIR || '../dist'             // relative to server/
   };
 }

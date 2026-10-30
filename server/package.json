@@ -10,7 +10,9 @@
     "dev": "node --watch src/index.js",
     "start": "node src/index.js",
     "test": "vitest run",
-    "seed": "node scripts/seed.js"
+    "seed": "node scripts/seed.js",
+    "backup": "node scripts/backup.js",
+    "loadtest": "node scripts/loadtest.js"
   },
   "dependencies": {
     "@fastify/compress": "^9.3.0",
@@ -18,12 +20,16 @@
     "@fastify/helmet": "^13.2.0",
     "@fastify/multipart": "10.1.6",
     "@fastify/rate-limit": "^11.2.1",
+    "@fastify/static": "^10.1.8",
+    "archiver": "^8.0.0",
     "bcryptjs": "^3.0.3",
     "fastify": "^5.12.7",
     "fastify-plugin": "^5.1.0",
     "file-type": "22.2.0"
   },
   "devDependencies": {
-    "vitest": "^5.0.5"
+    "autocannon": "^8.0.0",
+    "vitest": "^5.0.5",
+    "yauzl": "^3.4.0"
   }
 }
