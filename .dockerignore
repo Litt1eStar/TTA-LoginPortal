@@ -1,6 +1,13 @@
-node_modules
+**/node_modules
 dist
 .git
 .github
 .env*
+**/.env
 *.md
+docs
+graft
+site
+server/data
+server/backups
+server/test

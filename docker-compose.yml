@@ -1,0 +1,26 @@
+name: tta-api
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    image: tta-api:latest
+    restart: unless-stopped
+    env_file: server/.env
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      SERVE_STATIC: "true"
+      STATIC_DIR: /app/dist
+      DB_PATH: data/portal.db
+      UPLOAD_DIR: data/uploads
+      BACKUP_DIR: backups
+    volumes:
+      - portal-data:/app/server/data      # portal.db + uploads/
+      - ./backups:/app/server/backups      # on the host, so it survives the container
+    ports:
+      - "127.0.0.1:3001:3001"              # only the host's reverse proxy reaches it
+
+volumes:
+  portal-data: {}
