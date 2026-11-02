@@ -1,0 +1,36 @@
+# Apache reverse proxy for the TTA Portal (e.g. on the cmmlab web server)
+# Needs: a2enmod proxy proxy_http headers ssl rewrite
+# HTTPS certificate: sudo certbot --apache -d portal.yourdomain.com
+#
+# BACKEND:
+#   app on the same machine        -> http://127.0.0.1:3001/
+#   app on the university server   -> http://<university-server-VPN-IP>:3001/
+#     (then the API must listen on that interface: HOST=0.0.0.0, and only allow
+#      the cmmlab server's IP to reach port 3001 with the firewall)
+
+<VirtualHost *:80>
+    ServerName portal.yourdomain.com
+    RewriteEngine On
+    RewriteRule ^ https://%{SERVER_NAME}%{REQUEST_URI} [END,R=301]
+</VirtualHost>
+
+<VirtualHost *:443>
+    ServerName portal.yourdomain.com
+
+    SSLEngine on
+    SSLCertificateFile    /etc/letsencrypt/live/portal.yourdomain.com/fullchain.pem
+    SSLCertificateKeyFile /etc/letsencrypt/live/portal.yourdomain.com/privkey.pem
+
+    # Work files up to MAX_WORK_MB (50 MB) + some margin
+    LimitRequestBody 62914560
+
+    ProxyPreserveHost On
+    ProxyRequests Off
+    # Long zip downloads
+    ProxyTimeout 300
+    RequestHeader set X-Forwarded-Proto "https"
+
+    # flushpackets=on streams zips instead of buffering them
+    ProxyPass        / http://127.0.0.1:3001/ flushpackets=on
+    ProxyPassReverse / http://127.0.0.1:3001/
+</VirtualHost>
