@@ -54,6 +54,38 @@ function checkKey(key) {
   return key;
 }
 
+const entryLabels = (key) => {
+  const track = getTrack(key);
+  const { groupIdx } = parseEntryKey(key);
+  return {
+    type: track.category || track.full,
+    subType: groupIdx != null ? track.subjectGroups[groupIdx] : (track.category ? track.th : '')
+  };
+};
+
+// One member → one flat CSV row
+function memberRow(uni, entry, key, m, config) {
+  const { type, subType } = entryLabels(key);
+  return {
+    university: uni.name,
+    type,
+    subType,
+    status: STATUS_TH[entry.status] || entry.status,
+    role: m.type === 'advisor' ? 'อาจารย์' : 'ผู้แข่งขัน',
+    leader: m.isLeader ? 'ใช่' : '',
+    title: m.title,
+    fullName: m.fullName,
+    dept: m.dept,
+    studentId: m.type === 'student' ? m.studentId : '',
+    year: m.type === 'student' ? m.year : '',
+    email: m.email,
+    phone: m.phone,
+    photoUrl: m.photo?.fileId ? `${config.appOrigin}/api/files/${m.photo.fileId}` : '',
+    submittedAt: bangkokTime(entry.submittedAt),
+    hash: entry.hash || ''
+  };
+}
+
 // One flat row per member, in university → TRACKS order → member order
 export function collectMemberRows(db, config) {
   const rows = [];
@@ -61,33 +93,60 @@ export function collectMemberRows(db, config) {
     const entries = listEntries(db, uni.id);
     for (const key of allEntryKeys()) {
       const entry = entries[key];
-      const track = getTrack(key);
-      const { groupIdx } = parseEntryKey(key);
-      const type = track.category || track.full;
-      const subType = groupIdx != null ? track.subjectGroups[groupIdx] : (track.category ? track.th : '');
-      for (const m of entry.members || []) {
-        rows.push({
-          university: uni.name,
-          type,
-          subType,
-          status: STATUS_TH[entry.status] || entry.status,
-          role: m.type === 'advisor' ? 'อาจารย์' : 'ผู้แข่งขัน',
-          leader: m.isLeader ? 'ใช่' : '',
-          title: m.title,
-          fullName: m.fullName,
-          dept: m.dept,
-          studentId: m.type === 'student' ? m.studentId : '',
-          year: m.type === 'student' ? m.year : '',
-          email: m.email,
-          phone: m.phone,
-          photoUrl: m.photo?.fileId ? `${config.appOrigin}/api/files/${m.photo.fileId}` : '',
-          submittedAt: bangkokTime(entry.submittedAt),
-          hash: entry.hash || ''
-        });
-      }
+      for (const m of entry.members || []) rows.push(memberRow(uni, entry, key, m, config));
     }
   }
   return rows;
+}
+
+const bangkokStamp = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' }).replace(/-/g, '');
+const uniLabel = (code) => { const c = String(code || ''); return c ? c[0].toUpperCase() + c.slice(1) : 'Uni'; };
+
+// Committee export: TTA-members-YYYYMMDD/<Uni>/<NN entry>/รายชื่อสมาชิก.csv + ProfileImage_<Uni>_<id>.<ext>
+export function buildMembersZipPlan(db, config) {
+  const root = `TTA-members-${bangkokStamp()}`;
+  const fileRow = db.prepare('SELECT id, sha256, mime, original_name FROM files WHERE id = ? AND university_id = ? AND entry_key = ?');
+  const keys = allEntryKeys();
+  const items = [];
+  const missing = [];
+
+  for (const uni of listUniversities(db)) {
+    const entries = listEntries(db, uni.id);
+    const uniName = uniLabel(uni.code);
+    keys.forEach((key, idx) => {
+      const entry = entries[key];
+      const members = entry.members || [];
+      if (!members.length) return;
+      const track = getTrack(key);
+      const { groupIdx } = parseEntryKey(key);
+      const label = `${String(idx + 1).padStart(2, '0')} ${track.th}${groupIdx != null ? ` - ${track.subjectGroups[groupIdx]}` : ''}`;
+      const dir = `${root}/${safeName(uniName)}/${safeName(label)}`;
+      const used = new Set();
+      const counts = { advisor: 0, student: 0 };
+      const rows = members.map((m) => {
+        const role = m.type === 'advisor' ? 'advisor' : 'student';
+        counts[role] += 1;
+        const row = { ...memberRow(uni, entry, key, m, config), photoFile: '' };
+        const who = `${uni.code}/${key}: ${m.fullName || m.id}`;
+        if (!m.photo?.fileId) { missing.push(`${who} (ไม่มีรูปถ่าย)`); return row; }
+        const file = fileRow.get(Number(m.photo.fileId), uni.id, key);
+        if (!file) { missing.push(`${who} (ไม่พบรูปในฐานข้อมูล)`); return row; }
+        const abs = storedFilePath(config, file.sha256);
+        if (!fs.existsSync(abs)) { missing.push(`${who} (ไม่พบไฟล์รูปบนดิสก์)`); return row; }
+        const fallback = `${role === 'advisor' ? 'Advisor' : 'Student'}${String(counts[role]).padStart(2, '0')}`;
+        const raw = role === 'advisor' ? String(m.email || '').split('@')[0] : m.studentId;
+        const id = String(raw || '').trim() || fallback;
+        const ext = MIME_EXT[file.mime] || path.extname(file.original_name).slice(1) || 'bin';
+        const name = uniqueName(used, safeName(`ProfileImage_${uniName}_${id}.${ext}`));
+        items.push({ name: `${dir}/${name}`, file: abs });
+        row.photoFile = name;
+        return row;
+      });
+      items.push({ name: `${dir}/รายชื่อสมาชิก.csv`, text: buildMembersCsv(rows, [{ header: 'ไฟล์รูปถ่าย', field: 'photoFile' }]) });
+    });
+  }
+  if (missing.length) items.push({ name: `${root}/_missing.txt`, text: missing.join('\r\n') + '\r\n' });
+  return items;
 }
 
 // Items for the zip of one track: { name, file } (path on disk) or { name, text }
@@ -162,7 +221,7 @@ export default async function adminPlugin(app, { db, config }) {
 
   app.get('/api/admin/export.csv', pre, async (request, reply) => {
     const csv = buildMembersCsv(collectMemberRows(db, config));
-    const stamp = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' }).replace(/-/g, '');
+    const stamp = bangkokStamp();
     reply
       .header('Content-Type', 'text/csv; charset=utf-8')
       .header('Content-Disposition', `attachment; filename="tta-members-${stamp}.csv"`)
@@ -170,9 +229,7 @@ export default async function adminPlugin(app, { db, config }) {
     return csv;
   });
 
-  app.get('/api/admin/files.zip', pre, async (request, reply) => {
-    const trackId = String(request.query.key || '');
-    const items = buildZipPlan(db, config, trackId);
+  const sendZip = (request, reply, items, filename) => {
     // Photos, PDFs and zips are already compressed: level 1 keeps CPU low
     const archive = new ZipArchive({ zlib: { level: 1 } });
     archive.on('warning', err => request.log.warn(err));
@@ -184,8 +241,16 @@ export default async function adminPlugin(app, { db, config }) {
     Promise.resolve(archive.finalize()).catch(err => request.log.error(err));
     reply
       .header('Content-Type', 'application/zip')
-      .header('Content-Disposition', `attachment; filename="tta-${trackId}.zip"`)
+      .header('Content-Disposition', `attachment; filename="${filename}"`)
       .header('Cache-Control', 'no-store');
     return reply.send(archive);
+  };
+
+  app.get('/api/admin/files.zip', pre, async (request, reply) => {
+    const trackId = String(request.query.key || '');
+    return sendZip(request, reply, buildZipPlan(db, config, trackId), `tta-${trackId}.zip`);
   });
+
+  app.get('/api/admin/members.zip', pre, async (request, reply) =>
+    sendZip(request, reply, buildMembersZipPlan(db, config), `tta-members-${bangkokStamp()}.zip`));
 }

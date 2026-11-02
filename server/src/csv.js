@@ -19,8 +19,11 @@ export function csvCell(value) {
 }
 
 // rows: flat member rows with the FIELDS keys (see collectMemberRows in admin.js)
-export function buildMembersCsv(rows) {
-  const lines = [CSV_HEADERS.map(csvCell).join(',')];
-  for (const row of rows) lines.push(FIELDS.map(f => csvCell(row[f])).join(','));
+// extra: optional [{ header, field }] columns appended after the standard ones
+export function buildMembersCsv(rows, extra = []) {
+  const headers = [...CSV_HEADERS, ...extra.map(c => c.header)];
+  const fields = [...FIELDS, ...extra.map(c => c.field)];
+  const lines = [headers.map(csvCell).join(',')];
+  for (const row of rows) lines.push(fields.map(f => csvCell(row[f])).join(','));
   return '\uFEFF' + lines.join('\r\n') + '\r\n';
 }
