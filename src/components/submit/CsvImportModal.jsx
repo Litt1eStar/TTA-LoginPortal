@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { usePortal } from '../../context/PortalContext';
-import { generateCsvTemplateContent } from '../../data/csvTemplate';
+import { XLSX_TEMPLATE_URL, XLSX_TEMPLATE_NAME } from '../../data/csvTemplate';
 import { parseCsvText, evaluateCsvRows } from '../../hooks/useCsvParser';
 import {
   X,
@@ -28,17 +28,13 @@ export const CsvImportModal = ({ isOpen, onClose, trackId }) => {
   const errorCount = evaluatedRows.length - validRows.length;
 
   const handleDownloadTemplate = () => {
-    const csvContent = generateCsvTemplateContent();
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.href = url;
-    link.download = 'ttaa13-team-template.csv';
+    link.href = XLSX_TEMPLATE_URL;
+    link.download = XLSX_TEMPLATE_NAME;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    showToast('ดาวน์โหลดแม่แบบ ttaa13-team-template.csv แล้ว');
+    showToast(`ดาวน์โหลดแม่แบบ ${XLSX_TEMPLATE_NAME} แล้ว`);
   };
 
   const processFile = (file) => {
@@ -168,7 +164,10 @@ export const CsvImportModal = ({ isOpen, onClose, trackId }) => {
                 ยังไม่มีแบบฟอร์มไฟล์ CSV หรือไม่?
               </div>
               <div style={{ fontSize: '14px', color: '#4F5366' }}>
-                ดาวน์โหลดไฟล์ตัวอย่างที่มีคอลัมน์และคำอธิบายถูกต้องตามข้อกำหนด
+                ดาวน์โหลดแม่แบบ Excel กรอกต่อจากแถวตัวอย่าง แล้วบันทึกเป็น CSV UTF-8 (ไฟล์ &gt; บันทึกเป็น &gt; CSV UTF-8) เพื่ออัปโหลดที่นี่ แถวที่ชื่อขึ้นต้นด้วย “ตัวอย่าง” จะไม่ถูกนำเข้า
+              </div>
+              <div style={{ fontSize: '13px', color: '#4F5366', marginTop: '2px' }}>
+                รูปถ่ายไม่ต้องใส่ใน CSV ให้อัปโหลดรายคนในระบบหลังนำเข้ารายชื่อ
               </div>
             </div>
             <button
@@ -188,7 +187,7 @@ export const CsvImportModal = ({ isOpen, onClose, trackId }) => {
               }}
             >
               <DownloadSimple size={15} weight="bold" />
-              <span>ดาวน์โหลดแม่แบบ CSV</span>
+              <span>ดาวน์โหลดแม่แบบ (Excel)</span>
             </button>
           </div>
 

@@ -65,7 +65,7 @@ export const evaluateCsvRows = (parsedRows, existingMembers = []) => {
     else if (h.includes('student_id') || h.includes('รหัส')) headerMap.studentId = idx;
     else if (h.includes('email') || h.includes('อีเมล')) headerMap.email = idx;
     else if (h.includes('phone') || h.includes('โทร')) headerMap.phone = idx;
-    else if (h.includes('faculty') || h.includes('dept') || h.includes('คณะ') || h.includes('สาขา')) headerMap.deptOrFaculty = idx;
+    else if (h.includes('faculty') || h.includes('dept') || h.includes('คณะ') || h.includes('สาขา') || h.includes('หน่วยงาน')) headerMap.deptOrFaculty = idx;
     else if (h.includes('year') || h.includes('ชั้นปี') || h.includes('ปี')) headerMap.year = idx;
     else if (h.includes('title') || h.includes('คำนำหน้า')) headerMap.title = idx;
     else if (h.includes('leader') || h.includes('หัวหน้า')) headerMap.isLeader = idx;
@@ -80,7 +80,10 @@ export const evaluateCsvRows = (parsedRows, existingMembers = []) => {
 
   const seenEmails = new Set(existingMembers.map(m => (m.email || '').toLowerCase()).filter(Boolean));
 
-  const evaluated = parsedRows.slice(1).map((r, i) => {
+  // Template example rows (name starts with "ตัวอย่าง") are skipped; line numbers stay those of the file
+  const isExample = (r) => String(r[headerMap.fullName] || '').trim().startsWith('ตัวอย่าง');
+
+  const evaluated = parsedRows.slice(1).map((r, i) => ({ r, line: i + 2 })).filter(({ r }) => !isExample(r)).map(({ r, line }) => {
     const getVal = (col) => (col !== undefined && r[col] ? String(r[col]).trim() : '');
     const typeRaw = getVal(headerMap.type);
     const type = normalizeMemberType(typeRaw) || (getVal(headerMap.studentId) ? 'student' : 'advisor');
@@ -92,7 +95,7 @@ export const evaluateCsvRows = (parsedRows, existingMembers = []) => {
     const year = getVal(headerMap.year);
     const title = getVal(headerMap.title) || (type === 'advisor' ? 'ดร.' : '');
     const leaderRaw = getVal(headerMap.isLeader).toLowerCase();
-    const isLeader = ['yes', 'y', 'true', '1', 'หัวหน้า', 'หัวหน้าทีม'].includes(leaderRaw);
+    const isLeader = ['yes', 'y', 'true', '1', 'ใช่', '✓', 'หัวหน้า', 'หัวหน้าทีม'].includes(leaderRaw);
 
     // Only name and department are required; email is checked only if given
     const errors = [];
@@ -108,7 +111,7 @@ export const evaluateCsvRows = (parsedRows, existingMembers = []) => {
     const ok = errors.length === 0;
 
     return {
-      line: i + 2,
+      line,
       id: generateId('csv'),
       type,
       title,
@@ -125,5 +128,8 @@ export const evaluateCsvRows = (parsedRows, existingMembers = []) => {
     };
   });
 
+  if (evaluated.length === 0) {
+    return { headerError: 'ไฟล์มีแต่แถวตัวอย่าง กรุณาเพิ่มรายชื่อจริง (แถวที่ชื่อขึ้นต้นด้วย "ตัวอย่าง" จะไม่ถูกนำเข้า)', rows: [] };
+  }
   return { headerError: '', rows: evaluated };
 };
