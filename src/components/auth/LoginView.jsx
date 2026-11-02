@@ -89,7 +89,7 @@ export const LoginView = () => {
           >
             {/* Error Message */}
             {error && (
-              <div style={{
+              <div id="login-error" role="alert" style={{
                 background: '#FFF1EB',
                 border: '1px solid rgba(255, 95, 28, 0.3)',
                 color: '#C2410C',
@@ -108,7 +108,7 @@ export const LoginView = () => {
 
             {/* Username Input */}
             <div>
-              <label style={{
+              <label htmlFor="login-username" style={{
                 display: 'block',
                 fontSize: '13.5px',
                 fontWeight: 700,
@@ -124,7 +124,13 @@ export const LoginView = () => {
                   style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)' }}
                 />
                 <input
+                  id="login-username"
+                  name="username"
                   type="text"
+                  autoComplete="username"
+                  autoFocus
+                  aria-invalid={!!error}
+                  aria-describedby={error ? 'login-error' : undefined}
                   value={username}
                   onChange={(e) => {
                     setUsername(e.target.value);
@@ -146,7 +152,7 @@ export const LoginView = () => {
 
             {/* Password Input */}
             <div>
-              <label style={{
+              <label htmlFor="login-password" style={{
                 display: 'block',
                 fontSize: '13.5px',
                 fontWeight: 700,
@@ -162,6 +168,11 @@ export const LoginView = () => {
                   style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)' }}
                 />
                 <input
+                  id="login-password"
+                  name="password"
+                  autoComplete="current-password"
+                  aria-invalid={!!error}
+                  aria-describedby={error ? 'login-error' : undefined}
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => {
@@ -182,6 +193,8 @@ export const LoginView = () => {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+                  aria-pressed={showPassword}
                   style={{
                     position: 'absolute',
                     right: '14px',

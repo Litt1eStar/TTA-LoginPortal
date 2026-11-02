@@ -40,10 +40,21 @@ export const CertificatesView = () => {
         <h1 className="page-title">ดาวน์โหลดเกียรติบัตร</h1>
         <p style={{ fontSize: '15px', color: '#4F5366', marginTop: '4px' }}>
           เกียรติบัตรของ <strong>{user?.university}</strong> สำหรับผู้ประสานงานดาวน์โหลดไปแจกจ่าย
-          {' · '}พร้อมดาวน์โหลด {readyCount}/{allItems.length} รายการ
+          {readyCount > 0 && <>{' · '}พร้อมดาวน์โหลด {readyCount}/{allItems.length} รายการ</>}
         </p>
       </div>
 
+      {readyCount === 0 ? (
+        <div style={{ ...card, padding: '48px 28px', textAlign: 'center', color: '#6B6F80' }}>
+          <Clock size={36} weight="duotone" color="#A3A6B4" />
+          <h2 style={{ fontSize: 'var(--fs-lg)', fontWeight: 700, color: 'var(--text-dark)', marginTop: '12px' }}>
+            ยังไม่เปิดให้ดาวน์โหลดเกียรติบัตร
+          </h2>
+          <p style={{ fontSize: '15px', marginTop: '4px' }}>
+            เมื่อเกียรติบัตรพร้อม ({allItems.length} รายการ) จะดาวน์โหลดได้จากหน้านี้
+          </p>
+        </div>
+      ) : (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
         {CERTIFICATE_SECTIONS.map((section, si) => (
           <section key={section.title || `section-${si}`} style={card}>
@@ -103,6 +114,7 @@ export const CertificatesView = () => {
           </section>
         ))}
       </div>
+      )}
     </div>
   );
 };
