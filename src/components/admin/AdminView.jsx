@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ShieldCheck, DownloadSimple, FileZip, ArrowsClockwise } from '@phosphor-icons/react';
+import { ShieldCheck, DownloadSimple, FileZip, ArrowsClockwise, UsersThree } from '@phosphor-icons/react';
 import { api } from '../../api';
 import { usePortal } from '../../context/PortalContext';
 import { TRACKS, groupShortName } from '../../data/tracks';
@@ -17,6 +17,13 @@ const COLUMNS = getOverviewItems({}).map(it => ({
 }));
 
 const headCell = { padding: '12px 8px', fontWeight: 700, fontSize: '13px', color: '#4F5366', textAlign: 'center', verticalAlign: 'bottom' };
+const STATUS_FILTERS = [
+  { id: 'all', label: 'ทั้งหมด' },
+  { id: 'submitted', label: 'ส่งแล้ว' },
+  { id: 'draft', label: 'ร่าง' },
+  { id: 'not_started', label: 'ยังไม่เริ่ม' }
+];
+
 const stickyCol = { position: 'sticky', left: 0, background: '#FFFFFF', zIndex: 1, textAlign: 'left', padding: '12px 16px', minWidth: '220px' };
 
 export const AdminView = () => {
@@ -26,11 +33,15 @@ export const AdminView = () => {
   const [error, setError] = useState('');
   const [selected, setSelected] = useState(null); // { university, column }
   const [zipKey, setZipKey] = useState(TRACKS[0].id);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [incompleteOnly, setIncompleteOnly] = useState(false);
+  const [loadedAt, setLoadedAt] = useState(null);
 
   const load = useCallback(async () => {
     setError('');
     try {
       setOverview(await api.get('/admin/overview'));
+      setLoadedAt(new Date());
     } catch (err) {
       setError(err.message || 'โหลดข้อมูลไม่สำเร็จ');
     }
@@ -62,6 +73,11 @@ export const AdminView = () => {
   const statusOf = (uid, key) => overview?.entries?.[uid]?.[key]?.status || 'not_started';
   const submittedCount = (uid) => COLUMNS.filter(c => statusOf(uid, c.key) === 'submitted').length;
   const columnCount = (key) => (overview?.universities || []).filter(u => statusOf(u.id, key) === 'submitted').length;
+  // Status filter dims non-matching cells and hides universities with no matching cell
+  const visibleUniversities = (overview?.universities || []).filter(u =>
+    (!incompleteOnly || submittedCount(u.id) < COLUMNS.length) &&
+    (statusFilter === 'all' || COLUMNS.some(c => statusOf(u.id, c.key) === statusFilter)));
+  const loadedTime = loadedAt ? loadedAt.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', hour12: false }) : '';
 
   return (
     <div className="app-container" style={{ padding: '36px 20px 80px 20px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -76,6 +92,9 @@ export const AdminView = () => {
           <button type="button" className="btn" onClick={load}><ArrowsClockwise size={18} /> รีเฟรช</button>
           <a className="btn btn-primary" href="/api/admin/export.csv" download>
             <DownloadSimple size={18} weight="bold" /> ส่งออก CSV รายชื่อ
+          </a>
+          <a className="btn" href="/api/admin/members.zip" download>
+            <UsersThree size={18} /> ดาวน์โหลดรายชื่อ + รูปถ่าย (.zip)
           </a>
         </div>
       </div>
@@ -95,6 +114,9 @@ export const AdminView = () => {
             <FileZip size={18} /> ดาวน์โหลด .zip
           </a>
         </div>
+        <p style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-sm)', marginTop: '8px' }}>
+          ปุ่ม "ดาวน์โหลดรายชื่อ + รูปถ่าย" ด้านบน: โฟลเดอร์ตามมหาวิทยาลัยและประเภท มีไฟล์รายชื่อ (CSV) และรูปชื่อ ProfileImage_มหาวิทยาลัย_รหัสนักศึกษา
+        </p>
       </section>
 
       {/* Matrix */}
@@ -102,6 +124,24 @@ export const AdminView = () => {
         <div style={{ padding: '16px 20px', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', borderBottom: '1px solid #ECECF1' }}>
           <strong>สถานะ:</strong>
           <StatusChip status="submitted" /><StatusChip status="draft" /><StatusChip status="not_started" />
+          {loadedTime && <span style={{ marginLeft: 'auto', color: 'var(--text-muted)', fontSize: '13px' }}>อัปเดตล่าสุด {loadedTime}</span>}
+        </div>
+        <div style={{ padding: '12px 20px', display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', borderBottom: '1px solid #ECECF1' }}>
+          <span style={{ fontWeight: 600, fontSize: '14px' }}>แสดง:</span>
+          <div role="group" aria-label="กรองตามสถานะ" style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+            {STATUS_FILTERS.map(f => (
+              <button key={f.id} type="button" className={`btn${statusFilter === f.id ? ' btn-primary' : ''}`}
+                aria-pressed={statusFilter === f.id} onClick={() => setStatusFilter(f.id)}
+                style={{ minHeight: '36px', padding: '0 14px' }}>
+                {f.label}
+              </button>
+            ))}
+          </div>
+          <label style={{ display: 'inline-flex', gap: '6px', alignItems: 'center', marginLeft: '8px', fontSize: '14px', cursor: 'pointer' }}>
+            <input type="checkbox" checked={incompleteOnly} onChange={(e) => setIncompleteOnly(e.target.checked)} />
+            ยังไม่ครบเท่านั้น
+          </label>
+          {overview && <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>({visibleUniversities.length}/{overview.universities.length} มหาวิทยาลัย)</span>}
         </div>
         {error && <p role="alert" style={{ padding: '16px 20px', color: 'var(--danger)' }}>{error}</p>}
         {!overview && !error && <p style={{ padding: '16px 20px', color: 'var(--text-muted)' }}>กำลังโหลด…</p>}
@@ -121,14 +161,17 @@ export const AdminView = () => {
                 </tr>
               </thead>
               <tbody>
-                {overview.universities.map(u => (
+                {visibleUniversities.length === 0 && (
+                  <tr><td colSpan={COLUMNS.length + 2} style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)' }}>ไม่มีมหาวิทยาลัยที่ตรงกับตัวกรอง</td></tr>
+                )}
+                {visibleUniversities.map(u => (
                   <tr key={u.id} style={{ borderBottom: '1px solid #F0F1F5' }}>
                     <th scope="row" style={{ ...stickyCol, fontWeight: 700, fontSize: '14px' }}>
                       <div>{u.name}</div>
                       <div style={{ fontWeight: 500, fontSize: '13px', color: 'var(--text-light)' }}>{u.code}</div>
                     </th>
                     {COLUMNS.map(c => (
-                      <td key={c.key} style={{ padding: '8px 4px', textAlign: 'center' }}>
+                      <td key={c.key} style={{ padding: '8px 4px', textAlign: 'center', opacity: statusFilter === 'all' || statusOf(u.id, c.key) === statusFilter ? 1 : 0.2 }}>
                         <StatusCell
                           status={statusOf(u.id, c.key)}
                           title={`${u.name} · ${c.title}${c.sub ? ` · ${c.sub}` : ''}`}
