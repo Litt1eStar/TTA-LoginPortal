@@ -26,6 +26,11 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
   const [errors, setErrors] = useState({});
   const [photoBusy, setPhotoBusy] = useState(false);
   const photoInput = useRef(null);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  // Snapshot of the form when it opened (or was cleared), to know if anything was typed
+  const snapshot = useRef('');
+  const formState = (o) => JSON.stringify([o.type, o.title, o.fullName, o.studentId, o.email, o.phone, o.dept, o.year, o.isLeader, o.photo?.fileId || o.photo?.dataUrl || null]);
+  const current = { type, title, fullName, studentId, email, phone, dept, year, isLeader, photo };
 
   useEffect(() => {
     if (initialMember) {
@@ -40,6 +45,12 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
       setYear(initialMember.year || '3');
       setIsLeader(!!initialMember.isLeader);
       setPhoto(initialMember.photo || null);
+      snapshot.current = formState({
+        type: initialMember.type || 'student', title: initialMember.title || '', fullName: initialMember.fullName || '',
+        studentId: initialMember.studentId || '', email: initialMember.email || '', phone: initialMember.phone || '',
+        dept: DEPARTMENTS.includes(initialMember.dept) ? initialMember.dept : '', year: initialMember.year || '3',
+        isLeader: !!initialMember.isLeader, photo: initialMember.photo || null
+      });
     } else {
       setType(initialType);
       setTitle(initialType === 'advisor' ? 'ดร.' : 'นาย');
@@ -51,9 +62,32 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
       setYear('3');
       setIsLeader(false);
       setPhoto(null);
+      snapshot.current = formState({
+        type: initialType, title: initialType === 'advisor' ? 'ดร.' : 'นาย', fullName: '', studentId: '',
+        email: '', phone: '', dept: '', year: '3', isLeader: false, photo: null
+      });
     }
     setErrors({});
+    setConfirmDiscard(false);
   }, [initialMember, initialType, isOpen]);
+
+  const isDirty = formState(current) !== snapshot.current;
+
+  // Close, but ask first if something was typed
+  const requestClose = () => {
+    if (photoBusy) return;
+    if (isDirty) setConfirmDiscard(true); else onClose();
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      if (confirmDiscard) setConfirmDiscard(false); else requestClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
 
   if (!isOpen) return null;
 
@@ -94,6 +128,7 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
     });
 
     if (addAnother && !isAdvisor) {
+      snapshot.current = formState({ ...current, fullName: '', studentId: '', email: '', phone: '', isLeader: false, photo: null });
       setFullName('');
       setStudentId('');
       setEmail('');
@@ -174,7 +209,7 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
               {isEditing ? 'แก้ไข' : 'เพิ่ม'}{isAdvisor ? 'อาจารย์ที่ปรึกษา' : 'ผู้แข่งขัน'}
             </h3>
           </div>
-          <button type="button" className="icon-btn" onClick={onClose} aria-label="ปิด">
+          <button type="button" className="icon-btn" onClick={requestClose} aria-label="ปิด">
             <X size={20} weight="bold" />
           </button>
         </div>
@@ -269,6 +304,7 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
                 value={fullName}
                 onChange={(e) => { setFullName(e.target.value); clearError('fullName'); }}
                 placeholder="เช่น สมชาย ใจดี"
+                autoFocus
               />
               <FieldError msg={errors.fullName} />
             </div>
@@ -376,7 +412,7 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
 
         {/* Footer */}
         <div className="modal-footer">
-          <button type="button" className="btn" onClick={onClose}>ยกเลิก</button>
+          <button type="button" className="btn" onClick={requestClose}>ยกเลิก</button>
           {!isEditing && !isAdvisor && (
             <button type="button" className="btn btn-danger" disabled={photoBusy} onClick={() => handleSave(true)}>
               <Plus size={16} weight="bold" />
@@ -388,6 +424,23 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
           </button>
         </div>
       </div>
+
+      {confirmDiscard && (
+        <div className="modal-overlay" style={{ zIndex: 1000 }} onMouseDown={(e) => { if (e.target === e.currentTarget) setConfirmDiscard(false); }}>
+          <div className="modal" role="alertdialog" aria-modal="true" aria-labelledby="discard-title" style={{ width: 'min(100%, 420px)' }}>
+            <div className="modal-header"><div id="discard-title" className="modal-title">ยกเลิกการแก้ไข?</div></div>
+            <div className="modal-body">
+              <p>ข้อมูลที่กรอกไว้ยังไม่ได้บันทึก ต้องการปิดหน้าต่างนี้โดยไม่บันทึกใช่หรือไม่</p>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn" onClick={() => setConfirmDiscard(false)} autoFocus>กลับไปกรอกต่อ</button>
+              <button type="button" className="btn btn-danger" onClick={() => { setConfirmDiscard(false); onClose(); }}>
+                ปิดโดยไม่บันทึก
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

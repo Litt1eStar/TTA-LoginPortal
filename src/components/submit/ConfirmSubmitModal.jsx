@@ -40,10 +40,11 @@ export const ConfirmSubmitModal = ({ isOpen, onClose, onConfirm, track, submissi
   };
 
   const showWorkInfo = !!track?.needsWorkInfo;
-  const advisors = (submission.members || []).filter(m => m.type === 'advisor').length;
-  const students = (submission.members || []).filter(m => m.type === 'student').length;
-  const filesCount = (submission.files || []).filter(f => f.status === 'done').length;
-  const linksCount = (submission.links?.video ? 1 : 0);
+  const nameOf = (m) => [m.title, m.fullName].filter(Boolean).join(' ');
+  const advisors = (submission.members || []).filter(m => m.type === 'advisor');
+  const students = (submission.members || []).filter(m => m.type === 'student');
+  const doneFiles = (submission.files || []).filter(f => f.status === 'done');
+  const listStyle = { margin: '2px 0 0', paddingLeft: '18px', fontWeight: 500 };
 
   return (
     <div className="modal-overlay">
@@ -107,9 +108,23 @@ export const ConfirmSubmitModal = ({ isOpen, onClose, onConfirm, track, submissi
             {showWorkInfo && (
               <SummaryItem label="ชื่อผลงาน" wide>{submission.projectName || '-'}</SummaryItem>
             )}
-            <SummaryItem label="ทีม">อาจารย์ {advisors} · ผู้แข่งขัน {students}</SummaryItem>
+            <SummaryItem label={`อาจารย์ที่ปรึกษา (${advisors.length})`}>
+              <ul style={listStyle}>{advisors.map(m => <li key={m.id}>{nameOf(m)}</li>)}</ul>
+            </SummaryItem>
+            <SummaryItem label={`ผู้แข่งขัน (${students.length})`}>
+              <ul style={listStyle}>
+                {students.map(m => <li key={m.id}>{nameOf(m)}{m.isLeader ? ' (หัวหน้าทีม)' : ''}</li>)}
+              </ul>
+            </SummaryItem>
             {showWorkInfo
-              ? <SummaryItem label="ไฟล์และลิงก์">{filesCount} ไฟล์ · {linksCount} ลิงก์{submission.video ? ' · วิดีโอ 1' : ''}</SummaryItem>
+              ? <SummaryItem label="ไฟล์และลิงก์" wide>
+                  <ul style={{ ...listStyle, wordBreak: 'break-word' }}>
+                    {doneFiles.map(f => <li key={f.id || f.name}>{f.name}</li>)}
+                    {submission.video && <li>วิดีโอ: {submission.video.name || 'อัปโหลดแล้ว'}</li>}
+                    {submission.links?.video && <li>ลิงก์: {submission.links.video}</li>}
+                    {!doneFiles.length && !submission.video && !submission.links?.video && <li>-</li>}
+                  </ul>
+                </SummaryItem>
               : <SummaryItem label="รูปถ่าย">
                   {(submission.members || []).filter(m => m.photo?.dataUrl).length}/{(submission.members || []).length} คน
                 </SummaryItem>}

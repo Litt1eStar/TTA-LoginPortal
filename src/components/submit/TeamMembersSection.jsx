@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { usePortal } from '../../context/PortalContext';
 import { SectionNum } from './SectionNum';
 import { MemberModal } from './MemberModal';
@@ -17,6 +17,14 @@ export const TeamMembersSection = ({ trackId, isLocked, error, number, done }) =
   const [modalType, setModalType] = useState('student');
   const [editingMember, setEditingMember] = useState(null);
   const [csvModalOpen, setCsvModalOpen] = useState(false);
+  const [removing, setRemoving] = useState(null); // member awaiting delete confirmation
+
+  useEffect(() => {
+    if (!removing) return;
+    const onKey = (e) => { if (e.key === 'Escape') setRemoving(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [removing]);
 
   const track = getTrack(trackId);
   const advisorLimit = track.advisorCount || 1;
@@ -64,7 +72,7 @@ export const TeamMembersSection = ({ trackId, isLocked, error, number, done }) =
         <PencilSimple size={15} weight="bold" />
         <span>แก้ไข</span>
       </button>
-      <button type="button" className="btn btn-sm btn-danger" onClick={() => removeMember(trackId, m.id)}>
+      <button type="button" className="btn btn-sm btn-danger" onClick={() => setRemoving(m)}>
         <Trash size={15} weight="bold" />
         <span>ลบ</span>
       </button>
@@ -196,6 +204,28 @@ export const TeamMembersSection = ({ trackId, isLocked, error, number, done }) =
           </div>
         )}
       </div>
+
+      {removing && (
+        <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) setRemoving(null); }}>
+          <div className="modal" role="alertdialog" aria-modal="true" aria-labelledby="remove-member-title" style={{ width: 'min(100%, 440px)' }}>
+            <div className="modal-header"><div id="remove-member-title" className="modal-title">ลบรายชื่อ</div></div>
+            <div className="modal-body">
+              <p>ต้องการลบ <strong>{fullTitleName(removing)}</strong> ออกจากทีมใช่หรือไม่</p>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn" onClick={() => setRemoving(null)} autoFocus>ยกเลิก</button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={() => { removeMember(trackId, removing.id); setRemoving(null); }}
+              >
+                <Trash size={16} weight="bold" />
+                <span>ลบ</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <MemberModal
         isOpen={memberModalOpen}
