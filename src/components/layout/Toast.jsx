@@ -3,7 +3,7 @@ import { usePortal } from '../../context/PortalContext';
 import { CheckCircle, ArrowCounterClockwise } from '@phosphor-icons/react';
 
 export const Toast = () => {
-  const { toast, toastUndo, handleUndo } = usePortal();
+  const { toast, toastUndo, toastActionLabel, handleUndo } = usePortal();
 
   if (!toast) return null;
 
@@ -34,6 +34,7 @@ export const Toast = () => {
 
       {toastUndo && (
         <button
+          type="button"
           onClick={handleUndo}
           style={{
             marginLeft: '8px',
@@ -49,8 +50,9 @@ export const Toast = () => {
             gap: '5px'
           }}
         >
-          <ArrowCounterClockwise size={14} weight="bold" />
-          <span>เลิกทำ</span>
+          {toastActionLabel
+            ? <span>{toastActionLabel}</span>
+            : <><ArrowCounterClockwise size={14} weight="bold" /><span>เลิกทำ</span></>}
         </button>
       )}
     </div>

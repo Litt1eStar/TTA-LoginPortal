@@ -50,6 +50,7 @@ export const PortalProvider = ({ children }) => {
 
   const [toast, setToast] = useState(null);
   const [toastUndo, setToastUndo] = useState(null);
+  const [toastActionLabel, setToastActionLabel] = useState(null);
 
   useEffect(() => {
     try {
@@ -59,10 +60,11 @@ export const PortalProvider = ({ children }) => {
     }
   }, [activeTrackId]);
 
-  // Toast handler with undo
-  const showToast = (message, undoAction = null) => {
+  // Toast handler with an optional action (undo by default; actionLabel renames the button)
+  const showToast = (message, undoAction = null, actionLabel = null) => {
     setToast(message);
     setToastUndo(() => undoAction);
+    setToastActionLabel(undoAction ? actionLabel : null);
     clearTimeout(window._toastTimeout);
     window._toastTimeout = setTimeout(() => {
       setToast(null);
@@ -479,6 +481,7 @@ export const PortalProvider = ({ children }) => {
         confirmSubmit,
         toast,
         toastUndo,
+        toastActionLabel,
         showToast,
         handleUndo
       }}

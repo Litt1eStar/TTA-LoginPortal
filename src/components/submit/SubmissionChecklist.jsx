@@ -51,7 +51,7 @@ const Ring = ({ value, total }) => {
   );
 };
 
-export const SubmissionChecklist = ({ trackId, onAttemptSubmit, isLocked, onSaveDraft }) => {
+export const SubmissionChecklist = ({ trackId, onAttemptSubmit, isLocked, isClosed = false, onSaveDraft }) => {
   const { submissions } = usePortal();
   const sub = submissions[trackId] || { members: [], files: [], links: {} };
 
@@ -89,7 +89,14 @@ export const SubmissionChecklist = ({ trackId, onAttemptSubmit, isLocked, onSave
               {c.ok
                 ? <CheckCircle size={20} weight="fill" color="var(--blue)" style={{ flexShrink: 0, marginTop: '2px' }} />
                 : <Circle size={20} color="#A0A3B1" style={{ flexShrink: 0, marginTop: '2px' }} />}
-              <span>{c.label}</span>
+              <span>
+                {c.label}
+                {!c.ok && c.detail && (
+                  <span style={{ display: 'block', fontSize: 'var(--fs-sm)', color: 'var(--on-ink-muted)', fontWeight: 400 }}>
+                    {c.detail}
+                  </span>
+                )}
+              </span>
             </button>
           </li>
         ))}
@@ -142,17 +149,20 @@ export const SubmissionChecklist = ({ trackId, onAttemptSubmit, isLocked, onSave
             lineHeight: 1.55
           }}>
             <Warning size={18} weight="fill" style={{ flexShrink: 0, marginTop: '2px' }} />
-            <span>ตรวจสอบข้อมูลให้ถูกต้องก่อนส่ง เมื่อส่งแล้วจะแก้ไขไม่ได้</span>
+            <span>{isClosed
+              ? 'ปิดรับผลงานแล้ว ไม่สามารถส่งได้'
+              : 'ตรวจสอบข้อมูลให้ถูกต้องก่อนส่ง เมื่อส่งแล้วจะแก้ไขไม่ได้'}</span>
           </div>
 
           <button
             type="button"
             className="btn btn-primary btn-block"
             onClick={onAttemptSubmit}
+            disabled={isClosed}
             style={{ minHeight: '54px', fontSize: '16px' }}
           >
             <PaperPlaneTilt size={20} weight="fill" />
-            <span>ตรวจสอบและส่งผลงาน</span>
+            <span>{isClosed ? 'ปิดรับแล้ว' : 'ตรวจสอบและส่งผลงาน'}</span>
           </button>
 
           <button type="button" className="btn btn-block" onClick={onSaveDraft}>

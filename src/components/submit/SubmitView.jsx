@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { usePortal } from '../../context/PortalContext';
 import { TRACKS, isGrouped, entryKey, getTypeOfTrack, hasSubTypes } from '../../data/tracks';
 import { SubTypeBar } from './SubTypeBar';
-import { daysUntil, fmtDate } from '../../utils/formatters';
+import { deadlineState, fmtDate } from '../../utils/formatters';
 import { TrackSelector } from './TrackSelector';
 import { GroupBar } from './GroupBar';
 import { ProjectInfoSection } from './ProjectInfoSection';
@@ -59,7 +59,7 @@ export const SubmitView = () => {
   }, [entryId]);
 
   const isLocked = sub.status === 'submitted';
-  const daysLeft = daysUntil(activeTrack.deadline);
+  const deadline = deadlineState(activeTrack.deadline);
 
   const handleSaveDraft = async () => {
     const res = await saveDraft(entryId);
@@ -73,6 +73,7 @@ export const SubmitView = () => {
   };
 
   const handleAttemptSubmit = () => {
+    if (deadline.closed) return;
     const errors = getFormErrors(getRequirements(activeTrack, sub));
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
@@ -85,10 +86,31 @@ export const SubmitView = () => {
     setConfirmModalOpen(true);
   };
 
+  // First other entry (in track order) that is not submitted and still open
+  const nextUnsubmittedPath = () => {
+    for (const t of TRACKS) {
+      if (deadlineState(t.deadline).closed) continue;
+      const keys = isGrouped(t)
+        ? t.subjectGroups.map((_, i) => ({ key: entryKey(t.id, i), path: `/submit/${t.id}/${i}` }))
+        : [{ key: t.id, path: `/submit/${t.id}` }];
+      const hit = keys.find(k => k.key !== entryId && submissions[k.key]?.status !== 'submitted');
+      if (hit) return hit.path;
+    }
+    return null;
+  };
+
   // Returns the result so the modal can show the server's reason when it refuses
   const handleConfirmSubmit = async () => {
     const res = await confirmSubmit(entryId);
-    if (res.success) setConfirmModalOpen(false);
+    if (res.success) {
+      setConfirmModalOpen(false);
+      const nextPath = nextUnsubmittedPath();
+      showToast(
+        `ส่งผลงานเรียบร้อยแล้ว รหัสยืนยัน #${res.hash}`,
+        nextPath ? () => navigate(nextPath) : null,
+        'ไปประเภทถัดไปที่ยังไม่ส่ง'
+      );
+    }
     return res;
   };
 
@@ -139,9 +161,16 @@ export const SubmitView = () => {
             ส่งแล้ว แก้ไขไม่ได้
           </span>
         ) : (
-          <span className="badge" style={{ fontSize: '15px', padding: '8px 16px', background: 'var(--primary)', color: '#FFFFFF' }}>
+          <span className="badge" style={{
+            fontSize: '15px',
+            padding: '8px 16px',
+            background: deadline.closed ? '#ECEDF3' : deadline.soon ? 'var(--danger)' : 'var(--primary)',
+            color: deadline.closed ? 'var(--text-muted)' : '#FFFFFF'
+          }}>
             <CalendarBlank size={16} weight="bold" />
-            ปิดรับ {fmtDate(activeTrack.deadline)} (อีก {daysLeft} วัน)
+            {deadline.closed
+              ? `ปิดรับแล้ว (${fmtDate(activeTrack.deadline)})`
+              : `ปิดรับ ${fmtDate(activeTrack.deadline)} (${deadline.label})`}
           </span>
         ))}
       </div>
@@ -164,6 +193,13 @@ export const SubmitView = () => {
               <span>
                 ส่งผลงาน{groupName ? 'กลุ่มสาขานี้' : 'ประเภทนี้'}เรียบร้อยแล้ว หากต้องการแก้ไขข้อมูล กรุณาติดต่อกองอำนวยการ
               </span>
+            </div>
+          )}
+
+          {!isLocked && deadline.closed && (
+            <div className="alert alert-error" style={{ marginBottom: '24px' }}>
+              <LockSimple size={20} weight="fill" />
+              <span>ประเภทนี้ปิดรับผลงานแล้ว ไม่สามารถส่งได้ หากมีข้อสงสัยกรุณาติดต่อกองอำนวยการ</span>
             </div>
           )}
 
@@ -217,6 +253,7 @@ export const SubmitView = () => {
               <SubmissionChecklist
                 trackId={entryId}
                 isLocked={isLocked}
+                isClosed={deadline.closed}
                 onAttemptSubmit={handleAttemptSubmit}
                 onSaveDraft={handleSaveDraft}
               />

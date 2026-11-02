@@ -1,5 +1,6 @@
 // Submission rules shared by the submit button and the readiness checklist.
-// Each requirement: { key, section, label, ok, error }
+// Each requirement: { key, section, label, ok, error, detail? }
+// `detail` names the people still missing something (shown under the checklist item).
 // `section` matches the form section that shows the error.
 export const getRequirements = (track, sub = {}) => {
   const members = sub.members || [];
@@ -51,6 +52,7 @@ export const getRequirements = (track, sub = {}) => {
     section: 'team',
     label: 'ทุกคนระบุหน่วยงาน',
     ok: members.length > 0 && missingDept.length === 0,
+    detail: missingDept.length ? `หน่วยงานขาด ${missingDept.length} คน: ${missingDept.map(m => m.fullName).join(', ')}` : '',
     error: missingDept.length
       ? `กรุณาระบุหน่วยงานของ ${missingDept.map(m => m.fullName).join(', ')}`
       : 'กรุณาเพิ่มรายชื่อทีม'
@@ -63,6 +65,7 @@ export const getRequirements = (track, sub = {}) => {
     section: 'team',
     label: 'ทุกคนมีรูปถ่าย',
     ok: members.length > 0 && missingPhoto.length === 0,
+    detail: missingPhoto.length ? `รูปถ่ายขาด ${missingPhoto.length} คน: ${missingPhoto.map(m => m.fullName).join(', ')}` : '',
     error: missingPhoto.length
       ? `กรุณาอัปโหลดรูปถ่ายของ ${missingPhoto.map(m => m.fullName).join(', ')}`
       : 'กรุณาเพิ่มรายชื่อทีม'

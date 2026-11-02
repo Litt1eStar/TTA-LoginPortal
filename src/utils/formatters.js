@@ -3,6 +3,20 @@ export const daysUntil = (iso) => {
   return Math.floor((new Date(iso).getTime() - Date.now()) / 86400000);
 };
 
+// Deadline badge state: closed once the deadline has passed, "soon" in the last 3 days.
+// Returns { closed, soon, label } where label is the part after the date.
+export const deadlineState = (iso, now = Date.now()) => {
+  if (!iso) return { closed: false, soon: false, label: '' };
+  const ms = new Date(iso).getTime() - now;
+  if (ms <= 0) return { closed: true, soon: false, label: 'ปิดรับแล้ว' };
+  const days = Math.floor(ms / 86400000);
+  return {
+    closed: false,
+    soon: days < 3,
+    label: days === 0 ? 'ปิดรับวันนี้' : `อีก ${days} วัน`
+  };
+};
+
 export const fmtDate = (iso) => {
   if (!iso) return '-';
   return new Date(iso).toLocaleDateString('th-TH', {
