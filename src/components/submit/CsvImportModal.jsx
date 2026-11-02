@@ -42,15 +42,26 @@ export const CsvImportModal = ({ isOpen, onClose, trackId }) => {
     setFileName(file.name);
     setHeaderError('');
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target.result;
-      const parsed = parseCsvText(text);
+    const show = (parsed) => {
       const res = evaluateCsvRows(parsed, sub.members);
-
       setHeaderError(res.headerError);
       setEvaluatedRows(res.rows);
     };
+    const fail = () => {
+      setHeaderError('อ่านไฟล์ไม่สำเร็จ กรุณาตรวจสอบว่าเป็นไฟล์ .xlsx หรือ .csv ที่ถูกต้อง');
+      setEvaluatedRows([]);
+    };
+
+    if (/\.xlsx?$/i.test(file.name)) {
+      Promise.all([import('../../hooks/xlsxRows'), file.arrayBuffer()])
+        .then(([{ parseXlsxBuffer }, buffer]) => show(parseXlsxBuffer(buffer)))
+        .catch(fail);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => show(parseCsvText(e.target.result));
+    reader.onerror = fail;
     reader.readAsText(file);
   };
 
@@ -164,7 +175,7 @@ export const CsvImportModal = ({ isOpen, onClose, trackId }) => {
                 ยังไม่มีแบบฟอร์มไฟล์ CSV หรือไม่?
               </div>
               <div style={{ fontSize: '14px', color: '#4F5366' }}>
-                ดาวน์โหลดแม่แบบ Excel กรอกต่อจากแถวตัวอย่าง แล้วบันทึกเป็น CSV UTF-8 (ไฟล์ &gt; บันทึกเป็น &gt; CSV UTF-8) เพื่ออัปโหลดที่นี่ แถวที่ชื่อขึ้นต้นด้วย “ตัวอย่าง” จะไม่ถูกนำเข้า
+                ดาวน์โหลดแม่แบบ Excel กรอกรายชื่อ แล้วอัปโหลดไฟล์ที่นี่ได้ทันที (รองรับ .xlsx และ .csv) แถวที่ชื่อขึ้นต้นด้วย “ตัวอย่าง” จะไม่ถูกนำเข้า
               </div>
               <div style={{ fontSize: '13px', color: '#4F5366', marginTop: '2px' }}>
                 รูปถ่ายไม่ต้องใส่ใน CSV ให้อัปโหลดรายคนในระบบหลังนำเข้ารายชื่อ
@@ -215,7 +226,7 @@ export const CsvImportModal = ({ isOpen, onClose, trackId }) => {
             <input
               id="csv-file-input"
               type="file"
-              accept=".csv"
+              accept=".xlsx,.xls,.csv"
               style={{ display: 'none' }}
               onChange={handleFileChange}
             />
@@ -233,10 +244,10 @@ export const CsvImportModal = ({ isOpen, onClose, trackId }) => {
             </div>
             <div>
               <div style={{ fontSize: '16px', fontWeight: 700, color: '#1B1D29' }}>
-                {fileName ? fileName : 'คลิกเพื่อเลือกไฟล์ หรือลากไฟล์ CSV มาวางที่นี่'}
+                {fileName ? fileName : 'คลิกเพื่อเลือกไฟล์ หรือลากไฟล์ Excel / CSV มาวางที่นี่'}
               </div>
               <div style={{ fontSize: '13px', color: '#4F5366', marginTop: '2px' }}>
-                รองรับไฟล์นามสกุล .csv (UTF-8 encoding)
+                รองรับไฟล์ .xlsx, .xls และ .csv (UTF-8)
               </div>
             </div>
           </div>
