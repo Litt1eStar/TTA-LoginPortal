@@ -43,7 +43,7 @@ describe('admin access', () => {
 });
 
 describe('admin overview and detail', () => {
-  it('lists every university with all 17 keys', async () => {
+  it('lists every university with all 18 keys', async () => {
     ctx = await makeTestApp();
     seedEntries(ctx.db);
     const cookie = await loginAs(ctx.app, 'admin1', 'pass-admin-1');
@@ -51,7 +51,7 @@ describe('admin overview and detail', () => {
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.universities.map(u => u.code)).toEqual(['kmutt', 'rmutt']);
-    expect(Object.keys(body.entries['1'])).toHaveLength(17);
+    expect(Object.keys(body.entries['1'])).toHaveLength(18);
     expect(body.entries['1']['theory.g0']).toEqual({ status: 'submitted', submittedAt: '2026-11-04T03:15:00.000Z' });
     expect(body.entries['2'].singing.status).toBe('draft');
     expect(body.entries['2'].clip).toEqual({ status: 'not_started', submittedAt: null });

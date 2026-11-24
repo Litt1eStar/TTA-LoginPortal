@@ -19,11 +19,11 @@ const completeHardware = {
 };
 
 describe('GET /api/submissions', () => {
-  it('returns 17 entries for a coordinator', async () => {
+  it('returns 18 entries for a coordinator', async () => {
     const { app, cookie } = await asKmutt();
     const res = await req(app, cookie, 'GET', '/api/submissions');
     expect(res.statusCode).toBe(200);
-    expect(Object.keys(res.json().submissions)).toHaveLength(17);
+    expect(Object.keys(res.json().submissions)).toHaveLength(18);
   });
 
   it('403 for an admin', async () => {

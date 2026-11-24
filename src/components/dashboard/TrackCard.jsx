@@ -17,6 +17,7 @@ import {
   Robot,
   MicrophoneStage,
   PersonSimpleRun,
+  UsersThree,
   ArrowRight,
   LockSimple
 } from '@phosphor-icons/react';
@@ -32,7 +33,8 @@ const ICON_MAP = {
   PresentationChart,
   Robot,
   MicrophoneStage,
-  PersonSimpleRun
+  PersonSimpleRun,
+  UsersThree
 };
 
 // Colours per status: accent bar, icon tile and badge

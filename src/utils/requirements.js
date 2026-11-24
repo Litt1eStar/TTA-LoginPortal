@@ -30,25 +30,29 @@ export const getRequirements = (track, sub = {}) => {
   }
 
   const advisorLimit = track.advisorCount ?? 1;
-  reqs.push({
-    key: 'advisors',
-    section: 'team',
-    label: advisorLimit > 1
-      ? `ระบุอาจารย์ที่ปรึกษา (1-${advisorLimit} ท่าน)`
-      : 'ระบุอาจารย์ที่ปรึกษา (1 ท่าน)',
-    ok: advisors.length >= 1 && advisors.length <= advisorLimit,
-    error: advisors.length === 0
-      ? 'กรุณาระบุอาจารย์ที่ปรึกษาอย่างน้อย 1 ท่าน'
-      : `อาจารย์ที่ปรึกษาเกินจำนวนที่กำหนด (สูงสุด ${advisorLimit} ท่าน)`
-  });
+  if (advisorLimit > 0) {
+    reqs.push({
+      key: 'advisors',
+      section: 'team',
+      label: advisorLimit > 1
+        ? `ระบุอาจารย์ที่ปรึกษา (1-${advisorLimit} ท่าน)`
+        : 'ระบุอาจารย์ที่ปรึกษา (1 ท่าน)',
+      ok: advisors.length >= 1 && advisors.length <= advisorLimit,
+      error: advisors.length === 0
+        ? 'กรุณาระบุอาจารย์ที่ปรึกษาอย่างน้อย 1 ท่าน'
+        : `อาจารย์ที่ปรึกษาเกินจำนวนที่กำหนด (สูงสุด ${advisorLimit} ท่าน)`
+    });
+  }
 
+  const isParticipants = !!track.participantsOnly;
   const max = track.maxCompetitors;
   const withinMax = !max || students.length <= max;
   const needLeader = usesLeader(track);
   const hasRequiredRoles = roles.some(r => r.required);
+  const personLabel = isParticipants ? 'ผู้เข้าร่วม' : 'ผู้แข่งขัน';
   let teamError = '';
-  if (students.length === 0) teamError = 'กรุณาเพิ่มผู้แข่งขันอย่างน้อย 1 คน';
-  else if (!withinMax) teamError = `จำนวนผู้แข่งขันเกินที่กำหนด (สูงสุด ${max} คน)`;
+  if (students.length === 0) teamError = `กรุณาเพิ่ม${personLabel}อย่างน้อย 1 คน`;
+  else if (!withinMax) teamError = `จำนวน${personLabel}เกินที่กำหนด (สูงสุด ${max} คน)`;
   else if (unknownRoles.length) teamError = `พบบทบาทที่ไม่รองรับ: ${unknownRoles[0]}`;
   else {
     const over = roles.find(r => roleCounts[r.name] > r.max);
@@ -61,7 +65,7 @@ export const getRequirements = (track, sub = {}) => {
     ? `ผู้สอนหลักและผู้ช่วยสอน (${students.length}/${max} คน)`
     : needLeader
       ? `ผู้แข่งขัน ${students.length}${max ? `/${max}` : ''} คน พร้อมหัวหน้าทีม`
-      : `ผู้แข่งขัน ${students.length}${max ? `/${max}` : ''} คน`;
+      : `${personLabel} ${students.length}${max ? `/${max}` : ''} คน`;
   reqs.push({
     key: 'team',
     section: 'team',
@@ -71,17 +75,19 @@ export const getRequirements = (track, sub = {}) => {
     error: teamError
   });
 
-  const missingDept = members.filter(m => !m.dept);
-  reqs.push({
-    key: 'dept',
-    section: 'team',
-    label: 'ทุกคนระบุหน่วยงาน',
-    ok: members.length > 0 && missingDept.length === 0,
-    detail: missingDept.length ? `หน่วยงานขาด ${missingDept.length} คน: ${missingDept.map(m => m.fullName).join(', ')}` : '',
-    error: missingDept.length
-      ? `กรุณาระบุหน่วยงานของ ${missingDept.map(m => m.fullName).join(', ')}`
-      : 'กรุณาเพิ่มรายชื่อทีม'
-  });
+  if (!isParticipants) {
+    const missingDept = members.filter(m => !m.dept);
+    reqs.push({
+      key: 'dept',
+      section: 'team',
+      label: 'ทุกคนระบุหน่วยงาน',
+      ok: members.length > 0 && missingDept.length === 0,
+      detail: missingDept.length ? `หน่วยงานขาด ${missingDept.length} คน: ${missingDept.map(m => m.fullName).join(', ')}` : '',
+      error: missingDept.length
+        ? `กรุณาระบุหน่วยงานของ ${missingDept.map(m => m.fullName).join(', ')}`
+        : 'กรุณาเพิ่มรายชื่อทีม'
+    });
+  }
 
   // Every person (advisors and competitors) needs their own photo
   const missingPhoto = members.filter(m => !m.photo?.dataUrl);
@@ -126,6 +132,7 @@ export const getFormErrors = (reqs) => {
 export const submissionSummary = (track, sub = {}) => {
   if (track.needsWorkInfo) return sub.projectName ? `“${sub.projectName}”` : '';
   const students = (sub.members || []).filter(m => m.type === 'student').length;
+  if (track.participantsOnly) return students ? `ผู้เข้าร่วม ${students} คน` : '';
   const advisors = (sub.members || []).filter(m => m.type === 'advisor').length;
   if (!students && !advisors) return '';
   return [students ? `ผู้แข่งขัน ${students} คน` : '', advisors ? `อาจารย์ ${advisors} ท่าน` : ''].filter(Boolean).join(' · ');

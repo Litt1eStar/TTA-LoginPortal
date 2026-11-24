@@ -27,12 +27,14 @@ export const TeamMembersSection = ({ trackId, isLocked, error, number, done }) =
   const track = getTrack(trackId);
   const advisorLimit = track.advisorCount ?? 1;
   const maxCompetitors = track.maxCompetitors;
+  const isParticipants = !!track.participantsOnly;
   const allowLeader = usesLeader(track);
   const showRoleBadge = hasMultipleRoles(track) || !allowLeader;
   const roles = trackRoles(track);
+  const personLabel = isParticipants ? 'ผู้เข้าร่วม' : 'ผู้แข่งขัน';
   const advisors = sub.members.filter(m => m.type === 'advisor');
   const students = sub.members.filter(m => m.type === 'student');
-  const canAddAdvisor = advisors.length < advisorLimit;
+  const canAddAdvisor = advisorLimit > 0 && advisors.length < advisorLimit;
   const canAddStudent = !maxCompetitors || students.length < maxCompetitors;
 
   const openAdd = (type) => {
@@ -51,10 +53,10 @@ export const TeamMembersSection = ({ trackId, isLocked, error, number, done }) =
 
   // Second line under a name: department · student ID · year (missing info shown in red)
   const metaLine = (m) => [
-    m.dept || missing('nodept', 'ยังไม่ระบุหน่วยงาน'),
+    !isParticipants && (m.dept || missing('nodept', 'ยังไม่ระบุหน่วยงาน')),
     !m.photo?.dataUrl && missing('nophoto', 'ยังไม่มีรูปถ่าย'),
-    m.studentId,
-    m.year ? `ปี ${m.year}` : ''
+    !isParticipants && m.studentId,
+    !isParticipants && m.year ? `ปี ${m.year}` : ''
   ].filter(Boolean).reduce((acc, part, i) => (i === 0 ? [part] : [...acc, ' · ', part]), []);
 
   // Person's photo, or initials until a photo is uploaded
@@ -87,13 +89,19 @@ export const TeamMembersSection = ({ trackId, isLocked, error, number, done }) =
         <div>
           <h3 className="section-title">
             <SectionNum number={number} done={done} />
-            รายชื่อทีม <span className="required">*</span>
+            {isParticipants ? 'รายชื่อผู้เข้าร่วม' : 'รายชื่อทีม'} <span className="required">*</span>
           </h3>
           <p className="section-desc">
-            อาจารย์ที่ปรึกษา {advisorLimit > 1 ? `1-${advisorLimit}` : '1'} ท่าน
-            {' และ '}ผู้แข่งขัน {maxCompetitors > 1 ? `1-${maxCompetitors}` : '1'} คน
-            {hasMultipleRoles(track) && ` (${roles.map(r => `${r.name} ${r.max}`).join(' · ')})`}
-            {' '}ทุกคนต้องมีรูปถ่ายและหน่วยงาน
+            {isParticipants ? (
+              `ผู้เข้าร่วม 1-${maxCompetitors} คน ทุกคนต้องมีรูปถ่าย`
+            ) : (
+              <>
+                อาจารย์ที่ปรึกษา {advisorLimit > 1 ? `1-${advisorLimit}` : '1'} ท่าน
+                {' และ '}ผู้แข่งขัน {maxCompetitors > 1 ? `1-${maxCompetitors}` : '1'} คน
+                {hasMultipleRoles(track) && ` (${roles.map(r => `${r.name} ${r.max}`).join(' · ')})`}
+                {' '}ทุกคนต้องมีรูปถ่ายและหน่วยงาน
+              </>
+            )}
           </p>
         </div>
 
@@ -108,7 +116,7 @@ export const TeamMembersSection = ({ trackId, isLocked, error, number, done }) =
             {canAddStudent && (
               <button type="button" className="btn btn-blue" onClick={() => openAdd('student')}>
                 <Plus size={16} weight="bold" />
-                <span>เพิ่มผู้แข่งขัน</span>
+                <span>เพิ่ม{personLabel}</span>
               </button>
             )}
           </div>
@@ -123,42 +131,44 @@ export const TeamMembersSection = ({ trackId, isLocked, error, number, done }) =
       )}
 
       {/* Advisors */}
-      <div>
-        <div className="subhead">
-          อาจารย์ที่ปรึกษา{' '}
-          <span className="badge badge-yellow">{advisors.length}/{advisorLimit}</span>
-        </div>
+      {advisorLimit > 0 && (
+        <div>
+          <div className="subhead">
+            อาจารย์ที่ปรึกษา{' '}
+            <span className="badge badge-yellow">{advisors.length}/{advisorLimit}</span>
+          </div>
 
-        {advisors.length > 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {advisors.map(a => (
-              <div key={a.id} className="row-item" style={{ background: '#FFFDF5', borderColor: '#F5E8BE' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
-                  {avatar(a, { background: 'var(--yellow-bg)', color: '#B07A00' })}
-                  <div style={{ minWidth: 0 }}>
-                    <div className="row-title">{fullTitleName(a)}</div>
-                    <div className="row-meta">{metaLine(a)}</div>
+          {advisors.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {advisors.map(a => (
+                <div key={a.id} className="row-item" style={{ background: '#FFFDF5', borderColor: '#F5E8BE' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
+                    {avatar(a, { background: 'var(--yellow-bg)', color: '#B07A00' })}
+                    <div style={{ minWidth: 0 }}>
+                      <div className="row-title">{fullTitleName(a)}</div>
+                      <div className="row-meta">{metaLine(a)}</div>
+                    </div>
                   </div>
+                  {rowActions(a)}
                 </div>
-                {rowActions(a)}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div
-            className={`dropzone ${isLocked ? '' : 'clickable'}`}
-            onClick={() => !isLocked && openAdd('advisor')}
-          >
-            <div>ยังไม่มีอาจารย์ที่ปรึกษา</div>
-            {!isLocked && <div className="dropzone-action">+ เพิ่มอาจารย์ที่ปรึกษา</div>}
-          </div>
-        )}
-      </div>
+              ))}
+            </div>
+          ) : (
+            <div
+              className={`dropzone ${isLocked ? '' : 'clickable'}`}
+              onClick={() => !isLocked && openAdd('advisor')}
+            >
+              <div>ยังไม่มีอาจารย์ที่ปรึกษา</div>
+              {!isLocked && <div className="dropzone-action">+ เพิ่มอาจารย์ที่ปรึกษา</div>}
+            </div>
+          )}
+        </div>
+      )}
 
-      {/* Competitors */}
+      {/* Competitors / Participants */}
       <div>
         <div className="subhead">
-          ผู้แข่งขัน{' '}
+          {personLabel}{' '}
           <span className="badge badge-blue">{students.length}{maxCompetitors ? `/${maxCompetitors}` : ''}</span>
         </div>
 
@@ -201,8 +211,8 @@ export const TeamMembersSection = ({ trackId, isLocked, error, number, done }) =
             className={`dropzone ${isLocked ? '' : 'clickable'}`}
             onClick={() => !isLocked && openAdd('student')}
           >
-            <div>ยังไม่มีผู้แข่งขัน (ต้องมีอย่างน้อย 1 คน)</div>
-            {!isLocked && <div className="dropzone-action">+ เพิ่มผู้แข่งขัน</div>}
+            <div>ยังไม่มี{personLabel} (ต้องมีอย่างน้อย 1 คน)</div>
+            {!isLocked && <div className="dropzone-action">+ เพิ่ม{personLabel}</div>}
           </div>
         )}
       </div>

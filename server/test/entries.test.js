@@ -20,12 +20,12 @@ describe('isValidEntryKey', () => {
 });
 
 describe('allEntryKeys', () => {
-  it('has 17 valid keys in TRACKS order', () => {
+  it('has 18 valid keys in TRACKS order', () => {
     const keys = allEntryKeys();
-    expect(keys).toHaveLength(17);
+    expect(keys).toHaveLength(18);
     expect(keys.slice(0, 2)).toEqual(['theory.g0', 'theory.g1']);
     expect(keys).toContain('practice.g3');
-    expect(keys.at(-1)).toBe('pitching');
+    expect(keys.at(-1)).toBe('participants');
     expect(keys.every(isValidEntryKey)).toBe(true);
   });
 });
@@ -92,13 +92,29 @@ describe('sanitizeData robustness', () => {
 });
 
 describe('listEntries', () => {
-  it('creates 17 blank entries on first call, once', () => {
+  it('creates 18 blank entries on first call, once', () => {
     const entries = listEntries(db, 1);
-    expect(Object.keys(entries)).toHaveLength(17);
+    expect(Object.keys(entries)).toHaveLength(18);
     expect(entries.clip).toMatchObject({ status: 'not_started', version: 1, draftAt: null, submittedAt: null, hash: null, projectName: '' });
     listEntries(db, 1);
-    expect(db.prepare('SELECT COUNT(*) AS n FROM submissions').get().n).toBe(17);
+    expect(db.prepare('SELECT COUNT(*) AS n FROM submissions').get().n).toBe(18);
     expect(rowToEntry(getEntryRow(db, 1, 'theory.g2')).subjectGroup).toBe('กลุ่มสาขาวิชาโยธา');
+  });
+});
+
+describe('participants track (P-5)', () => {
+  it('allows up to 10 participants, drops advisors, and strips dept/studentId/contact', () => {
+    expect(sanitizeData('participants', { members: [{ id: 'a1', type: 'advisor', fullName: 'อ.' }] }, 'kmutt').members).toEqual([]);
+    const members = Array.from({ length: 12 }, (_, i) => ({
+      id: `p${i}`, type: 'student', title: 'นาย', fullName: `คน ${i}`,
+      dept: 'D', studentId: '640', year: '2', email: 'a@b.c', phone: '081', isLeader: true
+    }));
+    const d = sanitizeData('participants', { members }, 'kmutt');
+    expect(d.members).toHaveLength(10);
+    expect(d.members[0]).toMatchObject({
+      id: 'p0', type: 'student', role: 'ผู้เข้าร่วม',
+      dept: '', studentId: '', year: '', email: '', phone: '', isLeader: false
+    });
   });
 });
 

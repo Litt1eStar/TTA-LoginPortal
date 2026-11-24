@@ -142,7 +142,7 @@ export const HistoryView = () => {
 
                     {/* Team Count */}
                     <td style={{ padding: '18px 20px', fontSize: '14px', color: '#4A4E5E', fontWeight: 600 }}>
-                      {teamLabel(sub.members)}
+                      {teamLabel(sub.members, t)}
                     </td>
 
                     {/* Receipt Hash & Deliverables */}

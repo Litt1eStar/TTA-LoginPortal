@@ -87,9 +87,12 @@ export const statusMeta = (status, daysLeft) => {
   };
 };
 
-export const teamLabel = (members = []) => {
+export const teamLabel = (members = [], track = null) => {
   const advisors = members.filter(m => m.type === 'advisor').length;
   const students = members.filter(m => m.type === 'student').length;
+  if (track?.participantsOnly) {
+    return students ? `ผู้เข้าร่วม ${students} คน` : 'ยังไม่มีรายชื่อ';
+  }
   if (!advisors && !students) return 'ยังไม่มีทีม';
   const advText = advisors ? `อาจารย์ ${advisors} ท่าน` : 'ยังไม่มีอาจารย์';
   return `${advText} · นักศึกษา ${students} คน`;

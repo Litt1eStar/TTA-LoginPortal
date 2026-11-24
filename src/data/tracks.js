@@ -98,6 +98,13 @@ export const TRACKS = [
     deadline: FINAL_DEADLINE, maxCompetitors: 3, advisorCount: 1, needsWorkInfo: false,
     roles: [{ name: 'ผู้แข่งขัน', max: 3 }],
     usesLeader: true
+  },
+  {
+    id: 'participants', th: 'ผู้เข้าร่วม', full: 'ผู้เข้าร่วม', desc: 'ผู้เข้าร่วมงาน (ไม่เกิน 10 คน)', en: 'Participants', icon: 'UsersThree',
+    deadline: FINAL_DEADLINE, maxCompetitors: 10, advisorCount: 0, needsWorkInfo: false,
+    roles: [{ name: 'ผู้เข้าร่วม', max: 10 }],
+    usesLeader: false,
+    participantsOnly: true
   }
 ];
 
@@ -109,7 +116,7 @@ export const usesLeader = (track) => !!track?.usesLeader;
 // Second line under a category name: its parent group or Thai description
 export const trackSubtitle = (track) => track?.category || track?.desc || '';
 
-// ---- Top-level types (9), as the organisers list them ----
+// ---- Top-level types (10), as the organisers list them ----
 // Tracks that share a `category` become one type with sub-types
 // (การแข่งขันศิลปวัฒนธรรม → ร้องเพลงลูกทุ่ง / แดนเซอร์จินตลีลา).
 // Every other track is a type of its own.

@@ -41,6 +41,8 @@ export const ConfirmSubmitModal = ({ isOpen, onClose, onConfirm, track, submissi
   };
 
   const showWorkInfo = !!track?.needsWorkInfo;
+  const isParticipants = !!track?.participantsOnly;
+  const showAdvisors = (track?.advisorCount ?? 1) > 0;
   const nameOf = (m) => [m.title, m.fullName].filter(Boolean).join(' ');
   const advisors = (submission.members || []).filter(m => m.type === 'advisor');
   const students = (submission.members || []).filter(m => m.type === 'student');
@@ -109,15 +111,17 @@ export const ConfirmSubmitModal = ({ isOpen, onClose, onConfirm, track, submissi
             {showWorkInfo && (
               <SummaryItem label="ชื่อผลงาน" wide>{submission.projectName || '-'}</SummaryItem>
             )}
-            <SummaryItem label={`อาจารย์ที่ปรึกษา (${advisors.length})`}>
-              <ul style={listStyle}>{advisors.map(m => <li key={m.id}>{nameOf(m)}</li>)}</ul>
-            </SummaryItem>
-            <SummaryItem label={`ผู้แข่งขัน (${students.length})`}>
+            {showAdvisors && (
+              <SummaryItem label={`อาจารย์ที่ปรึกษา (${advisors.length})`}>
+                <ul style={listStyle}>{advisors.map(m => <li key={m.id}>{nameOf(m)}</li>)}</ul>
+              </SummaryItem>
+            )}
+            <SummaryItem label={`${isParticipants ? 'ผู้เข้าร่วม' : 'ผู้แข่งขัน'} (${students.length})`} wide={!showAdvisors}>
               <ul style={listStyle}>
                 {students.map(m => (
                   <li key={m.id}>
                     {nameOf(m)}
-                    {usesLeader(track) ? (m.isLeader ? ' (หัวหน้าทีม)' : '') : ` (${m.role || defaultRole(track)})`}
+                    {usesLeader(track) ? (m.isLeader ? ' (หัวหน้าทีม)' : '') : (!isParticipants ? ` (${m.role || defaultRole(track)})` : '')}
                   </li>
                 ))}
               </ul>

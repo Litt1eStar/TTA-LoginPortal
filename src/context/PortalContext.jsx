@@ -307,9 +307,23 @@ export const PortalProvider = ({ children }) => {
     let members = [...sub.members];
     const isEdit = !!memberData.id;
     const lockedDept = DEPT_BY_UNIVERSITY[user?.universityCode] || departmentForUniversity(user?.university) || '';
+    const isParticipants = !!track.participantsOnly;
     const role = memberData.type === 'advisor' ? undefined : (memberData.role || defaultRole(track));
-    // University and department always come from the logged-in account
-    memberData = { ...memberData, ...(role ? { role } : {}), university: user?.university || '', dept: lockedDept };
+    // University and department always come from the logged-in account (participants have no dept/id/contact)
+    memberData = isParticipants
+      ? {
+          ...memberData,
+          type: 'student',
+          role,
+          university: user?.university || '',
+          dept: '',
+          studentId: '',
+          year: '',
+          email: '',
+          phone: '',
+          isLeader: false
+        }
+      : { ...memberData, ...(role ? { role } : {}), university: user?.university || '', dept: lockedDept };
 
     if (isEdit) {
       members = members.map(m => m.id === memberData.id ? { ...m, ...memberData } : m);

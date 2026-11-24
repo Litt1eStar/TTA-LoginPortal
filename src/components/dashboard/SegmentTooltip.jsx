@@ -83,7 +83,9 @@ export const SegmentTooltip = ({ item, pos }) => {
         <div className="seg-tip-row">
           <Users size={15} weight="bold" color="var(--text-muted)" />
           <span>
-            ผู้แข่งขัน {students}/{track.maxCompetitors} · อาจารย์ {advisors}/{track.advisorCount || 1}
+            {track.participantsOnly
+              ? `ผู้เข้าร่วม ${students}/${track.maxCompetitors}`
+              : `ผู้แข่งขัน ${students}/${track.maxCompetitors} · อาจารย์ ${advisors}/${track.advisorCount ?? 1}`}
           </span>
           <span className="seg-tip-muted" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
             <Images size={14} weight="bold" />

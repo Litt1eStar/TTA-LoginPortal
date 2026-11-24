@@ -58,4 +58,16 @@ describe('per-track role validation', () => {
     expect(team('hardware', [adv, stu('s1', 'ผู้แข่งขัน')]).ok).toBe(false);
     expect(team('hardware', [adv, stu('s1', 'ผู้แข่งขัน', { isLeader: true })]).ok).toBe(true);
   });
+
+  it('participants requires 1-10 members with photos and no advisors or dept', () => {
+    const pTrack = getTrack('participants');
+    const emptyReqs = getRequirements(pTrack, { members: [] });
+    expect(emptyReqs.map(r => r.key)).toEqual(['team', 'photos']);
+    expect(emptyReqs.every(r => !r.ok)).toBe(true);
+
+    const valid = {
+      members: [{ id: 'p1', type: 'student', fullName: 'สมชาย', role: 'ผู้เข้าร่วม', photo: { dataUrl: '/x' } }]
+    };
+    expect(getRequirements(pTrack, valid).every(r => r.ok)).toBe(true);
+  });
 });

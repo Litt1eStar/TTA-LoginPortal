@@ -5,13 +5,13 @@ import { clearUserCache } from '../src/users.js';
 const login = (app, username, password) => app.inject({ method: 'POST', url: '/api/login', payload: { username, password } });
 
 describe('POST /api/login', () => {
-  it('logs in a coordinator and returns user + 17 submissions', async () => {
+  it('logs in a coordinator and returns user + 18 submissions', async () => {
     const { app } = await makeTestApp();
     const res = await login(app, 'kmutt', 'pass-kmutt-1');
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.user).toEqual({ username: 'kmutt', name: 'ผู้ประสานงาน มจธ.', university: 'มหาวิทยาลัยเทคโนโลยีพระจอมเกล้าธนบุรี', universityCode: 'kmutt', role: 'coordinator' });
-    expect(Object.keys(body.submissions)).toHaveLength(17);
+    expect(Object.keys(body.submissions)).toHaveLength(18);
     const cookie = res.cookies.find(c => c.name === 'tta_session');
     expect(cookie.httpOnly).toBe(true);
     expect(cookie.sameSite).toBe('Lax');
@@ -163,7 +163,7 @@ describe('GET /api/me', () => {
     const res = await app.inject({ method: 'GET', url: '/api/me', headers: { cookie } });
     expect(res.statusCode).toBe(200);
     expect(res.json().user.username).toBe('kmutt');
-    expect(Object.keys(res.json().submissions)).toHaveLength(17);
+    expect(Object.keys(res.json().submissions)).toHaveLength(18);
   });
 
   it('401 once the user is disabled', async () => {

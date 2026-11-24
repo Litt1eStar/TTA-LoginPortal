@@ -112,19 +112,20 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
   if (!isOpen) return null;
 
   const isEditing = !!initialMember;
-  const isAdvisor = type === 'advisor';
+  const isParticipants = !!track.participantsOnly;
+  const isAdvisor = !isParticipants && type === 'advisor';
 
   const validate = () => {
     const errs = {};
     if (!fullName.trim()) errs.fullName = 'กรุณากรอกชื่อ-นามสกุล';
-    if (!isAdvisor) {
+    if (!isAdvisor && !isParticipants) {
       const roleDef = roles.find(r => r.name === role);
       if (!roleDef) errs.role = 'กรุณาเลือกบทบาท';
       else if ((roleCounts[role] || 0) >= roleDef.max) {
         errs.role = `บทบาท ${role} ครบจำนวนสูงสุด (${roleDef.max} คน) แล้ว`;
       }
     }
-    if (email.trim()) {
+    if (!isParticipants && email.trim()) {
       if (!/^\S+@\S+\.\S+$/.test(email.trim())) errs.email = 'รูปแบบอีเมลไม่ถูกต้อง';
       else {
         const emailDup = sub.members.some(m => m.id !== (initialMember?.id) && (m.email || '').toLowerCase() === email.trim().toLowerCase());
@@ -141,16 +142,16 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
 
     addOrUpdateMember(trackId, {
       id: initialMember?.id,
-      type,
+      type: isParticipants ? 'student' : type,
       title,
       fullName: fullName.trim(),
-      studentId: isAdvisor ? '' : studentId.trim(),
-      email: email.trim(),
-      phone: phone.trim(),
-      dept: lockedDept,
-      year: isAdvisor ? '' : year,
-      role: isAdvisor ? undefined : role,
-      isLeader: isAdvisor || !allowLeader ? false : isLeader,
+      studentId: isAdvisor || isParticipants ? '' : studentId.trim(),
+      email: isParticipants ? '' : email.trim(),
+      phone: isParticipants ? '' : phone.trim(),
+      dept: isParticipants ? '' : lockedDept,
+      year: isAdvisor || isParticipants ? '' : year,
+      role: isAdvisor ? undefined : (isParticipants ? defaultRole(track) : role),
+      isLeader: isAdvisor || isParticipants || !allowLeader ? false : isLeader,
       photo
     });
 
@@ -236,7 +237,7 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
               {isAdvisor ? <ChalkboardTeacher size={22} weight="duotone" /> : <Student size={22} weight="duotone" />}
             </div>
             <h3 className="modal-title">
-              {isEditing ? 'แก้ไข' : 'เพิ่ม'}{isAdvisor ? 'อาจารย์ที่ปรึกษา' : 'ผู้แข่งขัน'}
+              {isEditing ? 'แก้ไข' : 'เพิ่ม'}{isParticipants ? 'ผู้เข้าร่วม' : isAdvisor ? 'อาจารย์ที่ปรึกษา' : 'ผู้แข่งขัน'}
             </h3>
           </div>
           <button type="button" className="icon-btn" onClick={requestClose} aria-label="ปิด">
@@ -246,7 +247,7 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
 
         {/* Body */}
         <div className="modal-body">
-          {!isEditing && (
+          {!isEditing && !isParticipants && (
             <div style={{
               display: 'grid',
               gridTemplateColumns: '1fr 1fr',
@@ -377,16 +378,18 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
             </div>
           </div>
 
-          {/* Department (locked by university) */}
-          <div>
-            <label className="field-label">หน่วยงาน</label>
-            <div className="readonly-field" title="กำหนดตามมหาวิทยาลัย แก้ไขไม่ได้">
-              <span>{lockedDept || '-'}</span>
+          {/* Department (locked by university; not collected for participants) */}
+          {!isParticipants && (
+            <div>
+              <label className="field-label">หน่วยงาน</label>
+              <div className="readonly-field" title="กำหนดตามมหาวิทยาลัย แก้ไขไม่ได้">
+                <span>{lockedDept || '-'}</span>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Student ID + year */}
-          {!isAdvisor && (
+          {!isAdvisor && !isParticipants && (
             <div className="grid-2">
               <div>
                 <label className="field-label" htmlFor="m-sid">รหัสนักศึกษา</label>
@@ -410,33 +413,35 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
           )}
 
           {/* Contact */}
-          <div className="grid-2">
-            <div>
-              <label className="field-label" htmlFor="m-email">อีเมล</label>
-              <input
-                id="m-email"
-                type="email"
-                className={`input ${errors.email ? 'has-error' : ''}`}
-                value={email}
-                onChange={(e) => { setEmail(e.target.value); clearError('email'); }}
-                placeholder="name@university.ac.th"
-              />
-              <FieldError msg={errors.email} />
+          {!isParticipants && (
+            <div className="grid-2">
+              <div>
+                <label className="field-label" htmlFor="m-email">อีเมล</label>
+                <input
+                  id="m-email"
+                  type="email"
+                  className={`input ${errors.email ? 'has-error' : ''}`}
+                  value={email}
+                  onChange={(e) => { setEmail(e.target.value); clearError('email'); }}
+                  placeholder="name@university.ac.th"
+                />
+                <FieldError msg={errors.email} />
+              </div>
+              <div>
+                <label className="field-label" htmlFor="m-phone">เบอร์โทรศัพท์</label>
+                <input
+                  id="m-phone"
+                  type="tel"
+                  className="input"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="081-234-5678"
+                />
+              </div>
             </div>
-            <div>
-              <label className="field-label" htmlFor="m-phone">เบอร์โทรศัพท์</label>
-              <input
-                id="m-phone"
-                type="tel"
-                className="input"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="081-234-5678"
-              />
-            </div>
-          </div>
+          )}
 
-          {!isAdvisor && allowLeader && (
+          {!isAdvisor && !isParticipants && allowLeader && (
             <label style={{
               display: 'flex',
               alignItems: 'center',

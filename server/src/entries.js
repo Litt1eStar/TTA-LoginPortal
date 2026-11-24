@@ -56,6 +56,25 @@ function sanitizeFile(f) {
 
 function sanitizeMember(m, track, lockedDept = null) {
   if (!m || (m.type !== 'advisor' && m.type !== 'student')) return null;
+  if (track.participantsOnly) {
+    if (m.type !== 'student') return null;
+    return {
+      id: str(m.id, LIMITS.id),
+      type: 'student',
+      title: str(m.title, LIMITS.short),
+      fullName: str(m.fullName, LIMITS.name),
+      dept: '',
+      university: str(m.university, LIMITS.name),
+      email: '',
+      phone: '',
+      source: str(m.source, LIMITS.short),
+      photo: sanitizePhoto(m.photo),
+      studentId: '',
+      year: '',
+      role: defaultRole(track),
+      isLeader: false
+    };
+  }
   const out = {
     id: str(m.id, LIMITS.id),
     type: m.type,

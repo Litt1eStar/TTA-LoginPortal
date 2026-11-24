@@ -143,7 +143,7 @@ export const SubmitView = () => {
       }}>
         <div>
           <div style={{ fontSize: 'var(--fs-sm)', fontWeight: 600, color: 'var(--primary)' }}>
-            {activeTrack.category || 'ประเภทการแข่งขัน'}
+            {activeTrack.category || (activeTrack.participantsOnly ? 'ผู้เข้าร่วมงาน' : 'ประเภทการแข่งขัน')}
           </div>
           <h1 style={{ fontSize: 'clamp(26px, 3.4vw, 38px)', fontWeight: 700, marginTop: '2px' }}>
             {activeTrack.full}
