@@ -45,5 +45,11 @@ export function bumpSessionVersion(db, id) {
 
 // Shape sent to the browser
 export function toClientUser(user) {
-  return { username: user.username, name: user.name, university: user.university, role: user.role };
+  return {
+    username: user.username,
+    name: user.name,
+    university: user.university,
+    universityCode: user.universityCode ?? null,
+    role: user.role
+  };
 }

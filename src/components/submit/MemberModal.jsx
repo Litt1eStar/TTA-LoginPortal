@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { usePortal } from '../../context/PortalContext';
-import { TITLE_PREFIXES, DEPARTMENTS, PHOTO_RULES } from '../../data/referenceData';
+import { TITLE_PREFIXES, DEPT_BY_UNIVERSITY, departmentForUniversity, PHOTO_RULES } from '../../data/referenceData';
 import { processPhoto, dataUrlToFile } from '../../utils/photo';
 import { uploadFile } from '../../api';
 import { X, ChalkboardTeacher, Student, Plus, Buildings, WarningCircle, Camera, Trash } from '@phosphor-icons/react';
@@ -19,7 +19,6 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
   const [studentId, setStudentId] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [dept, setDept] = useState('');
   const [year, setYear] = useState('3');
   const [isLeader, setIsLeader] = useState(false);
   const [photo, setPhoto] = useState(null);
@@ -27,10 +26,11 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
   const [photoBusy, setPhotoBusy] = useState(false);
   const photoInput = useRef(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const lockedDept = DEPT_BY_UNIVERSITY[user?.universityCode] || departmentForUniversity(user?.university) || '';
   // Snapshot of the form when it opened (or was cleared), to know if anything was typed
   const snapshot = useRef('');
-  const formState = (o) => JSON.stringify([o.type, o.title, o.fullName, o.studentId, o.email, o.phone, o.dept, o.year, o.isLeader, o.photo?.fileId || o.photo?.dataUrl || null]);
-  const current = { type, title, fullName, studentId, email, phone, dept, year, isLeader, photo };
+  const formState = (o) => JSON.stringify([o.type, o.title, o.fullName, o.studentId, o.email, o.phone, o.year, o.isLeader, o.photo?.fileId || o.photo?.dataUrl || null]);
+  const current = { type, title, fullName, studentId, email, phone, year, isLeader, photo };
 
   useEffect(() => {
     if (initialMember) {
@@ -40,15 +40,13 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
       setStudentId(initialMember.studentId || '');
       setEmail(initialMember.email || '');
       setPhone(initialMember.phone || '');
-      // Older records may hold a free-text value; only keep it if it's a valid option
-      setDept(DEPARTMENTS.includes(initialMember.dept) ? initialMember.dept : '');
       setYear(initialMember.year || '3');
       setIsLeader(!!initialMember.isLeader);
       setPhoto(initialMember.photo || null);
       snapshot.current = formState({
         type: initialMember.type || 'student', title: initialMember.title || '', fullName: initialMember.fullName || '',
         studentId: initialMember.studentId || '', email: initialMember.email || '', phone: initialMember.phone || '',
-        dept: DEPARTMENTS.includes(initialMember.dept) ? initialMember.dept : '', year: initialMember.year || '3',
+        year: initialMember.year || '3',
         isLeader: !!initialMember.isLeader, photo: initialMember.photo || null
       });
     } else {
@@ -58,13 +56,12 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
       setStudentId('');
       setEmail('');
       setPhone('');
-      setDept('');
       setYear('3');
       setIsLeader(false);
       setPhoto(null);
       snapshot.current = formState({
         type: initialType, title: initialType === 'advisor' ? 'ดร.' : 'นาย', fullName: '', studentId: '',
-        email: '', phone: '', dept: '', year: '3', isLeader: false, photo: null
+        email: '', phone: '', year: '3', isLeader: false, photo: null
       });
     }
     setErrors({});
@@ -97,7 +94,6 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
   const validate = () => {
     const errs = {};
     if (!fullName.trim()) errs.fullName = 'กรุณากรอกชื่อ-นามสกุล';
-    if (!dept) errs.dept = 'กรุณาเลือกหน่วยงาน';
     if (email.trim()) {
       if (!/^\S+@\S+\.\S+$/.test(email.trim())) errs.email = 'รูปแบบอีเมลไม่ถูกต้อง';
       else {
@@ -121,7 +117,7 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
       studentId: isAdvisor ? '' : studentId.trim(),
       email: email.trim(),
       phone: phone.trim(),
-      dept,
+      dept: lockedDept,
       year: isAdvisor ? '' : year,
       isLeader: isAdvisor ? false : isLeader,
       photo
@@ -321,21 +317,12 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
             </div>
           </div>
 
-          {/* Department dropdown */}
+          {/* Department (locked by university) */}
           <div>
-            <label className="field-label" htmlFor="m-dept">
-              หน่วยงาน <span className="required">*</span>
-            </label>
-            <select
-              id="m-dept"
-              className={`select ${errors.dept ? 'has-error' : ''}`}
-              value={dept}
-              onChange={(e) => { setDept(e.target.value); clearError('dept'); }}
-            >
-              <option value="" disabled>เลือกหน่วยงาน</option>
-              {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
-            </select>
-            <FieldError msg={errors.dept} />
+            <label className="field-label">หน่วยงาน</label>
+            <div className="readonly-field" title="กำหนดตามมหาวิทยาลัย แก้ไขไม่ได้">
+              <span>{lockedDept || '-'}</span>
+            </div>
           </div>
 
           {/* Student ID + year */}

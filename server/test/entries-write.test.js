@@ -31,6 +31,13 @@ describe('saveDraft', () => {
     expect(e.draftAt).toMatch(/^\d{4}-/);
   });
 
+  it('forces member dept from the logged-in university regardless of client input', () => {
+    const e = saveDraft(db, 1, 'hardware', {
+      members: [{ id: 's1', type: 'student', fullName: 'สมชาย', dept: 'คณะปลอม' }]
+    }, 1);
+    expect(e.members[0].dept).toBe('คณะครุศาสตร์อุตสาหกรรมและเทคโนโลยี');
+  });
+
   it('throws version_conflict with the current entry', () => {
     saveDraft(db, 1, 'hardware', { projectName: 'first' }, 1);
     const err = code(() => saveDraft(db, 1, 'hardware', { projectName: 'stale' }, 1));

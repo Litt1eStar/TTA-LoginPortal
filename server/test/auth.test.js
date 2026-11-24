@@ -10,7 +10,7 @@ describe('POST /api/login', () => {
     const res = await login(app, 'kmutt', 'pass-kmutt-1');
     expect(res.statusCode).toBe(200);
     const body = res.json();
-    expect(body.user).toEqual({ username: 'kmutt', name: 'ผู้ประสานงาน มจธ.', university: 'มหาวิทยาลัยเทคโนโลยีพระจอมเกล้าธนบุรี', role: 'coordinator' });
+    expect(body.user).toEqual({ username: 'kmutt', name: 'ผู้ประสานงาน มจธ.', university: 'มหาวิทยาลัยเทคโนโลยีพระจอมเกล้าธนบุรี', universityCode: 'kmutt', role: 'coordinator' });
     expect(Object.keys(body.submissions)).toHaveLength(17);
     const cookie = res.cookies.find(c => c.name === 'tta_session');
     expect(cookie.httpOnly).toBe(true);

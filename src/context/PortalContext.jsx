@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { getTrack } from '../data/tracks';
+import { DEPT_BY_UNIVERSITY, departmentForUniversity } from '../data/referenceData';
 import { generateId } from '../utils/formatters';
 import { api, ApiError, onUnauthenticated, uploadFile } from '../api';
 import { createAutosaver, entryData } from '../utils/autosave';
@@ -300,8 +301,9 @@ export const PortalProvider = ({ children }) => {
     const sub = submissions[trackId];
     let members = [...sub.members];
     const isEdit = !!memberData.id;
-    // University always comes from the logged-in account
-    memberData = { ...memberData, university: user?.university || '' };
+    const lockedDept = DEPT_BY_UNIVERSITY[user?.universityCode] || departmentForUniversity(user?.university) || '';
+    // University and department always come from the logged-in account
+    memberData = { ...memberData, university: user?.university || '', dept: lockedDept };
 
     if (isEdit) {
       members = members.map(m => m.id === memberData.id ? { ...m, ...memberData } : m);

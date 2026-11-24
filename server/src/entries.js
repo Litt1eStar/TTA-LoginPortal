@@ -1,4 +1,5 @@
 import { TRACKS, getTrack, entryKey, parseEntryKey, isGrouped } from '../../src/data/tracks.js';
+import { DEPT_BY_UNIVERSITY, departmentForUniversity } from '../../src/data/referenceData.js';
 import { emptySubmission } from '../../src/data/seedData.js';
 import { tx } from './db.js';
 import crypto from 'node:crypto';
@@ -53,14 +54,14 @@ function sanitizeFile(f) {
   return { id, fileId: id, name: str(f.name, LIMITS.name), size: num(f.size), ext: str(f.ext, 10), mime: str(f.mime, 100), status: 'done', progress: 100, url: `/api/files/${id}` };
 }
 
-function sanitizeMember(m) {
+function sanitizeMember(m, lockedDept = null) {
   if (!m || (m.type !== 'advisor' && m.type !== 'student')) return null;
   const out = {
     id: str(m.id, LIMITS.id),
     type: m.type,
     title: str(m.title, LIMITS.short),
     fullName: str(m.fullName, LIMITS.name),
-    dept: str(m.dept, LIMITS.name),
+    dept: lockedDept !== null ? lockedDept : (departmentForUniversity(m.university) || str(m.dept, LIMITS.name)),
     university: str(m.university, LIMITS.name),
     email: str(m.email, LIMITS.name),
     phone: str(m.phone, LIMITS.short),
@@ -88,16 +89,17 @@ function capAdvisors(members, max) {
 }
 
 // Keeps only known keys; never trusts status/hash/version/times from the client.
-export function sanitizeData(key, rawData) {
+export function sanitizeData(key, rawData, universityCode = null) {
   const data = isObj(rawData) ? rawData : {};
   const track = getTrack(key);
   const maxMembers = track.maxCompetitors + (track.advisorCount || 1);
   const list = (v) => (Array.isArray(v) ? v : []);
+  const lockedDept = universityCode ? (DEPT_BY_UNIVERSITY[universityCode] ?? '') : null;
   return {
     projectName: str(data.projectName, LIMITS.name),
     summary: str(data.summary, LIMITS.text),
     notes: str(data.notes, LIMITS.text),
-    members: capAdvisors(list(data.members).slice(0, maxMembers).map(sanitizeMember).filter(Boolean), track.advisorCount || 1),
+    members: capAdvisors(list(data.members).slice(0, maxMembers).map(m => sanitizeMember(m, lockedDept)).filter(Boolean), track.advisorCount || 1),
     files: list(data.files).map(sanitizeFile).filter(Boolean).slice(0, MAX_FILES),
     links: { video: str(data.links?.video, LIMITS.url) },
     video: track.id === 'clip' ? sanitizeVideo(data.video) : null,
@@ -155,7 +157,8 @@ export function saveDraft(db, universityId, key, data, version) {
   const row = loadRow(db, universityId, key);
   if (row.status === 2) throw httpError(423, 'locked');
   if (row.version !== version) throw httpError(409, 'version_conflict', undefined, { entry: rowToEntry(row) });
-  const clean = sanitizeData(key, data);
+  const uni = db.prepare('SELECT code FROM universities WHERE id = ?').get(universityId);
+  const clean = sanitizeData(key, data, uni?.code ?? null);
   if (clean.video) {
     const id = clean.video.driveFileId;
     const confirmed = db.prepare('SELECT 1 FROM video_confirmations WHERE university_id = ? AND drive_file_id = ?').get(universityId, id);

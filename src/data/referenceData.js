@@ -1,6 +1,6 @@
 // Reference lists for the submission form.
 // Sources: ข้อมูลให้เบ้น.xlsx (titles, universities) and placeholders for data still pending.
-import { TRACKS, isGrouped, entryKey } from './tracks';
+import { TRACKS, isGrouped, entryKey } from './tracks.js';
 
 // คำนำหน้า (from the sheet)
 export const TITLE_PREFIXES = [
@@ -10,24 +10,45 @@ export const TITLE_PREFIXES = [
 
 // มหาวิทยาลัย (from the sheet)
 export const UNIVERSITIES = [
-  { short: 'สจล.', full: 'สถาบันเทคโนโลยีพระจอมเกล้าเจ้าคุณทหารลาดกระบัง' },
-  { short: 'มจธ.', full: 'มหาวิทยาลัยเทคโนโลยีพระจอมเกล้าธนบุรี' },
-  { short: 'มจพ.', full: 'มหาวิทยาลัยเทคโนโลยีพระจอมเกล้าพระนครเหนือ' },
-  { short: 'มทร.กรุงเทพ', full: 'มหาวิทยาลัยเทคโนโลยีราชมงคลกรุงเทพ' },
-  { short: 'มทร.สุวรรณภูมิ', full: 'มหาวิทยาลัยเทคโนโลยีราชมงคลสุวรรณภูมิ' },
-  { short: 'มทร.พระนคร', full: 'มหาวิทยาลัยเทคโนโลยีราชมงคลพระนคร' },
-  { short: 'มทร.ธัญบุรี', full: 'มหาวิทยาลัยเทคโนโลยีราชมงคลธัญบุรี' },
-  { short: 'มทร.ล้านนา', full: 'มหาวิทยาลัยเทคโนโลยีราชมงคลล้านนา' },
-  { short: 'มทร.ศรีวิชัย', full: 'มหาวิทยาลัยเทคโนโลยีราชมงคลศรีวิชัย' },
-  { short: 'มทร.อีสาน', full: 'มหาวิทยาลัยเทคโนโลยีราชมงคลอีสาน' }
+  { code: 'kmitl', short: 'สจล.', full: 'สถาบันเทคโนโลยีพระจอมเกล้าเจ้าคุณทหารลาดกระบัง' },
+  { code: 'kmutt', short: 'มจธ.', full: 'มหาวิทยาลัยเทคโนโลยีพระจอมเกล้าธนบุรี' },
+  { code: 'kmutnb', short: 'มจพ.', full: 'มหาวิทยาลัยเทคโนโลยีพระจอมเกล้าพระนครเหนือ' },
+  { code: 'rmutk', short: 'มทร.กรุงเทพ', full: 'มหาวิทยาลัยเทคโนโลยีราชมงคลกรุงเทพ' },
+  { code: 'rmutsb', short: 'มทร.สุวรรณภูมิ', full: 'มหาวิทยาลัยเทคโนโลยีราชมงคลสุวรรณภูมิ' },
+  { code: 'rmutp', short: 'มทร.พระนคร', full: 'มหาวิทยาลัยเทคโนโลยีราชมงคลพระนคร' },
+  { code: 'rmutt', short: 'มทร.ธัญบุรี', full: 'มหาวิทยาลัยเทคโนโลยีราชมงคลธัญบุรี' },
+  { code: 'rmutl', short: 'มทร.ล้านนา', full: 'มหาวิทยาลัยเทคโนโลยีราชมงคลล้านนา' },
+  { code: 'rmutsv', short: 'มทร.ศรีวิชัย', full: 'มหาวิทยาลัยเทคโนโลยีราชมงคลศรีวิชัย' },
+  { code: 'rmuti', short: 'มทร.อีสาน', full: 'มหาวิทยาลัยเทคโนโลยีราชมงคลอีสาน' }
 ];
 
-// หน่วยงาน (Department) dropdown for every member — same 3 options for every university.
+// หน่วยงาน (Department) options and per-university lock mapping
 export const DEPARTMENTS = [
   'คณะครุศาสตร์อุตสาหกรรมและเทคโนโลยี',
   'คณะครุศาสตร์อุตสาหกรรม',
   'คณะวิศวกรรมศาสตร์'
 ];
+
+export const DEPT_BY_UNIVERSITY = {
+  rmutl: 'คณะวิศวกรรมศาสตร์',
+  kmutnb: 'คณะครุศาสตร์อุตสาหกรรม',
+  rmutt: 'คณะครุศาสตร์อุตสาหกรรม',
+  rmutp: 'คณะครุศาสตร์อุตสาหกรรม',
+  rmutk: 'คณะครุศาสตร์อุตสาหกรรม',
+  rmutsb: 'คณะครุศาสตร์อุตสาหกรรม',
+  rmuti: 'คณะครุศาสตร์อุตสาหกรรม',
+  kmitl: 'คณะครุศาสตร์อุตสาหกรรมและเทคโนโลยี',
+  kmutt: 'คณะครุศาสตร์อุตสาหกรรมและเทคโนโลยี',
+  rmutsv: 'คณะครุศาสตร์อุตสาหกรรมและเทคโนโลยี'
+};
+
+export const departmentForUniversity = (codeOrName) => {
+  if (!codeOrName) return '';
+  const key = String(codeOrName).trim().toLowerCase();
+  if (DEPT_BY_UNIVERSITY[key]) return DEPT_BY_UNIVERSITY[key];
+  const uni = UNIVERSITIES.find(u => u.code === key || u.short === codeOrName || u.full === codeOrName);
+  return uni ? (DEPT_BY_UNIVERSITY[uni.code] || '') : '';
+};
 
 // TODO (FEEDBACK #7): placeholder photo rules until the team confirms size / format.
 export const PHOTO_RULES = {

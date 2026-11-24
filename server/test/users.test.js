@@ -29,7 +29,7 @@ describe('users', () => {
     expect(getUserAuth(db, 1).sessionVersion).toBe(1);
   });
 
-  it('toClientUser keeps only username, name, university, role', () => {
-    expect(toClientUser(getUserById(db, 1))).toEqual({ username: 'kmutt', name: 'ผู้ประสานงาน', university: 'มจธ', role: 'coordinator' });
+  it('toClientUser keeps only username, name, university, universityCode, role', () => {
+    expect(toClientUser(getUserById(db, 1))).toEqual({ username: 'kmutt', name: 'ผู้ประสานงาน', university: 'มจธ', universityCode: 'kmutt', role: 'coordinator' });
   });
 });
