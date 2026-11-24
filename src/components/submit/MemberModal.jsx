@@ -270,6 +270,8 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
                 </div>
                 <span className="field-hint" style={{ marginTop: 0 }}>
                   ไฟล์ {PHOTO_RULES.exts.join(', ').toUpperCase()} ไม่เกิน {PHOTO_RULES.maxMB} MB
+                  <br />
+                  ตั้งชื่อไฟล์ดังตัวอย่าง: สมชาย.jpg
                 </span>
               </div>
               <input
