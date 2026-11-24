@@ -45,27 +45,35 @@ export const getRequirements = (track, sub = {}) => {
   }
 
   const isParticipants = !!track.participantsOnly;
+  const min = track.minCompetitors ?? 1;
   const max = track.maxCompetitors;
   const withinMax = !max || students.length <= max;
   const needLeader = usesLeader(track);
   const hasRequiredRoles = roles.some(r => r.required);
+  const backstageRoles = new Set(roles.filter(r => r.group === 'backstage').map(r => r.name));
+  const backstageCount = students.filter(m => backstageRoles.has(m.role || defaultRole(track))).length;
   const personLabel = isParticipants ? 'ผู้เข้าร่วม' : 'ผู้แข่งขัน';
   let teamError = '';
-  if (students.length === 0) teamError = `กรุณาเพิ่ม${personLabel}อย่างน้อย 1 คน`;
+  if (students.length === 0) teamError = `กรุณาเพิ่ม${personLabel}อย่างน้อย ${min} คน`;
+  else if (students.length < min) teamError = `จำนวน${personLabel}ไม่ครบตามเกณฑ์ (ต้องมีอย่างน้อย ${min} คน)`;
   else if (!withinMax) teamError = `จำนวน${personLabel}เกินที่กำหนด (สูงสุด ${max} คน)`;
   else if (unknownRoles.length) teamError = `พบบทบาทที่ไม่รองรับ: ${unknownRoles[0]}`;
   else {
     const over = roles.find(r => roleCounts[r.name] > r.max);
     const missingReq = roles.filter(r => r.required && roleCounts[r.name] < 1);
     if (over) teamError = `${over.name}เกินจำนวนที่กำหนด (สูงสุด ${over.max} คน)`;
+    else if (track.backstageCap && backstageCount > track.backstageCap) {
+      teamError = `ฝ่าย Backstage (รวมผู้ควบคุมไฟและเสียง) เกินจำนวนที่กำหนด (สูงสุด ${track.backstageCap} คน)`;
+    }
     else if (missingReq.length) teamError = `กรุณาระบุ${missingReq.map(r => r.name).join(' และ ')}`;
     else if (needLeader && !hasLeader) teamError = 'กรุณากำหนดหัวหน้าทีม';
   }
+  const rangeText = max ? (min > 1 && min !== max ? `${min}-${max}` : `${max}`) : '';
   const teamLabelText = hasRequiredRoles
     ? `ผู้สอนหลักและผู้ช่วยสอน (${students.length}/${max} คน)`
     : needLeader
-      ? `ผู้แข่งขัน ${students.length}${max ? `/${max}` : ''} คน พร้อมหัวหน้าทีม`
-      : `${personLabel} ${students.length}${max ? `/${max}` : ''} คน`;
+      ? `ผู้แข่งขัน ${students.length}${rangeText ? `/${rangeText}` : ''} คน พร้อมหัวหน้าทีม`
+      : `${personLabel} ${students.length}${rangeText ? `/${rangeText}` : ''} คน`;
   reqs.push({
     key: 'team',
     section: 'team',

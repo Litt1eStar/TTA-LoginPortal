@@ -41,21 +41,32 @@ describe('per-track role validation', () => {
     expect(team('theory.g0', [adv, stu('s1', 'ผู้สอนหลัก'), stu('s2', 'ผู้ช่วยสอน')]).ok).toBe(true);
   });
 
-  it('dance allows up to 16 across roles and rejects over-cap or unknown roles', () => {
+  it('dance allows up to 14 (10 performers + 4 backstage/light/sound) and rejects over-cap or unknown roles', () => {
     const valid = [
       adv,
       ...Array.from({ length: 10 }, (_, i) => stu(`d${i}`, 'นักแสดง')),
-      ...Array.from({ length: 4 }, (_, i) => stu(`b${i}`, 'Backstage')),
+      stu('b1', 'Backstage'),
+      stu('b2', 'Backstage'),
       stu('f1', 'ผู้ควบคุมไฟ'),
       stu('s1', 'ผู้ควบคุมเสียง')
     ];
     expect(team('dance', valid).ok).toBe(true);
+    expect(team('dance', [
+      adv,
+      ...Array.from({ length: 4 }, (_, i) => stu(`b${i}`, 'Backstage')),
+      stu('f1', 'ผู้ควบคุมไฟ')
+    ]).ok).toBe(false);
     expect(team('dance', [adv, stu('f1', 'ผู้ควบคุมไฟ'), stu('f2', 'ผู้ควบคุมไฟ')]).ok).toBe(false);
     expect(team('dance', [adv, stu('x', 'ตัวปลอม')]).ok).toBe(false);
   });
 
-  it('single-role tracks use ผู้แข่งขัน without requiring a team leader', () => {
-    expect(team('hardware', [adv, stu('s1', 'ผู้แข่งขัน')]).ok).toBe(true);
+  it('hardware requires 3 students and clip requires 3-5 students', () => {
+    expect(team('hardware', [adv, stu('s1', 'ผู้แข่งขัน'), stu('s2', 'ผู้แข่งขัน')]).ok).toBe(false);
+    expect(team('hardware', [adv, stu('s1', 'ผู้แข่งขัน'), stu('s2', 'ผู้แข่งขัน'), stu('s3', 'ผู้แข่งขัน')]).ok).toBe(true);
+    expect(team('clip', [adv, stu('s1', 'ผู้แข่งขัน'), stu('s2', 'ผู้แข่งขัน')]).ok).toBe(false);
+    expect(team('clip', [adv, ...Array.from({ length: 5 }, (_, i) => stu(`c${i}`, 'ผู้แข่งขัน'))]).ok).toBe(true);
+    expect(team('software', [adv, ...Array.from({ length: 3 }, (_, i) => stu(`w${i}`, 'ผู้แข่งขัน'))]).ok).toBe(true);
+    expect(team('robot', [adv, ...Array.from({ length: 3 }, (_, i) => stu(`r${i}`, 'ผู้แข่งขัน'))]).ok).toBe(true);
   });
 
   it('participants requires 1-10 members with photos and no advisors or dept', () => {

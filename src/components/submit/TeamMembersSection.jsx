@@ -26,6 +26,7 @@ export const TeamMembersSection = ({ trackId, isLocked, error, number, done }) =
 
   const track = getTrack(trackId);
   const advisorLimit = track.advisorCount ?? 1;
+  const minCompetitors = track.minCompetitors ?? 1;
   const maxCompetitors = track.maxCompetitors;
   const isParticipants = !!track.participantsOnly;
   const showRoleBadge = !isParticipants;
@@ -96,8 +97,9 @@ export const TeamMembersSection = ({ trackId, isLocked, error, number, done }) =
             ) : (
               <>
                 อาจารย์ที่ปรึกษา {advisorLimit > 1 ? `1-${advisorLimit}` : '1'} ท่าน
-                {' และ '}ผู้แข่งขัน {maxCompetitors > 1 ? `1-${maxCompetitors}` : '1'} คน
+                {' และ '}ผู้แข่งขัน {minCompetitors === maxCompetitors ? maxCompetitors : `${minCompetitors}-${maxCompetitors}`} คน
                 {hasMultipleRoles(track) && ` (${roles.map(r => `${r.name} ${r.max}`).join(' · ')})`}
+                {track.backstageCap ? ` · รวมฝ่าย Backstage ไม่เกิน ${track.backstageCap} คน` : ''}
                 {' '}ทุกคนต้องมีรูปถ่ายและหน่วยงาน
               </>
             )}

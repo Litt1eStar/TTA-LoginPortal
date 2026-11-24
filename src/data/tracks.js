@@ -42,61 +42,76 @@ export const CULTURE_CATEGORY = 'การแข่งขันศิลปว�
 export const TRACKS = [
   {
     id: 'theory', th: 'สอนทฤษฎี', full: 'สอนทฤษฎี', en: 'Teaching Theory', icon: 'ChalkboardTeacher', image: '/assets/mascots/theory.webp',
-    deadline: FINAL_DEADLINE, maxCompetitors: 2, advisorCount: 1, needsWorkInfo: false, subjectGroups: SUBJECT_GROUPS,
+    deadline: FINAL_DEADLINE, docDeadlineLabel: 'ส่งไฟล์แผนการสอน (.pdf) ภายใน 3 ก.พ. 2027 · ส่งรูปเล่ม 3 ชุด วันที่ 6 ก.พ. 2027 (ก่อน 09:00 น.)',
+    maxCompetitors: 2, advisorCount: 1, needsWorkInfo: false, subjectGroups: SUBJECT_GROUPS,
     roles: [{ name: 'ผู้สอนหลัก', max: 1, required: true }, { name: 'ผู้ช่วยสอน', max: 1, required: true }],
     usesLeader: false
   },
   {
     id: 'practice', th: 'สอนปฏิบัติ', full: 'สอนปฏิบัติ', en: 'Teaching Practice', icon: 'HandPointing', image: '/assets/mascots/practice.webp',
-    deadline: FINAL_DEADLINE, maxCompetitors: 2, advisorCount: 1, needsWorkInfo: false, subjectGroups: PRACTICE_SUBJECT_GROUPS,
+    deadline: FINAL_DEADLINE, docDeadlineLabel: 'เตรียมแผนการสอนและสื่อประกอบในวันแข่งขัน (6–7 ก.พ. 2027)',
+    maxCompetitors: 2, advisorCount: 1, needsWorkInfo: false, subjectGroups: PRACTICE_SUBJECT_GROUPS,
     roles: [{ name: 'ผู้สอนหลัก', max: 1, required: true }, { name: 'ผู้ช่วยสอน', max: 1, required: true }],
     usesLeader: false
   },
   {
     id: 'singing', th: 'ร้องเพลงลูกทุ่ง', full: 'ประกวดร้องเพลงลูกทุ่ง', category: CULTURE_CATEGORY, en: 'Luk Thung Singing', icon: 'MicrophoneStage', image: '/assets/mascots/culture.webp',
-    deadline: FINAL_DEADLINE, maxCompetitors: 1, advisorCount: 2, needsWorkInfo: false,
+    deadline: FINAL_DEADLINE, docDeadlineLabel: 'ส่งไฟล์เพลง Backing Track ณ จุดลงทะเบียนก่อนแข่งขัน',
+    maxCompetitors: 1, advisorCount: 1, needsWorkInfo: false,
     roles: [{ name: 'นักร้อง', max: 1 }],
     usesLeader: false
   },
   {
     id: 'dance', th: 'แดนเซอร์จินตลีลา', full: 'แดนเซอร์จินตลีลา', category: CULTURE_CATEGORY, en: 'Creative Movement Dance', icon: 'PersonSimpleRun', image: '/assets/mascots/culture.webp',
-    deadline: FINAL_DEADLINE, maxCompetitors: 16, advisorCount: 1, needsWorkInfo: false,
-    roles: [{ name: 'นักแสดง', max: 10 }, { name: 'Backstage', max: 4 }, { name: 'ผู้ควบคุมไฟ', max: 1 }, { name: 'ผู้ควบคุมเสียง', max: 1 }],
+    deadline: FINAL_DEADLINE, docDeadlineLabel: 'รายงานตัวพร้อมนักแสดงและอุปกรณ์ในวันแข่งขัน',
+    maxCompetitors: 14, advisorCount: 1, backstageCap: 4, needsWorkInfo: false,
+    roles: [
+      { name: 'นักแสดง', max: 10 },
+      { name: 'Backstage', max: 4, group: 'backstage' },
+      { name: 'ผู้ควบคุมไฟ', max: 1, group: 'backstage' },
+      { name: 'ผู้ควบคุมเสียง', max: 1, group: 'backstage' }
+    ],
     usesLeader: false
   },
   {
     id: 'clip', th: 'สื่อสร้างสรรค์', full: 'การแข่งขันประเภทสื่อสร้างสรรค์', en: 'Creative Media', icon: 'VideoCamera', image: '/assets/mascots/clip.webp',
-    deadline: FINAL_DEADLINE, maxCompetitors: 4, advisorCount: 1, needsWorkInfo: true,
-    roles: [{ name: 'ผู้แข่งขัน', max: 4 }],
+    deadline: FINAL_DEADLINE, docDeadlineLabel: 'ส่งไฟล์คลิป 16:9 และ Teaser 9:16 ภายใน 13 ม.ค. 2027 เวลา 18:00 น.',
+    minCompetitors: 3, maxCompetitors: 5, advisorCount: 1, needsWorkInfo: true,
+    roles: [{ name: 'ผู้แข่งขัน', max: 5 }],
     usesLeader: false
   },
   {
     id: 'hardware', th: 'Hardware', full: 'Hardware', desc: 'สื่อฯ นวัตกรรมฮาร์ดแวร์', en: 'Hardware Innovation', icon: 'Cpu', image: '/assets/mascots/hardware.webp',
-    deadline: FINAL_DEADLINE, maxCompetitors: 3, advisorCount: 1, needsWorkInfo: false,
+    deadline: FINAL_DEADLINE, docDeadlineLabel: 'ส่งคู่มือ 3 ชุด + ไฟล์ .pdf และติดตั้งชิ้นงาน วันที่ 6 ก.พ. 2027 (13:30–16:00 น.)',
+    minCompetitors: 3, maxCompetitors: 3, advisorCount: 1, needsWorkInfo: false,
     roles: [{ name: 'ผู้แข่งขัน', max: 3 }],
     usesLeader: false
   },
   {
     id: 'software', th: 'Software', full: 'Software', desc: 'สื่อฯ นวัตกรรมซอฟต์แวร์', en: 'Software Innovation', icon: 'Code', image: '/assets/mascots/software.webp',
-    deadline: FINAL_DEADLINE, maxCompetitors: 2, advisorCount: 1, needsWorkInfo: false,
-    roles: [{ name: 'ผู้แข่งขัน', max: 2 }],
+    deadline: FINAL_DEADLINE, docDeadlineLabel: 'ส่งคู่มือ 3 ชุด + Soft File วันที่ 6 ก.พ. 2027 (ก่อน 10:00 น.)',
+    maxCompetitors: 3, advisorCount: 1, needsWorkInfo: false,
+    roles: [{ name: 'ผู้แข่งขัน', max: 3 }],
     usesLeader: false
   },
   {
     id: 'robot', th: 'Robot', full: 'Robot', desc: 'การแข่งขันหุ่นยนต์ (Robot Contest)', en: 'Robot Contest', icon: 'Robot', image: '/assets/mascots/robot.webp',
-    deadline: FINAL_DEADLINE, maxCompetitors: 2, advisorCount: 1, needsWorkInfo: false,
-    roles: [{ name: 'ผู้แข่งขัน', max: 2 }],
+    deadline: FINAL_DEADLINE, docDeadlineLabel: 'นำหุ่นยนต์ตรวจขนาด (25×25 ซม.) และแรงดันไฟ (≤ 25V) ณ จุดลงทะเบียนก่อนแข่งขัน',
+    maxCompetitors: 3, advisorCount: 1, needsWorkInfo: false,
+    roles: [{ name: 'ผู้แข่งขัน', max: 3 }],
     usesLeader: false
   },
   {
     id: 'research', th: 'วิจัยในชั้นเรียน', full: 'วิจัยในชั้นเรียน', desc: 'นวัตกรรมงานวิจัยในชั้นเรียน', en: 'Classroom Research', icon: 'Flask', image: '/assets/mascots/research.webp',
-    deadline: FINAL_DEADLINE, maxCompetitors: 3, advisorCount: 1, needsWorkInfo: false,
+    deadline: FINAL_DEADLINE, docDeadlineLabel: 'ติดโปสเตอร์ A0 (09:00–11:00 น.) และส่งไฟล์ .pdf ก่อน 10:00 น. วันที่ 6 ก.พ. 2027',
+    maxCompetitors: 3, advisorCount: 1, needsWorkInfo: false,
     roles: [{ name: 'ผู้แข่งขัน', max: 3 }],
     usesLeader: false
   },
   {
     id: 'pitching', th: 'Pitching', full: 'Pitching', desc: 'การเป็นผู้ประกอบการ', en: 'Entrepreneur Pitching', icon: 'PresentationChart', image: '/assets/mascots/pitching.webp',
-    deadline: FINAL_DEADLINE, maxCompetitors: 3, advisorCount: 1, needsWorkInfo: false,
+    deadline: FINAL_DEADLINE, docDeadlineLabel: 'ส่งเอกสารข้อเสนอ (≤ 5 หน้า PDF) และสไลด์นำเสนอ (≤ 20 หน้า) ตามกำหนด',
+    maxCompetitors: 3, advisorCount: 1, needsWorkInfo: false,
     roles: [{ name: 'ผู้แข่งขัน', max: 3 }],
     usesLeader: false
   },

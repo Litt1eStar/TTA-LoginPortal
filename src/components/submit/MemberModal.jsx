@@ -24,7 +24,12 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
       acc[r] = (acc[r] || 0) + 1;
       return acc;
     }, {});
-  const firstOpenRole = (counts) => (roles.find(r => (counts[r.name] || 0) < r.max) || roles[0]).name;
+  const backstageCountFor = (counts) =>
+    roles.filter(r => r.group === 'backstage').reduce((sum, r) => sum + (counts[r.name] || 0), 0);
+  const isRoleFull = (r, counts) =>
+    (counts[r.name] || 0) >= r.max ||
+    Boolean(r.group === 'backstage' && track.backstageCap && backstageCountFor(counts) >= track.backstageCap);
+  const firstOpenRole = (counts) => (roles.find(r => !isRoleFull(r, counts)) || roles[0]).name;
 
   const [type, setType] = useState(initialType);
   const [title, setTitle] = useState('');
@@ -117,8 +122,10 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
     if (!isAdvisor && !isParticipants) {
       const roleDef = roles.find(r => r.name === role);
       if (!roleDef) errs.role = 'กรุณาเลือกบทบาท';
-      else if ((roleCounts[role] || 0) >= roleDef.max) {
-        errs.role = `บทบาท ${role} ครบจำนวนสูงสุด (${roleDef.max} คน) แล้ว`;
+      else if (isRoleFull(roleDef, roleCounts)) {
+        errs.role = roleDef.group === 'backstage' && track.backstageCap && backstageCountFor(roleCounts) >= track.backstageCap && (roleCounts[role] || 0) < roleDef.max
+          ? `ฝ่าย Backstage (รวมผู้ควบคุมไฟและเสียง) ครบจำนวนสูงสุด (${track.backstageCap} คน) แล้ว`
+          : `บทบาท ${role} ครบจำนวนสูงสุด (${roleDef.max} คน) แล้ว`;
       }
     }
     if (!isParticipants && email.trim()) {
@@ -353,7 +360,7 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
                 >
                   {roles.map(r => {
                     const count = roleCounts[r.name] || 0;
-                    const full = count >= r.max;
+                    const full = isRoleFull(r, roleCounts);
                     return (
                       <option key={r.name} value={r.name} disabled={full}>
                         {r.name} ({count}/{r.max} คน){full ? ' — เต็มแล้ว' : ''}

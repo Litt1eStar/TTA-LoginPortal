@@ -124,7 +124,7 @@ describe('tracks & member roles (P-3, P-4)', () => {
     const culture = TYPES.find(t => t.label === CULTURE_CATEGORY);
     expect(culture.tracks.map(t => t.id)).toEqual(['singing', 'dance']);
     expect(TYPES.some(t => t.id === 'clip')).toBe(true);
-    expect(getTrack('dance').maxCompetitors).toBe(16);
+    expect(getTrack('dance').maxCompetitors).toBe(14);
   });
 
   it('enforces per-role maxima and rejects unknown roles in sanitizeData', () => {
@@ -150,24 +150,25 @@ describe('tracks & member roles (P-3, P-4)', () => {
       stu('a1', 'ผู้ควบคุมเสียง')
     ];
     const dance = sanitizeData('dance', { members: danceMembers });
-    expect(dance.members).toHaveLength(16);
+    expect(dance.members).toHaveLength(14);
     expect(dance.members.filter(m => m.role === 'นักแสดง')).toHaveLength(10);
     expect(dance.members.filter(m => m.role === 'Backstage')).toHaveLength(4);
-    expect(dance.members.filter(m => m.role === 'ผู้ควบคุมไฟ')).toHaveLength(1);
-    expect(dance.members.filter(m => m.role === 'ผู้ควบคุมเสียง')).toHaveLength(1);
+    expect(dance.members.filter(m => m.role === 'ผู้ควบคุมไฟ')).toHaveLength(0);
+    expect(dance.members.filter(m => m.role === 'ผู้ควบคุมเสียง')).toHaveLength(0);
 
     const danceCaps = sanitizeData('dance', {
       members: [
-        ...Array.from({ length: 5 }, (_, i) => stu(`b${i}`, 'Backstage')),
         stu('l1', 'ผู้ควบคุมไฟ'),
         stu('l2', 'ผู้ควบคุมไฟ'),
         stu('a1', 'ผู้ควบคุมเสียง'),
-        stu('a2', 'ผู้ควบคุมเสียง')
+        stu('a2', 'ผู้ควบคุมเสียง'),
+        ...Array.from({ length: 5 }, (_, i) => stu(`b${i}`, 'Backstage'))
       ]
     });
-    expect(danceCaps.members.filter(m => m.role === 'Backstage')).toHaveLength(4);
+    expect(danceCaps.members).toHaveLength(4);
     expect(danceCaps.members.filter(m => m.role === 'ผู้ควบคุมไฟ')).toHaveLength(1);
     expect(danceCaps.members.filter(m => m.role === 'ผู้ควบคุมเสียง')).toHaveLength(1);
+    expect(danceCaps.members.filter(m => m.role === 'Backstage')).toHaveLength(2);
 
     const bad = sanitizeData('singing', { members: [stu('x', 'บทบาทปลอม')] });
     expect(bad.members).toEqual([]);

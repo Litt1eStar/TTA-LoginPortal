@@ -18,7 +18,9 @@ const photo = (fileId) => ({ fileId, name: 'p.jpg', size: 1, ext: 'jpg', mime: '
 const completeHardware = () => ({
   members: [
     { id: 'a', type: 'advisor', fullName: 'อาจารย์', dept: 'D', photo: photo(1) },
-    { id: 's', type: 'student', fullName: 'นักศึกษา', dept: 'D', isLeader: true, photo: photo(2) }
+    { id: 's1', type: 'student', fullName: 'นักศึกษา 1', dept: 'D', photo: photo(2) },
+    { id: 's2', type: 'student', fullName: 'นักศึกษา 2', dept: 'D', photo: photo(2) },
+    { id: 's3', type: 'student', fullName: 'นักศึกษา 3', dept: 'D', photo: photo(2) }
   ]
 });
 
@@ -106,7 +108,9 @@ describe('hardening', () => {
     addFile(3, 'hardware'); // kind 0 used as work file
     saveDraft(db, 1, 'hardware', { members: [
       { id: 'a', type: 'advisor', fullName: 'x', dept: 'D', photo: photo(1) },
-      { id: 's', type: 'student', fullName: 'y', dept: 'D', isLeader: true, photo: photo(1) }],
+      { id: 's1', type: 'student', fullName: 'y1', dept: 'D', photo: photo(1) },
+      { id: 's2', type: 'student', fullName: 'y2', dept: 'D', photo: photo(1) },
+      { id: 's3', type: 'student', fullName: 'y3', dept: 'D', photo: photo(1) }],
       files: [{ fileId: 3, name: 'a.pdf', size: 1, ext: 'pdf', mime: 'application/pdf' }] }, 2);
     expect(code(() => submitEntry(db, 1, 'hardware')).extra.failed[0].key).toBe('files');
   });

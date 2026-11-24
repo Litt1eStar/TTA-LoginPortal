@@ -109,10 +109,13 @@ function sanitizeVideo(v) {
 function capMembers(members, track) {
   const maxAdvisors = track.advisorCount ?? 1;
   const maxCompetitors = track.maxCompetitors ?? 0;
-  const roleLimit = new Map(trackRoles(track).map(r => [r.name, r.max]));
+  const roles = trackRoles(track);
+  const roleLimit = new Map(roles.map(r => [r.name, r.max]));
+  const backstageRoles = new Set(roles.filter(r => r.group === 'backstage').map(r => r.name));
   const roleCounts = new Map();
   let advisors = 0;
   let students = 0;
+  let backstage = 0;
   return members.filter(m => {
     if (m.type === 'advisor') {
       if (advisors >= maxAdvisors) return false;
@@ -121,9 +124,12 @@ function capMembers(members, track) {
     }
     const cap = roleLimit.get(m.role) ?? 0;
     const cur = roleCounts.get(m.role) || 0;
+    const isBackstage = backstageRoles.has(m.role);
     if (students >= maxCompetitors || cur >= cap) return false;
+    if (isBackstage && track.backstageCap && backstage >= track.backstageCap) return false;
     students += 1;
     roleCounts.set(m.role, cur + 1);
+    if (isBackstage) backstage += 1;
     return true;
   });
 }

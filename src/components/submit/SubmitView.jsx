@@ -189,7 +189,7 @@ export const SubmitView = () => {
             )}
             {!activeTrack.participantsOnly && (
               <span className="badge" style={{ fontSize: '13.5px', padding: '6px 12px', background: '#F6F6F9', color: 'var(--text-muted)' }}>
-                กำหนดส่งเอกสาร: ประกาศเร็วๆ นี้
+                กำหนดส่งเอกสาร/ผลงาน: {activeTrack.docDeadlineLabel || 'ประกาศเร็วๆ นี้'}
               </span>
             )}
           </div>
