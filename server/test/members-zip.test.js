@@ -55,8 +55,50 @@ describe('admin members.zip', () => {
     expect(lines).toHaveLength(4);
     expect(lines[0].endsWith(',ไฟล์รูปถ่าย')).toBe(true);
     expect(lines[1]).toContain('สมชาย ใจดี');
+    expect(lines[1]).toContain(',อาจารย์,');
     expect(lines[1].endsWith(',ProfileImage_Kmutt_somchai.j.jpg')).toBe(true);
+    expect(lines[2]).toContain(',ผู้สอนหลัก,');
     expect(lines[2].endsWith(',ProfileImage_Kmutt_67080500203.webp')).toBe(true);
+    expect(lines[3]).toContain(',ผู้ช่วยสอน,');
+  });
+
+  it('exports dance roles, standalone clip folder, and participants folder (P-8)', async () => {
+    ctx = await makeTestApp();
+    const { db, config, app } = ctx;
+    listEntries(db, 1);
+    const pDance = addStoredFile(db, config, { universityId: 1, key: 'dance', kind: 0, bytes: Buffer.from('d'), mime: 'image/jpeg', name: 'd.jpg' });
+    const pClip = addStoredFile(db, config, { universityId: 1, key: 'clip', kind: 0, bytes: Buffer.from('c'), mime: 'image/jpeg', name: 'c.jpg' });
+    const pPart = addStoredFile(db, config, { universityId: 1, key: 'participants', kind: 0, bytes: Buffer.from('p'), mime: 'image/jpeg', name: 'p.jpg' });
+
+    saveDraft(db, 1, 'dance', {
+      members: [
+        base({ id: 'd1', type: 'student', role: 'นักแสดง', fullName: 'ก', studentId: '101', photo: photo(pDance) }),
+        base({ id: 'b1', type: 'student', role: 'Backstage', fullName: 'ข', studentId: '102', photo: photo(pDance) })
+      ]
+    }, 1);
+    saveDraft(db, 1, 'clip', {
+      members: [base({ id: 'c1', type: 'student', role: 'ผู้แข่งขัน', isLeader: true, fullName: 'ค', studentId: '201', photo: photo(pClip) })]
+    }, 1);
+    saveDraft(db, 1, 'participants', {
+      members: [base({ id: 'p1', type: 'student', fullName: 'ง', photo: photo(pPart) })]
+    }, 1);
+
+    const files = await readZip((await download(app)).rawPayload);
+    const root = `TTA-members-${stamp()}/Kmutt`;
+
+    const danceDir = `${root}/${nn('dance')} แดนเซอร์จินตลีลา`;
+    const danceCsv = files.get(`${danceDir}/รายชื่อสมาชิก.csv`).toString('utf8');
+    expect(danceCsv).toContain(',นักแสดง,');
+    expect(danceCsv).toContain(',Backstage,');
+
+    const clipDir = `${root}/${nn('clip')} สื่อสร้างสรรค์`;
+    const clipCsv = files.get(`${clipDir}/รายชื่อสมาชิก.csv`).toString('utf8');
+    expect(clipCsv).toContain(',การแข่งขันประเภทสื่อสร้างสรรค์,,ฉบับร่าง,ผู้แข่งขัน,ใช่,');
+
+    const partDir = `${root}/${nn('participants')} ผู้เข้าร่วม`;
+    expect(files.has(`${partDir}/ProfileImage_Kmutt_Student01.jpg`)).toBe(true);
+    const partCsv = files.get(`${partDir}/รายชื่อสมาชิก.csv`).toString('utf8');
+    expect(partCsv).toContain(',ผู้เข้าร่วม,,ฉบับร่าง,ผู้เข้าร่วม,,');
   });
 
   it('uses Advisor01 fallback, skips empty entries and lists missing photos', async () => {
