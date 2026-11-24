@@ -2,10 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { usePortal } from '../../context/PortalContext';
 import { SectionNum } from './SectionNum';
 import { MemberModal } from './MemberModal';
-import { CsvImportModal } from './CsvImportModal';
 import { initials } from '../../utils/formatters';
 import { getTrack } from '../../data/tracks';
-import { Plus, FileCsv, PencilSimple, Trash, Crown, WarningCircle } from '@phosphor-icons/react';
+import { Plus, PencilSimple, Trash, Crown, WarningCircle } from '@phosphor-icons/react';
 
 const fullTitleName = (m) => [m.title, m.fullName].filter(Boolean).join(' ');
 
@@ -16,7 +15,6 @@ export const TeamMembersSection = ({ trackId, isLocked, error, number, done }) =
   const [memberModalOpen, setMemberModalOpen] = useState(false);
   const [modalType, setModalType] = useState('student');
   const [editingMember, setEditingMember] = useState(null);
-  const [csvModalOpen, setCsvModalOpen] = useState(false);
   const [removing, setRemoving] = useState(null); // member awaiting delete confirmation
 
   useEffect(() => {
@@ -108,10 +106,6 @@ export const TeamMembersSection = ({ trackId, isLocked, error, number, done }) =
                 <span>เพิ่มผู้แข่งขัน</span>
               </button>
             )}
-            <button type="button" className="btn" onClick={() => setCsvModalOpen(true)}>
-              <FileCsv size={18} weight="bold" color="var(--primary)" />
-              <span>นำเข้า CSV</span>
-            </button>
           </div>
         )}
       </div>
@@ -200,7 +194,7 @@ export const TeamMembersSection = ({ trackId, isLocked, error, number, done }) =
             onClick={() => !isLocked && openAdd('student')}
           >
             <div>ยังไม่มีผู้แข่งขัน (ต้องมีอย่างน้อย 1 คน)</div>
-            {!isLocked && <div className="dropzone-action">+ เพิ่มผู้แข่งขัน หรือนำเข้าจากไฟล์ CSV</div>}
+            {!isLocked && <div className="dropzone-action">+ เพิ่มผู้แข่งขัน</div>}
           </div>
         )}
       </div>
@@ -233,12 +227,6 @@ export const TeamMembersSection = ({ trackId, isLocked, error, number, done }) =
         trackId={trackId}
         initialType={modalType}
         initialMember={editingMember}
-      />
-
-      <CsvImportModal
-        isOpen={csvModalOpen}
-        onClose={() => setCsvModalOpen(false)}
-        trackId={trackId}
       />
     </div>
   );

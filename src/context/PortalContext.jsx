@@ -346,21 +346,6 @@ export const PortalProvider = ({ children }) => {
     showToast(`ตั้ง ${target ? target.fullName : ''} เป็นหัวหน้าทีมแล้ว`);
   };
 
-  const importCsvMembers = (trackId, incomingRows, mode = 'append') => {
-    const prevMembers = submissions[trackId].members;
-    const base = mode === 'replace' ? [] : [...prevMembers];
-
-    // Incoming advisors push out the oldest ones once the track's limit is reached
-    const stamped = incomingRows.map(r => ({ ...r, university: user?.university || '' }));
-    let combined = capAdvisors([...base, ...stamped], getTrack(trackId).advisorCount || 1);
-    combined = ensureStudentLeader(combined);
-
-    updateSubmission(trackId, { members: combined });
-    showToast(`นำเข้า ${incomingRows.length} รายชื่อสำเร็จ`, () => {
-      updateSubmission(trackId, { members: prevMembers });
-    });
-  };
-
   // Files (work files: upload to the server, then the FileRef is autosaved with the entry)
   const patchFile = (key, localId, patch) =>
     patchEntry(key, sub => ({ ...sub, files: sub.files.map(f => (f.id === localId ? { ...f, ...patch } : f)) }));
@@ -472,7 +457,6 @@ export const PortalProvider = ({ children }) => {
         addOrUpdateMember,
         removeMember,
         makeLeader,
-        importCsvMembers,
         addFiles,
         removeFile,
         flushEntry,
