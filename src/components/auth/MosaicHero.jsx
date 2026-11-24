@@ -160,7 +160,7 @@ export const MosaicHero = () => {
       }}>
         <span>ระบบผู้ประสานงานมหาวิทยาลัย</span>
         <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#FF8D20' }} />
-        <span>ปิดรับผลงาน 15 ม.ค. 2570</span>
+        <span>ปิดรับลงทะเบียน 15 ธ.ค. 2569</span>
       </div>
     </div>
   );

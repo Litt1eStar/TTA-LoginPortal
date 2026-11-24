@@ -155,24 +155,33 @@ export const SubmitView = () => {
           )}
         </div>
 
-        {entryId && (isLocked ? (
-          <span className="badge" style={{ fontSize: '15px', padding: '8px 16px', background: 'var(--blue-bg)', color: 'var(--blue-text)' }}>
-            <LockSimple size={16} weight="bold" />
-            ส่งแล้ว แก้ไขไม่ได้
-          </span>
-        ) : (
-          <span className="badge" style={{
-            fontSize: '15px',
-            padding: '8px 16px',
-            background: deadline.closed ? '#ECEDF3' : deadline.soon ? 'var(--danger)' : 'var(--primary)',
-            color: deadline.closed ? 'var(--text-muted)' : '#FFFFFF'
-          }}>
-            <CalendarBlank size={16} weight="bold" />
-            {deadline.closed
-              ? `ปิดรับแล้ว (${fmtDate(activeTrack.deadline)})`
-              : `ปิดรับ ${fmtDate(activeTrack.deadline)} (${deadline.label})`}
-          </span>
-        ))}
+        {entryId && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
+            {isLocked ? (
+              <span className="badge" style={{ fontSize: '15px', padding: '8px 16px', background: 'var(--blue-bg)', color: 'var(--blue-text)' }}>
+                <LockSimple size={16} weight="bold" />
+                ส่งแล้ว แก้ไขไม่ได้
+              </span>
+            ) : (
+              <span className="badge" style={{
+                fontSize: '15px',
+                padding: '8px 16px',
+                background: deadline.closed ? '#ECEDF3' : deadline.soon ? 'var(--danger)' : 'var(--primary)',
+                color: deadline.closed ? 'var(--text-muted)' : '#FFFFFF'
+              }}>
+                <CalendarBlank size={16} weight="bold" />
+                {deadline.closed
+                  ? `ปิดรับลงทะเบียนแล้ว (${fmtDate(activeTrack.deadline)})`
+                  : `ปิดรับลงทะเบียน ${fmtDate(activeTrack.deadline)} (${deadline.label})`}
+              </span>
+            )}
+            {!activeTrack.participantsOnly && (
+              <span className="badge" style={{ fontSize: '13.5px', padding: '6px 12px', background: '#F6F6F9', color: 'var(--text-muted)' }}>
+                กำหนดส่งเอกสาร: ประกาศเร็วๆ นี้
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {hasSubTypes(activeType) && <SubTypeBar type={activeType} activeTrackId={activeTrack.id} />}

@@ -108,7 +108,7 @@ export const SegmentTooltip = ({ item, pos }) => {
         )}
         {status === 'draft' && sub.draftAt && <span>บันทึกล่าสุด {fmtDateTime(sub.draftAt)}</span>}
         {status !== 'submitted' && (
-          <span>{daysLeft >= 0 ? `เหลือ ${daysLeft} วันก่อนปิดรับ` : 'ปิดรับแล้ว'}</span>
+          <span>{daysLeft >= 0 ? `เหลือ ${daysLeft} วันก่อนปิดรับลงทะเบียน` : 'ปิดรับลงทะเบียนแล้ว'}</span>
         )}
       </div>
 

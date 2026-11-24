@@ -17,11 +17,12 @@ export const CountdownTimer = () => {
     <section
       className="tile tile-orange span-5 reveal"
       style={{ '--i': 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '20px' }}
-      aria-label="เวลาที่เหลือก่อนปิดรับผลงาน"
+      aria-label="เวลาที่เหลือก่อนปิดรับลงทะเบียน"
     >
       <div>
-        <div style={{ fontSize: 'var(--fs-lg)', fontWeight: 700 }}>ปิดรับผลงานในอีก</div>
-        <div style={{ fontSize: 'var(--fs-sm)', fontWeight: 600, opacity: 0.8 }}>{fmtDate(FINAL_DEADLINE)} เวลา 23:59 น.</div>
+        <div style={{ fontSize: 'var(--fs-lg)', fontWeight: 700 }}>ปิดรับลงทะเบียนในอีก</div>
+        <div style={{ fontSize: 'var(--fs-sm)', fontWeight: 600, opacity: 0.85 }}>{fmtDate(FINAL_DEADLINE)} เวลา 23:59 น.</div>
+        <div style={{ fontSize: 'var(--fs-sm)', fontWeight: 600, opacity: 0.78, marginTop: '2px' }}>กำหนดส่งเอกสาร: ประกาศเร็วๆ นี้</div>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
