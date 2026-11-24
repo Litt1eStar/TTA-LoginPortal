@@ -2,9 +2,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { ZipArchive } from 'archiver';
 import { getTrack, parseEntryKey } from '../../src/data/tracks.js';
+import { getRequirements } from '../../src/utils/requirements.js';
 import { httpError } from './errors.js';
 import { allEntryKeys, isValidEntryKey, listEntries, unlockEntry } from './entries.js';
-import { buildMembersCsv } from './csv.js';
+import { buildMembersCsv, buildCertificatesCsv } from './csv.js';
 
 const STATUS_TH = { submitted: 'ส่งแล้ว', draft: 'ฉบับร่าง', not_started: 'ยังไม่เริ่ม' };
 
@@ -63,27 +64,74 @@ const entryLabels = (key) => {
   };
 };
 
-// One member → one flat CSV row
+export const formatCertName = (title, fullName) =>
+  `${String(title || '').trim()}${String(fullName || '').trim()}`;
+
+export const formatCertCompetition = (key) => {
+  const track = getTrack(key);
+  const { groupIdx } = parseEntryKey(key);
+  return groupIdx != null ? `${track.full} (${track.subjectGroups[groupIdx]})` : track.full;
+};
+
+// One member → one flat row (includes fields for both admin UI inspection and CSV exports)
 function memberRow(uni, entry, key, m, config) {
+  const track = getTrack(key);
   const { type, subType } = entryLabels(key);
+  const recipientGroup = track.participantsOnly
+    ? 'ผู้เข้าร่วม'
+    : (m.type === 'advisor' ? 'อาจารย์ที่ปรึกษา' : 'ผู้แข่งขัน');
   return {
+    universityId: uni.id,
+    universityCode: uni.code,
     university: uni.name,
+    entryKey: key,
+    trackId: track.id,
+    entryStatus: entry.status,
     type,
     subType,
     status: STATUS_TH[entry.status] || entry.status,
+    recipientGroup,
     role: m.type === 'advisor' ? 'อาจารย์' : (m.role || 'ผู้แข่งขัน'),
     leader: m.isLeader ? 'ใช่' : '',
+    memberId: m.id,
+    memberType: m.type,
     title: m.title,
     fullName: m.fullName,
+    certName: formatCertName(m.title, m.fullName),
+    certCompetition: formatCertCompetition(key),
     dept: m.dept,
     studentId: m.type === 'student' ? m.studentId : '',
     year: m.type === 'student' ? m.year : '',
     email: m.email,
     phone: m.phone,
+    hasPhoto: Boolean(m.photo?.fileId || m.photo?.dataUrl),
+    photoDataUrl: m.photo?.dataUrl || (m.photo?.fileId ? `/api/files/${m.photo.fileId}` : ''),
     photoUrl: m.photo?.fileId ? `${config.appOrigin}/api/files/${m.photo.fileId}` : '',
     submittedAt: bangkokTime(entry.submittedAt),
     hash: entry.hash || ''
   };
+}
+
+export function filterMemberRows(rows, query = {}) {
+  const status = String(query.status || '').trim();
+  const group = String(query.group || '').trim();
+  const universityId = String(query.universityId || '').trim();
+  const trackId = String(query.trackId || '').trim();
+  const groupLabel = group === 'competitor'
+    ? 'ผู้แข่งขัน'
+    : group === 'advisor'
+      ? 'อาจารย์ที่ปรึกษา'
+      : group === 'participant'
+        ? 'ผู้เข้าร่วม'
+        : '';
+
+  return rows.filter((r) => {
+    if (status && status !== 'all' && r.entryStatus !== status) return false;
+    if (groupLabel && r.recipientGroup !== groupLabel) return false;
+    if (universityId && universityId !== 'all' && Number(r.universityId) !== Number(universityId)) return false;
+    if (trackId && trackId !== 'all' && r.trackId !== trackId && r.entryKey !== trackId) return false;
+    return true;
+  });
 }
 
 // One flat row per member, in university → TRACKS order → member order
@@ -196,13 +244,30 @@ export default async function adminPlugin(app, { db, config }) {
   app.get('/api/admin/overview', pre, async () => {
     const universities = listUniversities(db);
     const entries = {};
+    const summaries = {};
+    const members = [];
     for (const uni of universities) {
       const list = listEntries(db, uni.id);
-      entries[uni.id] = Object.fromEntries(
-        Object.entries(list).map(([key, e]) => [key, { status: e.status, submittedAt: e.submittedAt }])
-      );
+      entries[uni.id] = {};
+      summaries[uni.id] = {};
+      for (const key of allEntryKeys()) {
+        const e = list[key];
+        const listMembers = e.members || [];
+        const reqs = getRequirements(getTrack(key), e);
+        const failed = reqs.find(r => !r.ok);
+        entries[uni.id][key] = { status: e.status, submittedAt: e.submittedAt };
+        summaries[uni.id][key] = {
+          memberCount: listMembers.length,
+          studentCount: listMembers.filter(m => m.type === 'student').length,
+          advisorCount: listMembers.filter(m => m.type === 'advisor').length,
+          missingPhotoCount: listMembers.filter(m => !m.photo?.fileId && !m.photo?.dataUrl).length,
+          ready: !failed,
+          firstError: failed?.error || ''
+        };
+        for (const m of listMembers) members.push(memberRow(uni, e, key, m, config));
+      }
     }
-    return { universities, entries };
+    return { universities, entries, summaries, members };
   });
 
   app.get('/api/admin/submissions/:universityId/:key', pre, async (request) => {
@@ -220,11 +285,23 @@ export default async function adminPlugin(app, { db, config }) {
   });
 
   app.get('/api/admin/export.csv', pre, async (request, reply) => {
-    const csv = buildMembersCsv(collectMemberRows(db, config));
+    const rows = filterMemberRows(collectMemberRows(db, config), request.query);
+    const csv = buildMembersCsv(rows);
     const stamp = bangkokStamp();
     reply
       .header('Content-Type', 'text/csv; charset=utf-8')
       .header('Content-Disposition', `attachment; filename="tta-members-${stamp}.csv"`)
+      .header('Cache-Control', 'no-store');
+    return csv;
+  });
+
+  app.get('/api/admin/certificates.csv', pre, async (request, reply) => {
+    const rows = filterMemberRows(collectMemberRows(db, config), request.query);
+    const csv = buildCertificatesCsv(rows);
+    const stamp = bangkokStamp();
+    reply
+      .header('Content-Type', 'text/csv; charset=utf-8')
+      .header('Content-Disposition', `attachment; filename="tta-certificates-${stamp}.csv"`)
       .header('Cache-Control', 'no-store');
     return csv;
   });

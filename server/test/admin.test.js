@@ -22,6 +22,7 @@ const ADMIN_ROUTES = [
   ['GET', '/api/admin/submissions/1/theory.g0'],
   ['POST', '/api/admin/submissions/1/theory.g0/unlock'],
   ['GET', '/api/admin/export.csv'],
+  ['GET', '/api/admin/certificates.csv'],
   ['GET', '/api/admin/files.zip?key=theory']
 ];
 
@@ -111,5 +112,45 @@ describe('admin export.csv', () => {
     expect(lines[1]).toContain(',2026-11-04 10:15:00,abcdefabcdef');
     expect(lines[2]).toContain(",ผู้สอนหลัก,,นาย,'=1+2,คณะครุศาสตร์อุตสาหกรรมและเทคโนโลยี,6401234567,3,");
     expect(lines[3]).toContain('มหาวิทยาลัยเทคโนโลยีราชมงคลธัญบุรี,การแข่งขันศิลปวัฒนธรรม,ร้องเพลงลูกทุ่ง,ฉบับร่าง,อาจารย์');
+  });
+
+  it('includes summaries and member directory rows in overview', async () => {
+    ctx = await makeTestApp();
+    seedEntries(ctx.db);
+    const cookie = await loginAs(ctx.app, 'admin1', 'pass-admin-1');
+    const res = await ctx.app.inject({ method: 'GET', url: '/api/admin/overview', headers: { cookie } });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.summaries['1']['theory.g0'].memberCount).toBe(2);
+    expect(body.summaries['1']['theory.g0'].missingPhotoCount).toBe(2);
+    expect(body.members).toHaveLength(3);
+    expect(body.members[0].certName).toBe('ดร.สมชาย ใจดี');
+    expect(body.members[0].certCompetition).toBe('สอนทฤษฎี (กลุ่มสาขาวิชาไฟฟ้า)');
+  });
+
+  it('exports certificate-ready CSV with concatenated prefix+name and filters', async () => {
+    ctx = await makeTestApp();
+    seedEntries(ctx.db);
+    const cookie = await loginAs(ctx.app, 'admin1', 'pass-admin-1');
+
+    const submittedRes = await ctx.app.inject({
+      method: 'GET',
+      url: '/api/admin/certificates.csv?status=submitted&group=advisor',
+      headers: { cookie }
+    });
+    expect(submittedRes.statusCode).toBe(200);
+    expect(submittedRes.headers['content-disposition']).toMatch(/attachment; filename="tta-certificates-\d{8}\.csv"/);
+    const subLines = submittedRes.rawPayload.toString('utf8').slice(1).split('\r\n').filter(Boolean);
+    expect(subLines).toHaveLength(2); // header + 1 submitted advisor
+    expect(subLines[1]).toContain('1,ดร.สมชาย ใจดี,ดร.,สมชาย ใจดี,อาจารย์ที่ปรึกษา,อาจารย์,สอนทฤษฎี (กลุ่มสาขาวิชาไฟฟ้า),');
+
+    const draftRes = await ctx.app.inject({
+      method: 'GET',
+      url: '/api/admin/certificates.csv?status=draft&universityId=2',
+      headers: { cookie }
+    });
+    const draftLines = draftRes.rawPayload.toString('utf8').slice(1).split('\r\n').filter(Boolean);
+    expect(draftLines).toHaveLength(2);
+    expect(draftLines[1]).toContain('1,ดร.สมหญิง ร้องดี,ดร.,สมหญิง ร้องดี,อาจารย์ที่ปรึกษา,อาจารย์,ประกวดร้องเพลงลูกทุ่ง,');
   });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildMembersCsv, csvCell, CSV_HEADERS } from '../src/csv.js';
+import { buildMembersCsv, buildCertificatesCsv, csvCell, CSV_HEADERS, CERT_CSV_HEADERS } from '../src/csv.js';
 
 describe('csvCell', () => {
   it('quotes commas, quotes and newlines (RFC 4180)', () => {
@@ -34,5 +34,35 @@ describe('buildMembersCsv', () => {
       'มหาวิทยาลัย', 'ประเภท', 'กลุ่มสาขาวิชา/ประเภทย่อย', 'สถานะ', 'บทบาท(อาจารย์/ผู้แข่งขัน)', 'หัวหน้าทีม',
       'คำนำหน้า', 'ชื่อ-นามสกุล', 'หน่วยงาน', 'รหัสนักศึกษา', 'ชั้นปี', 'อีเมล', 'เบอร์โทร', 'ลิงก์รูปถ่าย', 'ส่งเมื่อ', 'รหัสอ้างอิง'
     ]);
+  });
+});
+
+describe('buildCertificatesCsv', () => {
+  it('writes BOM, certificate headers, sequential index and concatenated names', () => {
+    const csv = buildCertificatesCsv([
+      {
+        certName: 'นายสมชาย ใจดี',
+        title: 'นาย',
+        fullName: 'สมชาย ใจดี',
+        recipientGroup: 'ผู้แข่งขัน',
+        role: 'ผู้สอนหลัก',
+        certCompetition: 'สอนทฤษฎี (กลุ่มสาขาวิชาไฟฟ้า)',
+        type: 'สอนทฤษฎี',
+        subType: 'กลุ่มสาขาวิชาไฟฟ้า',
+        university: 'มหาวิทยาลัยเทคโนโลยีพระจอมเกล้าธนบุรี',
+        dept: 'คณะครุศาสตร์อุตสาหกรรมและเทคโนโลยี',
+        studentId: '6401234567',
+        year: '3',
+        email: 's@kmutt.ac.th',
+        phone: '0899999999',
+        status: 'ส่งแล้ว',
+        submittedAt: '2026-11-04 10:15:00',
+        hash: 'abcdefabcdef'
+      }
+    ]);
+    expect(csv.charCodeAt(0)).toBe(0xFEFF);
+    const lines = csv.slice(1).split('\r\n').filter(Boolean);
+    expect(lines[0]).toBe(CERT_CSV_HEADERS.join(','));
+    expect(lines[1].startsWith('1,นายสมชาย ใจดี,นาย,สมชาย ใจดี,ผู้แข่งขัน,ผู้สอนหลัก,สอนทฤษฎี (กลุ่มสาขาวิชาไฟฟ้า),')).toBe(true);
   });
 });

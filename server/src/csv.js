@@ -27,3 +27,27 @@ export function buildMembersCsv(rows, extra = []) {
   for (const row of rows) lines.push(fields.map(f => csvCell(row[f])).join(','));
   return '\uFEFF' + lines.join('\r\n') + '\r\n';
 }
+
+// Certificate-ready CSV (for Canva Bulk Create / Mail Merge): includes concatenated Thai prefix+name and competition title
+export const CERT_CSV_HEADERS = [
+  'ลำดับ', 'ชื่อ-นามสกุล (สำหรับใบเกียรติบัตร)', 'คำนำหน้า', 'ชื่อ-นามสกุล',
+  'กลุ่มผู้รับ', 'บทบาท', 'รายการแข่งขัน (สำหรับใบเกียรติบัตร)', 'ประเภท', 'กลุ่มสาขาวิชา/ประเภทย่อย',
+  'มหาวิทยาลัย', 'หน่วยงาน', 'รหัสนักศึกษา', 'ชั้นปี', 'อีเมล', 'เบอร์โทร',
+  'สถานะการส่ง', 'ส่งเมื่อ', 'รหัสอ้างอิง'
+];
+
+const CERT_FIELDS = [
+  'index', 'certName', 'title', 'fullName',
+  'recipientGroup', 'role', 'certCompetition', 'type', 'subType',
+  'university', 'dept', 'studentId', 'year', 'email', 'phone',
+  'status', 'submittedAt', 'hash'
+];
+
+export function buildCertificatesCsv(rows) {
+  const lines = [CERT_CSV_HEADERS.map(csvCell).join(',')];
+  rows.forEach((row, i) => {
+    const record = { ...row, index: row.index ?? i + 1 };
+    lines.push(CERT_FIELDS.map(f => csvCell(record[f])).join(','));
+  });
+  return '\uFEFF' + lines.join('\r\n') + '\r\n';
+}
