@@ -67,7 +67,7 @@ export const LoginView = () => {
       }}>
         {/* Center Form */}
         <div style={{ maxWidth: '420px', width: '100%', margin: 'auto auto' }}>
-          <div style={{ marginBottom: '28px' }}>
+          <div className="rise" style={{ marginBottom: '28px', '--d': '150ms' }}>
             <h1 style={{
               fontSize: '28px',
               fontWeight: 800,
@@ -89,7 +89,7 @@ export const LoginView = () => {
           >
             {/* Error Message */}
             {error && (
-              <div id="login-error" role="alert" style={{
+              <div id="login-error" role="alert" className="pop-in" style={{
                 background: '#FFF1EB',
                 border: '1px solid rgba(255, 95, 28, 0.3)',
                 color: '#C2410C',
@@ -107,7 +107,7 @@ export const LoginView = () => {
             )}
 
             {/* Username Input */}
-            <div>
+            <div className="rise" style={{ '--i': 1, '--d': '150ms' }}>
               <label htmlFor="login-username" style={{
                 display: 'block',
                 fontSize: '13.5px',
@@ -117,12 +117,8 @@ export const LoginView = () => {
               }}>
                 ชื่อผู้ใช้ (Username)
               </label>
-              <div style={{ position: 'relative' }}>
-                <User
-                  size={19}
-                  color="#A3A6B4"
-                  style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)' }}
-                />
+              <div className="login-field">
+                <User size={19} className="field-icon" aria-hidden="true" />
                 <input
                   id="login-username"
                   name="username"
@@ -137,21 +133,14 @@ export const LoginView = () => {
                     if (error) setError('');
                   }}
                   placeholder="เช่น kmutt"
-                  style={{
-                    width: '100%',
-                    padding: '13px 16px 13px 46px',
-                    borderRadius: '12px',
-                    border: '1.5px solid #E0E1E8',
-                    fontSize: '14.5px',
-                    color: '#1B1D29',
-                    background: '#FAFAFC'
-                  }}
+                  className="login-input"
+                  style={{ padding: '13px 16px 13px 46px' }}
                 />
               </div>
             </div>
 
             {/* Password Input */}
-            <div>
+            <div className="rise" style={{ '--i': 2, '--d': '150ms' }}>
               <label htmlFor="login-password" style={{
                 display: 'block',
                 fontSize: '13.5px',
@@ -161,12 +150,8 @@ export const LoginView = () => {
               }}>
                 รหัสผ่าน (Password)
               </label>
-              <div style={{ position: 'relative' }}>
-                <LockKey
-                  size={19}
-                  color="#A3A6B4"
-                  style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)' }}
-                />
+              <div className="login-field">
+                <LockKey size={19} className="field-icon" aria-hidden="true" />
                 <input
                   id="login-password"
                   name="password"
@@ -180,15 +165,8 @@ export const LoginView = () => {
                     if (error) setError('');
                   }}
                   placeholder="กรอกรหัสผ่าน"
-                  style={{
-                    width: '100%',
-                    padding: '13px 46px 13px 46px',
-                    borderRadius: '12px',
-                    border: '1.5px solid #E0E1E8',
-                    fontSize: '14.5px',
-                    color: '#1B1D29',
-                    background: '#FAFAFC'
-                  }}
+                  className="login-input"
+                  style={{ padding: '13px 46px 13px 46px' }}
                 />
                 <button
                   type="button"
@@ -215,7 +193,15 @@ export const LoginView = () => {
             <button
               type="submit"
               disabled={isLoading}
+              aria-busy={isLoading}
+              className="shine rise"
               style={{
+                '--i': 3,
+                '--d': '150ms',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '10px',
                 marginTop: '8px',
                 width: '100%',
                 padding: '14px',
@@ -228,13 +214,16 @@ export const LoginView = () => {
                 opacity: isLoading ? 0.75 : 1
               }}
             >
-              {isLoading ? 'กำลังเข้าสู่ระบบ…' : 'เข้าสู่ระบบ'}
+              {isLoading && <span className="spinner" aria-hidden="true" />}
+              <span>{isLoading ? 'กำลังเข้าสู่ระบบ…' : 'เข้าสู่ระบบ'}</span>
             </button>
           </form>
         </div>
 
         {/* Footer info */}
-        <div style={{
+        <div className="rise" style={{
+          '--i': 5,
+          '--d': '150ms',
           marginTop: '32px',
           textAlign: 'center',
           fontSize: '12.5px',

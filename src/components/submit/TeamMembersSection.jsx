@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { prefersReducedMotion } from '../../hooks/useSwapTransition';
 import { usePortal } from '../../context/PortalContext';
 import { SectionNum } from './SectionNum';
 import { MemberModal } from './MemberModal';
@@ -23,6 +24,31 @@ export const TeamMembersSection = ({ trackId, isLocked, error, number, done }) =
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [removing]);
+
+  // A member added just now flies from the centre of the screen (where the modal was) into its row
+  const listRef = useRef(null);
+  const knownIds = useRef(null);
+  const memberIds = sub.members.map(m => m.id).join('|');
+  useLayoutEffect(() => {
+    const ids = sub.members.map(m => m.id);
+    const known = knownIds.current;
+    knownIds.current = new Set(ids);
+    if (!known || prefersReducedMotion() || !listRef.current) return;
+    ids.filter(id => !known.has(id)).forEach(id => {
+      const row = listRef.current.querySelector(`[data-member-id="${CSS.escape(String(id))}"]`);
+      if (!row || typeof row.animate !== 'function') return;
+      const r = row.getBoundingClientRect();
+      if (r.bottom < 0 || r.top > window.innerHeight) row.scrollIntoView({ block: 'nearest' });
+      const box = row.getBoundingClientRect();
+      const dx = window.innerWidth / 2 - (box.left + box.width / 2);
+      const dy = window.innerHeight / 2 - (box.top + box.height / 2);
+      row.animate([
+        { transform: `translate(${dx}px, ${dy}px) scale(0.6)`, opacity: 0, boxShadow: '0 0 0 0 rgba(255, 95, 28, 0)' },
+        { transform: 'translate(0, 0) scale(1.03)', opacity: 1, boxShadow: '0 0 0 4px rgba(255, 95, 28, 0.35)', offset: 0.7 },
+        { transform: 'none', opacity: 1, boxShadow: '0 0 0 0 rgba(255, 95, 28, 0)' }
+      ], { duration: 650, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' });
+    });
+  }, [memberIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const track = getTrack(trackId);
   const advisorLimit = track.advisorCount ?? 1;
@@ -83,7 +109,7 @@ export const TeamMembersSection = ({ trackId, isLocked, error, number, done }) =
   );
 
   return (
-    <div className="card" id="section-team">
+    <div className="card" id="section-team" ref={listRef}>
       {/* Header */}
       <div className="section-head">
         <div>
@@ -141,8 +167,8 @@ export const TeamMembersSection = ({ trackId, isLocked, error, number, done }) =
 
           {advisors.length > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {advisors.map(a => (
-                <div key={a.id} className="row-item" style={{ background: '#FFFDF5', borderColor: '#F5E8BE' }}>
+              {advisors.map((a, i) => (
+                <div key={a.id} data-member-id={a.id} className="row-item row-enter" style={{ '--i': i, background: '#FFFDF5', borderColor: '#F5E8BE' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
                     {avatar(a, { background: 'var(--yellow-bg)', color: '#B07A00' })}
                     <div style={{ minWidth: 0 }}>
@@ -176,7 +202,7 @@ export const TeamMembersSection = ({ trackId, isLocked, error, number, done }) =
         {students.length > 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {students.map((st, index) => (
-              <div key={st.id} className="row-item">
+              <div key={st.id} data-member-id={st.id} className="row-item row-enter" style={{ '--i': index }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
                   {avatar(st, {
                     background: 'var(--blue-bg)',

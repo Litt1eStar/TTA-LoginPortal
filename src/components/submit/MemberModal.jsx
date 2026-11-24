@@ -222,7 +222,7 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
 
   return (
     <div className="modal-overlay">
-      <div className="modal animate-slide-up" role="dialog" aria-modal="true">
+      <div className="modal" role="dialog" aria-modal="true">
         {/* Header */}
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

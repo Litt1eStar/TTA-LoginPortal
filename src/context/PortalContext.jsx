@@ -7,6 +7,17 @@ import { api, ApiError, onUnauthenticated, uploadFile } from '../api';
 import { createAutosaver, entryData } from '../utils/autosave';
 import confetti from 'canvas-confetti';
 
+// Submit celebration in the brand colours: a centre burst, then two side cannons
+const CONFETTI_COLORS = ['#FF5F1C', '#FF8D20', '#FFC525', '#2A9FF7', '#FFFFFF'];
+const celebrate = () => {
+  const base = { colors: CONFETTI_COLORS, disableForReducedMotion: true, zIndex: 10000 };
+  confetti({ ...base, particleCount: 90, spread: 75, startVelocity: 42, origin: { y: 0.62 } });
+  setTimeout(() => {
+    confetti({ ...base, particleCount: 55, angle: 60, spread: 60, origin: { x: 0, y: 0.75 } });
+    confetti({ ...base, particleCount: 55, angle: 120, spread: 60, origin: { x: 1, y: 0.75 } });
+  }, 220);
+};
+
 const PortalContext = createContext(null);
 
 const STORAGE_KEY_TRACK = 'ttaa13_track';
@@ -444,8 +455,7 @@ export const PortalProvider = ({ children }) => {
       await autosaver.flush(trackId);
       const { entry } = await api.post(`/submissions/${trackId}/submit`);
       replaceEntry(trackId, entry); // submit bumps version: take the server's
-      confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-      showToast('ส่งผลงานเรียบร้อยและระบบทำการล็อกข้อมูลแล้ว');
+      celebrate(); // SubmitView then shows the celebration screen with the confirmation code
       return { success: true, hash: entry.hash };
     } catch (err) {
       if (err instanceof ApiError && err.code === 'incomplete') {

@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { usePortal } from '../../context/PortalContext';
 import { initials } from '../../utils/formatters';
+import { useSlidingIndicator } from '../../hooks/useMotion';
 import {
   SquaresFour,
   PaperPlaneTilt,
@@ -27,12 +28,13 @@ const SaveIndicator = ({ state }) => {
   const { Icon, text, color } = meta;
   return (
     <span
-      className="nav-save"
+      key={state}
+      className="nav-save pop-in"
       role="status"
       aria-live="polite"
       style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13.5px', fontWeight: 600, color, whiteSpace: 'nowrap' }}
     >
-      <Icon size={18} weight="bold" />
+      <Icon size={18} weight="bold" className={state === 'saving' ? 'save-pulse' : undefined} />
       <span>{text}</span>
     </span>
   );
@@ -42,6 +44,7 @@ export const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout, activeTrackId, saveState } = usePortal();
+  const [navRef, pill] = useSlidingIndicator(location.pathname);
 
   if (!user) return null;
 
@@ -110,13 +113,21 @@ export const Navbar = () => {
         </button>
 
         {/* Navigation */}
-        <nav style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--bg-main)', padding: '4px', borderRadius: '999px' }}>
+        <nav ref={navRef} className="slide-track" style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--bg-main)', padding: '4px', borderRadius: '999px' }}>
+          {pill && (
+            <span
+              className="slide-pill"
+              aria-hidden="true"
+              style={{ width: `${pill.w}px`, height: `${pill.h}px`, transform: `translate(${pill.x}px, ${pill.y}px)` }}
+            />
+          )}
           {navItems.map(({ id, path, label, icon: Icon, isActive }) => (
             <button
               key={id}
               type="button"
               onClick={() => navigate(path)}
               title={label}
+              data-active={isActive}
               aria-current={isActive ? 'page' : undefined}
               style={{
                 display: 'flex',
@@ -128,13 +139,20 @@ export const Navbar = () => {
                 whiteSpace: 'nowrap',
                 fontWeight: isActive ? 700 : 500,
                 color: isActive ? 'var(--text-dark)' : 'var(--text-muted)',
-                background: isActive ? '#FFFFFF' : 'transparent',
-                boxShadow: isActive ? '0 2px 6px rgba(27, 29, 41, 0.1)' : 'none'
+                // The sliding pill draws the active background; fall back to a static one before it is measured
+                background: isActive && !pill ? '#FFFFFF' : 'transparent',
+                boxShadow: isActive && !pill ? '0 2px 6px rgba(27, 29, 41, 0.1)' : 'none'
               }}
               onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = 'rgba(27,29,41,0.05)'; }}
               onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
             >
-              <Icon size={19} weight={isActive ? 'fill' : 'regular'} color={isActive ? 'var(--primary)' : 'currentColor'} />
+              <Icon
+                key={isActive ? 'on' : 'off'}
+                className={isActive ? 'pop-in' : undefined}
+                size={19}
+                weight={isActive ? 'fill' : 'regular'}
+                color={isActive ? 'var(--primary)' : 'currentColor'}
+              />
               <span className="nav-label">{label}</span>
             </button>
           ))}

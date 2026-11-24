@@ -51,7 +51,7 @@ export const ConfirmSubmitModal = ({ isOpen, onClose, onConfirm, track, submissi
 
   return (
     <div className="modal-overlay">
-      <div className="modal animate-slide-up" role="dialog" aria-modal="true" style={{ width: 'min(100%, 520px)' }}>
+      <div className="modal" role="dialog" aria-modal="true" style={{ width: 'min(100%, 520px)' }}>
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{

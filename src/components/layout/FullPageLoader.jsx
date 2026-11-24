@@ -22,6 +22,16 @@ export const FullPageLoader = () => (
       alt=""
       style={{ height: '48px', width: 'auto', animation: 'ttaa-pulse 1.4s ease-in-out infinite' }}
     />
+    <span aria-hidden="true" style={{ width: '140px', height: '4px', borderRadius: '999px', background: '#E6E7EE', overflow: 'hidden' }}>
+      <span style={{
+        display: 'block',
+        width: '40%',
+        height: '100%',
+        borderRadius: 'inherit',
+        background: 'linear-gradient(90deg, var(--primary), var(--amber))',
+        animation: 'ttaa-loader-bar 1.1s cubic-bezier(0.65, 0, 0.35, 1) infinite'
+      }} />
+    </span>
     <span>กำลังโหลด…</span>
   </div>
 );

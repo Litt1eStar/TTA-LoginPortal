@@ -4,6 +4,7 @@ import { usePortal } from '../../context/PortalContext';
 import { getOverviewItems } from '../../utils/entries';
 import { groupShortName, CULTURE_CATEGORY } from '../../data/tracks';
 import { SegmentTooltip } from './SegmentTooltip';
+import { useCountUp } from '../../hooks/useMotion';
 import { ArrowRight, CheckCircle } from '@phosphor-icons/react';
 
 const STATUS_LABEL = { submitted: 'ส่งแล้ว', draft: 'ฉบับร่าง', not_started: 'ยังไม่เริ่ม' };
@@ -32,6 +33,7 @@ export const ProgressStats = () => {
 
   // Next = first draft (already started), otherwise first not-started item
   const next = items.find(it => it.status === 'draft') || items.find(it => it.status === 'not_started');
+  const shownSubmitted = useCountUp(counts.submitted, { duration: 1100, delay: 250 });
   const firstName = user?.name ? user.name.split(' ')[0] : '';
 
   const openItem = (it) => {
@@ -51,7 +53,7 @@ export const ProgressStats = () => {
   };
 
   return (
-    <section className="tile tile-hero span-7 reveal" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <section className="tile tile-hero glow span-7 reveal" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div>
         <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--on-ink-muted)' }}>{user?.university}</div>
         <h1 style={{ fontSize: 'clamp(26px, 3vw, 34px)', fontWeight: 700, marginTop: '4px' }}>
@@ -62,7 +64,7 @@ export const ProgressStats = () => {
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: '14px', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
           <span className="num-xl" style={{ fontSize: 'clamp(56px, 7vw, 76px)', color: 'var(--primary)' }}>
-            {counts.submitted}
+            {shownSubmitted}
           </span>
           <span className="num-xl" style={{ fontSize: '28px', color: 'var(--on-ink-muted)' }}>/{items.length}</span>
         </div>
@@ -71,18 +73,20 @@ export const ProgressStats = () => {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <div className="segbar" aria-label="สถานะแต่ละรายการ" onMouseLeave={() => setHover(null)}>
-          {CLUSTERS.map(c => {
+          {CLUSTERS.map((c, ci) => {
             const group = items.filter(c.match);
+            const offset = CLUSTERS.slice(0, ci).reduce((n, prev) => n + items.filter(prev.match).length, 0);
             return (
               <div key={c.label} className="seg-cluster" style={{ flex: group.length }}>
                 <div className="seg-cluster-label">{c.label}</div>
                 <div className="seg-cluster-row" role="list" style={{ gridTemplateColumns: `repeat(${group.length}, 1fr)` }}>
-                  {group.map(it => (
+                  {group.map((it, gi) => (
                     <button
                       key={it.key}
                       type="button"
                       role="listitem"
-                      className={`seg-${it.status}`}
+                      className={`seg-${it.status} seg-grow`}
+                      style={{ '--i': offset + gi }}
                       aria-label={`${shortName(it)}: ${STATUS_LABEL[it.status]}`}
                       aria-describedby={hover?.item.key === it.key ? 'seg-tip' : undefined}
                       aria-expanded={hover?.item.key === it.key}
@@ -109,9 +113,9 @@ export const ProgressStats = () => {
         {next ? (
           <button
             type="button"
-            className="btn btn-primary"
+            className="btn btn-primary rise"
             onClick={() => openItem(next)}
-            style={{ minHeight: '50px', fontSize: '16px', padding: '12px 22px' }}
+            style={{ minHeight: '50px', fontSize: '16px', padding: '12px 22px', '--d': '600ms' }}
           >
             <span>{next.status === 'draft' ? 'ทำต่อ' : 'เริ่มส่ง'}: {shortName(next)}</span>
             <ArrowRight size={18} weight="bold" />

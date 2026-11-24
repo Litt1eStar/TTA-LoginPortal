@@ -14,6 +14,7 @@ import { FileUploader } from './FileUploader';
 import { VideoUploader } from './VideoUploader';
 import { SubmissionChecklist } from './SubmissionChecklist';
 import { ConfirmSubmitModal } from './ConfirmSubmitModal';
+import { SubmitCelebration } from './SubmitCelebration';
 import { getRequirements, getFormErrors } from '../../utils/requirements';
 import { emptySubmission } from '../../data/seedData';
 import { LockSimple, CheckCircle, CalendarBlank } from '@phosphor-icons/react';
@@ -81,6 +82,7 @@ export const SubmitView = () => {
 
   const [formErrors, setFormErrors] = useState({});
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [celebration, setCelebration] = useState(null); // { track, groupName, hash, nextPath }
 
   // Errors belong to one entry; clear them when switching
   useEffect(() => {
@@ -133,15 +135,17 @@ export const SubmitView = () => {
     const res = await confirmSubmit(entryId);
     if (res.success) {
       setConfirmModalOpen(false);
-      const nextPath = nextUnsubmittedPath();
-      showToast(
-        `ส่งผลงานเรียบร้อยแล้ว รหัสยืนยัน #${res.hash}`,
-        nextPath ? () => navigate(nextPath) : null,
-        'ไปประเภทถัดไปที่ยังไม่ส่ง'
-      );
+      setCelebration({
+        track: activeTrack,
+        groupName: grouped && activeGroup != null ? activeTrack.subjectGroups[activeGroup] : null,
+        hash: res.hash,
+        nextPath: nextUnsubmittedPath()
+      });
     }
     return res;
   };
+
+  const closeCelebration = React.useCallback(() => setCelebration(null), []);
 
   // Section numbers follow the order they appear on the page
   let n = 0;
@@ -179,6 +183,7 @@ export const SubmitView = () => {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             {activeTrack.image && (
+              <span className="mascot-float">
               <img
                 key={activeTrack.image}
                 className="swap-mascot"
@@ -189,6 +194,7 @@ export const SubmitView = () => {
                 decoding="async"
                 style={{ width: '64px', height: '64px', objectFit: 'contain', flexShrink: 0, '--swap-dir': entrySwap.dir }}
               />
+              </span>
             )}
             <div
               key={!isTypeTransition ? entrySwap.displayedKey : undefined}
@@ -338,6 +344,16 @@ export const SubmitView = () => {
           </div>
         )}
       </div>
+
+      {celebration && (
+        <SubmitCelebration
+          track={celebration.track}
+          groupName={celebration.groupName}
+          hash={celebration.hash}
+          onClose={closeCelebration}
+          onNext={celebration.nextPath ? () => { closeCelebration(); navigate(celebration.nextPath); } : null}
+        />
+      )}
     </div>
   );
 };

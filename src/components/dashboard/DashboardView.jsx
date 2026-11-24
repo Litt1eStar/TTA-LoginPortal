@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { usePortal } from '../../context/PortalContext';
 import { useSwapTransition } from '../../hooks/useSwapTransition';
+import { useSlidingIndicator } from '../../hooks/useMotion';
 import { CountdownTimer } from './CountdownTimer';
 import { ProgressStats } from './ProgressStats';
 import { TrackCard } from './TrackCard';
@@ -21,6 +22,7 @@ export const DashboardView = () => {
     orderOf: (id) => FILTERS.findIndex(f => f.id === id),
     outMs: 95
   });
+  const [filterRef, pill] = useSlidingIndicator(filter);
 
   // Cards and counts are per top-level type
   const statusOf = (type) => getTypeStatus(type, submissions);
@@ -45,11 +47,19 @@ export const DashboardView = () => {
         }}>
           <h2 id="tracks-heading" style={{ fontSize: 'var(--fs-2xl)', fontWeight: 700 }}>ประเภทการแข่งขัน</h2>
 
-          <div className="seg-control" role="group" aria-label="กรองตามสถานะ">
+          <div ref={filterRef} className={`seg-control slide-track ${pill ? 'has-pill' : ''}`} role="group" aria-label="กรองตามสถานะ">
+            {pill && (
+              <span
+                className="slide-pill"
+                aria-hidden="true"
+                style={{ width: `${pill.w}px`, height: `${pill.h}px`, transform: `translate(${pill.x}px, ${pill.y}px)` }}
+              />
+            )}
             {FILTERS.map(f => (
               <button
                 key={f.id}
                 type="button"
+                data-active={filter === f.id}
                 aria-pressed={filter === f.id}
                 onClick={() => setFilter(f.id)}
               >

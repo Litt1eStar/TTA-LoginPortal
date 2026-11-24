@@ -57,6 +57,10 @@ function ProtectedLayout() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Navbar />
+      {/* Brand-colour strip that runs under the navbar while the page swaps */}
+      {swap.phase !== 'idle' && (
+        <div key={pageGroupOf(location.pathname)} className="page-strip" aria-hidden="true" style={{ '--swap-dir': swap.dir }} />
+      )}
 
       <main style={{ flex: 1, overflowX: 'clip' }}>
         <div

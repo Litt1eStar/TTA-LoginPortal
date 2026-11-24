@@ -9,12 +9,14 @@ export const Toast = () => {
 
   return (
     <div
-      className="animate-slide-up"
+      key={toast}
+      className="toast"
+      role="status"
+      aria-live="polite"
       style={{
         position: 'fixed',
         bottom: '28px',
         left: '50%',
-        transform: 'translateX(-50%)',
         zIndex: 9999,
         background: '#16182A',
         color: '#FFFFFF',
@@ -29,7 +31,7 @@ export const Toast = () => {
         maxWidth: '90vw'
       }}
     >
-      <CheckCircle size={20} weight="fill" color="#2A9FF7" />
+      <CheckCircle className="toast-icon" size={20} weight="fill" color="#2A9FF7" style={{ flexShrink: 0 }} />
       <span>{toast}</span>
 
       {toastUndo && (

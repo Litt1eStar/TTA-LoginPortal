@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePortal } from '../../context/PortalContext';
+import { trackPointer } from '../../hooks/useMotion';
 import { fmtDateTime } from '../../utils/formatters';
 import { submissionSummary } from '../../utils/requirements';
 import { getEntries, getTrackStatus, getTypeStatus } from '../../utils/entries';
@@ -96,6 +97,7 @@ export const TrackCard = ({ type, index = 0 }) => {
       className="track-card reveal"
       style={{ '--accent': s.accent, '--i': index + 2 }}
       onClick={open}
+      onPointerMove={(e) => { if (e.pointerType === 'mouse') trackPointer(e); }}
       aria-label={`${multi ? type.label : track.full}: ${s.label}`}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
@@ -103,6 +105,7 @@ export const TrackCard = ({ type, index = 0 }) => {
           <img
             src={type.image}
             alt=""
+            className="track-mascot"
             width="52"
             height="52"
             loading="lazy"

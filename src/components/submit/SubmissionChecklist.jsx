@@ -20,7 +20,11 @@ const Ring = ({ value, total }) => {
   const pct = total ? value / total : 0;
   const complete = value === total;
   return (
-    <div style={{ position: 'relative', width: '84px', height: '84px', flexShrink: 0 }}>
+    <div
+      key={complete ? 'done' : 'todo'}
+      className={complete ? 'ring-done' : undefined}
+      style={{ position: 'relative', width: '84px', height: '84px', flexShrink: 0 }}
+    >
       <svg width="84" height="84" viewBox="0 0 84 84" aria-hidden="true">
         <circle cx="42" cy="42" r={r} fill="none" stroke="#ECEDF3" strokeWidth="8" />
         <circle
@@ -34,7 +38,8 @@ const Ring = ({ value, total }) => {
           strokeDasharray={c}
           strokeDashoffset={c * (1 - pct)}
           transform="rotate(-90 42 42)"
-          style={{ transition: 'stroke-dashoffset 0.6s var(--ease-out), stroke 0.3s' }}
+          className="ring-draw"
+          style={{ '--ring-c': c, transition: 'stroke-dashoffset 0.6s var(--ease-out), stroke 0.3s' }}
         />
       </svg>
       <div className="num-xl" style={{
@@ -87,7 +92,7 @@ export const SubmissionChecklist = ({ trackId, onAttemptSubmit, isLocked, isClos
           <li key={c.key}>
             <button type="button" className={`check-item ${c.ok ? 'ok' : ''}`} onClick={() => jumpTo(c.section)}>
               {c.ok
-                ? <CheckCircle size={20} weight="fill" color="var(--blue)" style={{ flexShrink: 0, marginTop: '2px' }} />
+                ? <CheckCircle key="ok" className="pop-in" size={20} weight="fill" color="var(--blue)" style={{ flexShrink: 0, marginTop: '2px' }} />
                 : <Circle size={20} color="#A0A3B1" style={{ flexShrink: 0, marginTop: '2px' }} />}
               <span>
                 {c.label}
@@ -156,7 +161,7 @@ export const SubmissionChecklist = ({ trackId, onAttemptSubmit, isLocked, isClos
 
           <button
             type="button"
-            className="btn btn-primary btn-block"
+            className={`btn btn-primary btn-block ${allDone && !isClosed ? 'btn-ready' : ''}`}
             onClick={onAttemptSubmit}
             disabled={isClosed}
             style={{ minHeight: '54px', fontSize: '16px' }}

@@ -6,6 +6,7 @@ import {
   Flask,
   Code
 } from '@phosphor-icons/react';
+import { trackPointer, resetPointer } from '../../hooks/useMotion';
 
 export const MosaicHero = () => {
   // Tile geometry and styles
@@ -52,7 +53,10 @@ export const MosaicHero = () => {
   ];
 
   return (
-    <div style={{
+    <div
+      onPointerMove={(e) => { if (e.pointerType === 'mouse') trackPointer(e); }}
+      onPointerLeave={resetPointer}
+      style={{
       flex: '1 1 460px',
       minHeight: '580px',
       position: 'relative',
@@ -65,8 +69,16 @@ export const MosaicHero = () => {
       justifyContent: 'center',
       gap: '28px'
     }}>
-      {/* 4x4 Grid with Logo */}
-      <div style={{
+      {/* Ambient glow that drifts behind the grid */}
+      <div aria-hidden="true" style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
+        <span className="hero-blob" style={{ width: '46%', aspectRatio: '1', left: '-10%', top: '-8%', background: G }} />
+        <span className="hero-blob" style={{ width: '40%', aspectRatio: '1', right: '-8%', bottom: '-6%', background: GH }} />
+        <span className="hero-blob" style={{ width: '30%', aspectRatio: '1', right: '18%', top: '12%', background: YE, opacity: 0.3 }} />
+      </div>
+
+      {/* 4x4 Grid with Logo (tilts slightly toward the pointer) */}
+      <div className="hero-tilt" style={{
+        position: 'relative',
         width: 'min(100%, 420px)',
         display: 'grid',
         gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
@@ -79,7 +91,9 @@ export const MosaicHero = () => {
             return (
               <div
                 key="logo"
+                className="hero-logo"
                 style={{
+                  position: 'relative',
                   gridColumn: '1 / -1',
                   aspectRatio: '2 / 1',
                   background: '#FFFFFF',
@@ -148,7 +162,9 @@ export const MosaicHero = () => {
       </div>
 
       {/* Sub-label */}
-      <div style={{
+      <div className="rise" style={{
+        '--d': '1100ms',
+        position: 'relative',
         display: 'flex',
         alignItems: 'center',
         gap: '10px',

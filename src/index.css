@@ -934,26 +934,25 @@ a:hover {
 
 /* Entry reveal with stagger (index via --i) */
 @media (prefers-reduced-motion: no-preference) {
+  /* backwards (not both): once finished, hover transforms such as the card lift apply again */
   .reveal {
-    animation: ttaa-slide-up 0.55s var(--ease-out) both;
+    animation: ttaa-slide-up 0.55s var(--ease-out) backwards;
     animation-delay: calc(var(--i, 0) * 45ms);
   }
 
-  .swap-stage {
-    will-change: opacity, transform;
-  }
-
+  /* No lasting transform / will-change on the stage: either one would make it the
+     containing block for position:fixed children (modals, tooltips) */
   .swap-out {
     animation: ttaa-swap-out var(--swap-out-ms, 120ms) cubic-bezier(0.4, 0, 1, 1) forwards;
     pointer-events: none;
   }
 
   .swap-in {
-    animation: ttaa-swap-in var(--swap-in-ms, 250ms) var(--ease-out) both;
+    animation: ttaa-swap-in var(--swap-in-ms, 250ms) var(--ease-out) backwards;
   }
 
   .swap-mascot {
-    animation: ttaa-mascot-pop 0.34s var(--ease-out) both;
+    animation: ttaa-mascot-pop 0.34s var(--ease-out) backwards;
   }
 }
 
@@ -964,14 +963,14 @@ a:hover {
   }
   to {
     opacity: 0;
-    transform: translate3d(calc(var(--swap-dir, 1) * -18px), 0, 0);
+    transform: translate3d(calc(var(--swap-dir, 1) * -28px), 0, 0);
   }
 }
 
 @keyframes ttaa-swap-in {
   from {
     opacity: 0;
-    transform: translate3d(calc(var(--swap-dir, 1) * 18px), 0, 0);
+    transform: translate3d(calc(var(--swap-dir, 1) * 28px), 0, 0) scale(0.99);
   }
   to {
     opacity: 1;
@@ -993,6 +992,7 @@ a:hover {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important; /* stop infinite loops from flickering */
     transition-duration: 0.01ms !important;
   }
 }
@@ -1034,3 +1034,553 @@ a:hover {
 
 .ready-panel .check-item.ok { color: var(--text-dark); font-weight: 600; }
 .ready-panel .check-item:hover { background: var(--bg-main); }
+
+/* ================================================================
+   Motion layer: entrances, micro-interactions and ambient motion.
+   Everything that moves lives inside no-preference, so reduced motion
+   gets the static layout.
+   ================================================================ */
+
+:root {
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Static base styles the motion relies on */
+.toast { transform: translateX(-50%); }
+
+.btn-primary,
+.shine {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.btn-primary::after,
+.shine::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 45%;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.38) 50%, rgba(255, 255, 255, 0) 100%);
+  transform: translateX(-130%) skewX(-20deg);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Sliding pill under the active item (navbar, filters) */
+.slide-track { position: relative; }
+.slide-track > button { position: relative; z-index: 1; }
+.slide-pill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: 999px;
+  background: #FFFFFF;
+  box-shadow: 0 2px 6px rgba(27, 29, 41, 0.1);
+  pointer-events: none;
+  z-index: 0;
+  transition: transform 0.42s var(--ease-spring), width 0.42s var(--ease-spring), height 0.3s var(--ease-out);
+}
+
+/* Login inputs */
+.login-field { position: relative; }
+.login-field .field-icon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #A3A6B4;
+  transition: color 0.2s var(--ease-out), transform 0.25s var(--ease-spring);
+  pointer-events: none;
+}
+.login-field:focus-within .field-icon {
+  color: var(--primary);
+  transform: translateY(-50%) scale(1.12);
+}
+.login-input {
+  width: 100%;
+  border-radius: 12px;
+  border: 1.5px solid #E0E1E8;
+  font-size: 14.5px;
+  color: #1B1D29;
+  background: #FAFAFC;
+}
+.login-input:hover { border-color: #D0D2DC; }
+.login-input:focus {
+  border-color: var(--primary);
+  background: #FFFFFF;
+  box-shadow: 0 0 0 4px rgba(255, 95, 28, 0.14);
+}
+
+/* Login hero ambient blobs */
+.hero-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #FFFFFF;
+  display: inline-block;
+}
+
+.live-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  display: inline-block;
+  position: relative;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Entrances */
+  .rise {
+    animation: ttaa-rise 0.6s var(--ease-out) backwards;
+    animation-delay: calc(var(--i, 0) * 70ms + var(--d, 0ms));
+  }
+
+  .modal-overlay { animation: ttaa-fade 0.2s ease-out backwards; }
+  .modal { animation: ttaa-modal-in 0.42s var(--ease-spring) backwards; }
+
+  .toast { animation: ttaa-toast-in 0.45s var(--ease-spring) both; }
+  .toast-icon { animation: ttaa-check-pop 0.5s var(--ease-spring) 0.12s backwards; }
+
+  .row-enter {
+    animation: ttaa-rise 0.42s var(--ease-out) backwards;
+    animation-delay: calc(var(--i, 0) * 45ms);
+  }
+
+  .pop-in { animation: ttaa-check-pop 0.45s var(--ease-spring) backwards; }
+
+  /* Buttons: a light sweep on hover */
+  .btn-primary:hover:not(:disabled)::after,
+  .shine:hover:not(:disabled)::after {
+    animation: ttaa-shine 0.75s var(--ease-out);
+  }
+
+  .btn-primary:hover:not(:disabled) { transform: translateY(-1px); }
+
+  /* Ready to submit: soft breathing glow */
+  .btn-ready { animation: ttaa-glow 2.4s ease-in-out infinite; }
+
+  .spinner { animation: ttaa-spin 0.7s linear infinite; }
+
+  /* Login hero: blobs drift, the grid tilts toward the pointer */
+  .hero-blob { animation: ttaa-blob 18s ease-in-out infinite; }
+  .hero-blob:nth-child(2) { animation-duration: 22s; animation-delay: -6s; }
+  .hero-blob:nth-child(3) { animation-duration: 26s; animation-delay: -12s; }
+
+  .hero-tilt {
+    transform: perspective(1000px) rotateX(calc(var(--py, 0) * -5deg)) rotateY(calc(var(--px, 0) * 6deg));
+    transition: transform 0.6s var(--ease-out);
+  }
+
+  .hero-logo::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(100deg, rgba(255, 255, 255, 0) 30%, rgba(255, 197, 37, 0.35) 50%, rgba(255, 255, 255, 0) 70%);
+    background-size: 250% 100%;
+    animation: ttaa-logo-sheen 6s ease-in-out 1.6s infinite;
+    pointer-events: none;
+    border-radius: inherit;
+  }
+
+  /* Dashboard */
+  .seg-grow {
+    animation: ttaa-seg-grow 0.5s var(--ease-out) backwards;
+    animation-delay: calc(250ms + var(--i, 0) * 35ms);
+    transform-origin: left center;
+  }
+
+  .tile-orange.alive {
+    background-size: 200% 200%;
+    animation: ttaa-gradient 14s ease-in-out infinite;
+  }
+
+  .tick { display: inline-block; animation: ttaa-tick 0.35s var(--ease-out); }
+
+  .live-dot::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: #FFFFFF;
+    animation: ttaa-ping 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+
+  .tile-hero.glow { isolation: isolate; }
+  .tile-hero.glow::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    width: 320px;
+    height: 320px;
+    right: -120px;
+    top: -140px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 141, 32, 0.22) 0%, rgba(255, 141, 32, 0) 70%);
+    animation: ttaa-blob 16s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  /* Track cards: pointer spotlight, mascot bob, wider accent */
+  .track-card { isolation: isolate; }
+  .track-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1; /* above the card background, below its content */
+    background: radial-gradient(260px circle at var(--mx, 50%) var(--my, 0%), rgba(255, 141, 32, 0.12), transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s var(--ease-out);
+    pointer-events: none;
+  }
+  .track-card:hover::after { opacity: 1; }
+  .track-card::before { transition: width 0.3s var(--ease-out); }
+  .track-card:hover::before { width: 8px; }
+  .track-card:hover .track-mascot { animation: ttaa-bob 1.1s ease-in-out infinite; }
+
+  /* Submit page */
+  .mascot-float { display: inline-flex; animation: ttaa-float 4.5s ease-in-out 0.6s infinite; }
+  .ring-draw { animation: ttaa-ring-draw 1s var(--ease-out) 0.2s backwards; }
+  .ring-done { border-radius: 50%; animation: ttaa-ring-pulse 1.2s ease-out 2; }
+
+  /* Navbar */
+  .save-pulse { animation: ttaa-pulse 1s ease-in-out infinite; }
+}
+
+@keyframes ttaa-rise {
+  from { opacity: 0; transform: translateY(14px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes ttaa-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes ttaa-modal-in {
+  from { opacity: 0; transform: translateY(28px) scale(0.95); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes ttaa-toast-in {
+  from { opacity: 0; transform: translate(-50%, 26px) scale(0.92); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
+@keyframes ttaa-check-pop {
+  0% { opacity: 0; transform: scale(0.4) rotate(-18deg); }
+  60% { opacity: 1; transform: scale(1.18) rotate(4deg); }
+  100% { opacity: 1; transform: none; }
+}
+
+@keyframes ttaa-shine {
+  from { transform: translateX(-130%) skewX(-20deg); }
+  to { transform: translateX(260%) skewX(-20deg); }
+}
+
+@keyframes ttaa-glow {
+  0%, 100% { box-shadow: 0 4px 12px rgba(255, 95, 28, 0.3); }
+  50% { box-shadow: 0 6px 26px rgba(255, 95, 28, 0.55), 0 0 0 4px rgba(255, 141, 32, 0.15); }
+}
+
+@keyframes ttaa-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes ttaa-blob {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(10%, -8%) scale(1.12); }
+  66% { transform: translate(-8%, 10%) scale(0.92); }
+}
+
+@keyframes ttaa-logo-sheen {
+  0%, 70% { background-position: 150% 0; }
+  100% { background-position: -50% 0; }
+}
+
+@keyframes ttaa-seg-grow {
+  from { opacity: 0; transform: scaleX(0); }
+  to { opacity: 1; transform: scaleX(1); }
+}
+
+@keyframes ttaa-gradient {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes ttaa-tick {
+  from { opacity: 0; transform: translateY(-45%); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes ttaa-ping {
+  75%, 100% { transform: scale(2.4); opacity: 0; }
+}
+
+@keyframes ttaa-bob {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-5px) rotate(-4deg); }
+}
+
+@keyframes ttaa-ring-draw {
+  from { stroke-dashoffset: var(--ring-c); }
+}
+
+@keyframes ttaa-ring-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(42, 159, 247, 0.45); }
+  100% { box-shadow: 0 0 0 18px rgba(42, 159, 247, 0); }
+}
+
+@keyframes ttaa-loader-bar {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(260%); }
+}
+
+/* With the sliding pill the pressed button needs no own background */
+.seg-control.has-pill button[aria-pressed="true"] { background: transparent; box-shadow: none; }
+
+/* ================================================================
+   Motion layer, round 2: flip clock, section burst, card tilt,
+   page strip and the submit celebration
+   ================================================================ */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Split-flap countdown card (folds run outside no-preference so reduced
+   motion still ends on the right digits, instantly) */
+.flip {
+  position: relative;
+  display: block;
+  height: 54px;
+  font-size: 30px;
+  color: #FFFFFF;
+  perspective: 320px;
+}
+.flip-half {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 50%;
+  overflow: hidden;
+  background: #1E2138;
+  backface-visibility: hidden;
+}
+.flip-half > span {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 200%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.flip-top { top: 0; border-radius: 12px 12px 0 0; transform-origin: 50% 100%; border-bottom: 1px solid rgba(0, 0, 0, 0.35); }
+.flip-top > span { top: 0; }
+.flip-bottom { bottom: 0; border-radius: 0 0 12px 12px; transform-origin: 50% 0; background: #23263F; }
+.flip-bottom > span { bottom: 0; }
+.flip-fold { z-index: 2; animation: ttaa-fold 0.28s ease-in forwards; }
+.flip-unfold { z-index: 2; animation: ttaa-unfold 0.32s var(--ease-out) 0.28s both; }
+
+@keyframes ttaa-fold {
+  from { transform: rotateX(0deg); }
+  to { transform: rotateX(-90deg); }
+}
+@keyframes ttaa-unfold {
+  from { transform: rotateX(90deg); }
+  to { transform: rotateX(0deg); }
+}
+
+/* Section burst */
+.section-num { position: relative; }
+.burst { position: absolute; inset: 0; pointer-events: none; display: none; }
+.burst i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+.burst i:nth-child(3n + 2) { background: var(--yellow); }
+.burst i:nth-child(3n) { background: var(--blue); }
+
+@property --sweep {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+/* Page strip under the navbar */
+.page-strip { display: none; }
+
+/* Celebration screen */
+.celebrate-overlay { z-index: 1200; background: rgba(22, 24, 42, 0.72); }
+.celebrate-card {
+  width: min(100%, 460px);
+  text-align: center;
+  overflow: hidden;
+}
+.celebrate-hero {
+  position: relative;
+  height: 190px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 60%, rgba(255, 197, 37, 0.35) 0%, rgba(255, 197, 37, 0) 60%),
+    linear-gradient(140deg, #FF5B18 0%, #FF7A12 55%, #FF9A1F 100%);
+}
+.celebrate-rays {
+  position: absolute;
+  width: 560px;
+  height: 560px;
+  left: 50%;
+  top: 60%;
+  margin: -280px 0 0 -280px;
+  background: repeating-conic-gradient(rgba(255, 255, 255, 0.16) 0deg 10deg, rgba(255, 255, 255, 0) 10deg 24deg);
+  border-radius: 50%;
+}
+.celebrate-mascot {
+  position: relative;
+  width: 112px;
+  height: 112px;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 18px rgba(27, 29, 41, 0.3));
+}
+.stamp {
+  position: absolute;
+  right: 22px;
+  bottom: 18px;
+  padding: 4px 14px;
+  border: 3px solid #FFFFFF;
+  border-radius: 10px;
+  color: #FFFFFF;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  transform: rotate(-12deg);
+  background: rgba(10, 101, 176, 0.9);
+  box-shadow: 0 6px 16px rgba(10, 101, 176, 0.35);
+}
+.celebrate-body {
+  padding: 24px 28px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.celebrate-hash {
+  align-self: center;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 18px;
+  border-radius: 14px;
+  background: var(--blue-bg);
+  color: var(--blue-text);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.celebrate-hash strong {
+  font-family: 'Plus Jakarta Sans', 'Anuphan', sans-serif;
+  font-size: 22px;
+  letter-spacing: 0.04em;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Section complete: particles fly out, a light runs once around the card */
+  .burst { display: block; }
+  .burst i { animation: ttaa-burst 0.7s cubic-bezier(0.2, 0.8, 0.3, 1) forwards; }
+
+  .card:has(.section-num.just-done) { position: relative; }
+  .card:has(.section-num.just-done)::after {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    padding: 2px;
+    background: conic-gradient(from var(--sweep), transparent 0deg 250deg, var(--blue) 320deg, #8FD0FF 345deg, transparent 360deg);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    animation: ttaa-sweep 1.1s var(--ease-out) forwards;
+  }
+
+  /* Track cards tilt toward the pointer */
+  .track-card:hover {
+    transform: perspective(900px) rotateX(calc(var(--py, 0) * -6deg)) rotateY(calc(var(--px, 0) * 8deg)) translateY(-6px);
+    box-shadow: 0 26px 44px -22px rgba(20, 22, 42, 0.45);
+  }
+
+  .page-strip {
+    display: block;
+    position: fixed;
+    top: 72px;
+    left: 0;
+    right: 0;
+    height: 4px;
+    z-index: 49;
+    pointer-events: none;
+    background: linear-gradient(90deg, transparent 0%, var(--primary) 20%, var(--yellow) 45%, var(--blue) 70%, transparent 100%);
+    animation: ttaa-strip 0.5s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+  }
+
+  .celebrate-overlay { animation: ttaa-fade 0.25s ease-out backwards; }
+  .celebrate-card { animation: ttaa-celebrate-in 0.55s var(--ease-spring) backwards; }
+  .celebrate-rays { animation: ttaa-spin 24s linear infinite; }
+  .celebrate-mascot { animation: ttaa-mascot-land 0.7s var(--ease-spring) 0.15s backwards; }
+  .stamp { animation: ttaa-stamp 0.45s cubic-bezier(0.2, 1.6, 0.4, 1) 0.6s backwards; }
+}
+
+@keyframes ttaa-burst {
+  0% { opacity: 1; transform: rotate(var(--a)) translateX(0) scale(1); }
+  100% { opacity: 0; transform: rotate(var(--a)) translateX(26px) scale(0.4); }
+}
+
+@keyframes ttaa-sweep {
+  0% { --sweep: 0deg; opacity: 1; }
+  80% { opacity: 1; }
+  100% { --sweep: 360deg; opacity: 0; }
+}
+
+@keyframes ttaa-strip {
+  from { transform: translateX(calc(var(--swap-dir, 1) * -100%)); }
+  to { transform: translateX(calc(var(--swap-dir, 1) * 100%)); }
+}
+
+@keyframes ttaa-celebrate-in {
+  from { opacity: 0; transform: translateY(40px) scale(0.88); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes ttaa-mascot-land {
+  0% { opacity: 0; transform: translateY(-70px) scale(0.7); }
+  60% { opacity: 1; transform: translateY(6px) scale(1.06, 0.94); }
+  100% { opacity: 1; transform: none; }
+}
+
+@keyframes ttaa-stamp {
+  0% { opacity: 0; transform: rotate(-12deg) scale(2.6); }
+  70% { opacity: 1; transform: rotate(-12deg) scale(0.92); }
+  100% { opacity: 1; transform: rotate(-12deg) scale(1); }
+}
