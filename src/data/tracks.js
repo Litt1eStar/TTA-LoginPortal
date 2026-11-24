@@ -53,13 +53,13 @@ export const TRACKS = [
     usesLeader: false
   },
   {
-    id: 'singing', th: 'ร้องเพลงลูกทุ่ง', full: 'ประกวดร้องเพลงลูกทุ่ง', category: CULTURE_CATEGORY, en: 'Luk Thung Singing', icon: 'MicrophoneStage',
+    id: 'singing', th: 'ร้องเพลงลูกทุ่ง', full: 'ประกวดร้องเพลงลูกทุ่ง', category: CULTURE_CATEGORY, en: 'Luk Thung Singing', icon: 'MicrophoneStage', image: '/assets/mascots/culture.webp',
     deadline: FINAL_DEADLINE, maxCompetitors: 1, advisorCount: 2, needsWorkInfo: false,
     roles: [{ name: 'นักร้อง', max: 1 }],
     usesLeader: false
   },
   {
-    id: 'dance', th: 'แดนเซอร์จินตลีลา', full: 'แดนเซอร์จินตลีลา', category: CULTURE_CATEGORY, en: 'Creative Movement Dance', icon: 'PersonSimpleRun',
+    id: 'dance', th: 'แดนเซอร์จินตลีลา', full: 'แดนเซอร์จินตลีลา', category: CULTURE_CATEGORY, en: 'Creative Movement Dance', icon: 'PersonSimpleRun', image: '/assets/mascots/culture.webp',
     deadline: FINAL_DEADLINE, maxCompetitors: 16, advisorCount: 1, needsWorkInfo: false,
     roles: [{ name: 'นักแสดง', max: 10 }, { name: 'Backstage', max: 4 }, { name: 'ผู้ควบคุมไฟ', max: 1 }, { name: 'ผู้ควบคุมเสียง', max: 1 }],
     usesLeader: false
@@ -122,7 +122,7 @@ export const trackSubtitle = (track) => track?.category || track?.desc || '';
 // (การแข่งขันศิลปวัฒนธรรม → ร้องเพลงลูกทุ่ง / แดนเซอร์จินตลีลา).
 // Every other track is a type of its own.
 const CATEGORY_META = {
-  [CULTURE_CATEGORY]: { id: 'culture', icon: 'MaskHappy' }
+  [CULTURE_CATEGORY]: { id: 'culture', icon: 'MaskHappy', image: '/assets/mascots/culture.webp' }
 };
 
 export const TYPES = (() => {
