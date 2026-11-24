@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { defaultRole, usesLeader } from '../../data/tracks';
 import { WarningCircle, X, Check, LockSimple } from '@phosphor-icons/react';
 
 const SummaryItem = ({ label, children, wide }) => (
@@ -113,7 +114,12 @@ export const ConfirmSubmitModal = ({ isOpen, onClose, onConfirm, track, submissi
             </SummaryItem>
             <SummaryItem label={`ผู้แข่งขัน (${students.length})`}>
               <ul style={listStyle}>
-                {students.map(m => <li key={m.id}>{nameOf(m)}{m.isLeader ? ' (หัวหน้าทีม)' : ''}</li>)}
+                {students.map(m => (
+                  <li key={m.id}>
+                    {nameOf(m)}
+                    {usesLeader(track) ? (m.isLeader ? ' (หัวหน้าทีม)' : '') : ` (${m.role || defaultRole(track)})`}
+                  </li>
+                ))}
               </ul>
             </SummaryItem>
             {showWorkInfo

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { usePortal } from '../../context/PortalContext';
 import { TITLE_PREFIXES, DEPT_BY_UNIVERSITY, departmentForUniversity, PHOTO_RULES } from '../../data/referenceData';
+import { getTrack, trackRoles, defaultRole, hasMultipleRoles, usesLeader } from '../../data/tracks';
 import { processPhoto, dataUrlToFile } from '../../utils/photo';
 import { uploadFile } from '../../api';
 import { X, ChalkboardTeacher, Student, Plus, Buildings, WarningCircle, Camera, Trash } from '@phosphor-icons/react';
@@ -13,6 +14,19 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
   const { addOrUpdateMember, submissions, user } = usePortal();
   const sub = submissions[trackId] || { members: [] };
 
+  const track = getTrack(trackId);
+  const roles = trackRoles(track);
+  const multiRole = hasMultipleRoles(track);
+  const allowLeader = usesLeader(track);
+  const roleCounts = sub.members
+    .filter(m => m.type === 'student' && m.id !== initialMember?.id)
+    .reduce((acc, m) => {
+      const r = m.role || defaultRole(track);
+      acc[r] = (acc[r] || 0) + 1;
+      return acc;
+    }, {});
+  const firstOpenRole = (counts) => (roles.find(r => (counts[r.name] || 0) < r.max) || roles[0]).name;
+
   const [type, setType] = useState(initialType);
   const [title, setTitle] = useState('');
   const [fullName, setFullName] = useState('');
@@ -20,6 +34,7 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [year, setYear] = useState('3');
+  const [role, setRole] = useState('');
   const [isLeader, setIsLeader] = useState(false);
   const [photo, setPhoto] = useState(null);
   const [errors, setErrors] = useState({});
@@ -29,11 +44,15 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
   const lockedDept = DEPT_BY_UNIVERSITY[user?.universityCode] || departmentForUniversity(user?.university) || '';
   // Snapshot of the form when it opened (or was cleared), to know if anything was typed
   const snapshot = useRef('');
-  const formState = (o) => JSON.stringify([o.type, o.title, o.fullName, o.studentId, o.email, o.phone, o.year, o.isLeader, o.photo?.fileId || o.photo?.dataUrl || null]);
-  const current = { type, title, fullName, studentId, email, phone, year, isLeader, photo };
+  const formState = (o) => JSON.stringify([
+    o.type, o.title, o.fullName, o.studentId, o.email, o.phone, o.year,
+    o.type === 'advisor' ? '' : o.role, o.isLeader, o.photo?.fileId || o.photo?.dataUrl || null
+  ]);
+  const current = { type, title, fullName, studentId, email, phone, year, role, isLeader, photo };
 
   useEffect(() => {
     if (initialMember) {
+      const initRole = initialMember.type === 'advisor' ? firstOpenRole(roleCounts) : (initialMember.role || defaultRole(track));
       setType(initialMember.type || 'student');
       setTitle(initialMember.title || '');
       setFullName(initialMember.fullName || '');
@@ -41,15 +60,17 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
       setEmail(initialMember.email || '');
       setPhone(initialMember.phone || '');
       setYear(initialMember.year || '3');
+      setRole(initRole);
       setIsLeader(!!initialMember.isLeader);
       setPhoto(initialMember.photo || null);
       snapshot.current = formState({
         type: initialMember.type || 'student', title: initialMember.title || '', fullName: initialMember.fullName || '',
         studentId: initialMember.studentId || '', email: initialMember.email || '', phone: initialMember.phone || '',
-        year: initialMember.year || '3',
+        year: initialMember.year || '3', role: initRole,
         isLeader: !!initialMember.isLeader, photo: initialMember.photo || null
       });
     } else {
+      const initRole = firstOpenRole(roleCounts);
       setType(initialType);
       setTitle(initialType === 'advisor' ? 'ดร.' : 'นาย');
       setFullName('');
@@ -57,16 +78,18 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
       setEmail('');
       setPhone('');
       setYear('3');
+      setRole(initRole);
       setIsLeader(false);
       setPhoto(null);
       snapshot.current = formState({
         type: initialType, title: initialType === 'advisor' ? 'ดร.' : 'นาย', fullName: '', studentId: '',
-        email: '', phone: '', year: '3', isLeader: false, photo: null
+        email: '', phone: '', year: '3', role: initRole, isLeader: false, photo: null
       });
     }
     setErrors({});
     setConfirmDiscard(false);
-  }, [initialMember, initialType, isOpen]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialMember, initialType, isOpen, trackId]);
 
   const isDirty = formState(current) !== snapshot.current;
 
@@ -94,6 +117,13 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
   const validate = () => {
     const errs = {};
     if (!fullName.trim()) errs.fullName = 'กรุณากรอกชื่อ-นามสกุล';
+    if (!isAdvisor) {
+      const roleDef = roles.find(r => r.name === role);
+      if (!roleDef) errs.role = 'กรุณาเลือกบทบาท';
+      else if ((roleCounts[role] || 0) >= roleDef.max) {
+        errs.role = `บทบาท ${role} ครบจำนวนสูงสุด (${roleDef.max} คน) แล้ว`;
+      }
+    }
     if (email.trim()) {
       if (!/^\S+@\S+\.\S+$/.test(email.trim())) errs.email = 'รูปแบบอีเมลไม่ถูกต้อง';
       else {
@@ -119,16 +149,20 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
       phone: phone.trim(),
       dept: lockedDept,
       year: isAdvisor ? '' : year,
-      isLeader: isAdvisor ? false : isLeader,
+      role: isAdvisor ? undefined : role,
+      isLeader: isAdvisor || !allowLeader ? false : isLeader,
       photo
     });
 
     if (addAnother && !isAdvisor) {
-      snapshot.current = formState({ ...current, fullName: '', studentId: '', email: '', phone: '', isLeader: false, photo: null });
+      const nextCounts = { ...roleCounts, [role]: (roleCounts[role] || 0) + 1 };
+      const nextRole = firstOpenRole(nextCounts);
+      snapshot.current = formState({ ...current, fullName: '', studentId: '', email: '', phone: '', role: nextRole, isLeader: false, photo: null });
       setFullName('');
       setStudentId('');
       setEmail('');
       setPhone('');
+      setRole(nextRole);
       setIsLeader(false);
       setPhoto(null);
       setErrors({});
@@ -308,6 +342,32 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
             </div>
           </div>
 
+          {/* Role selector when track has multiple roles */}
+          {!isAdvisor && multiRole && (
+            <div>
+              <label className="field-label" htmlFor="m-role">
+                บทบาท <span className="required">*</span>
+              </label>
+              <select
+                id="m-role"
+                className={`select ${errors.role ? 'has-error' : ''}`}
+                value={role}
+                onChange={(e) => { setRole(e.target.value); clearError('role'); }}
+              >
+                {roles.map(r => {
+                  const count = roleCounts[r.name] || 0;
+                  const full = count >= r.max;
+                  return (
+                    <option key={r.name} value={r.name} disabled={full}>
+                      {r.name} ({count}/{r.max} คน){full ? ' — เต็มแล้ว' : ''}
+                    </option>
+                  );
+                })}
+              </select>
+              <FieldError msg={errors.role} />
+            </div>
+          )}
+
           {/* University (read-only from account) */}
           <div>
             <label className="field-label">มหาวิทยาลัย</label>
@@ -376,7 +436,7 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
             </div>
           </div>
 
-          {!isAdvisor && (
+          {!isAdvisor && allowLeader && (
             <label style={{
               display: 'flex',
               alignItems: 'center',

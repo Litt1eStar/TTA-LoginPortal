@@ -30,3 +30,32 @@ describe('deliverables rule (clip)', () => {
     expect(deliverables({}).label).toContain('วิดีโอ');
   });
 });
+
+describe('per-track role validation', () => {
+  const adv = { id: 'a1', type: 'advisor', fullName: 'อ.', dept: 'D', photo: { dataUrl: '/x' } };
+  const stu = (id, role, extra = {}) => ({ id, type: 'student', fullName: id, dept: 'D', role, photo: { dataUrl: '/x' }, ...extra });
+  const team = (trackId, members) => getRequirements(getTrack(trackId), { members }).find(r => r.key === 'team');
+
+  it('theory requires both ผู้สอนหลัก and ผู้ช่วยสอน without requiring isLeader', () => {
+    expect(team('theory.g0', [adv, stu('s1', 'ผู้สอนหลัก')]).ok).toBe(false);
+    expect(team('theory.g0', [adv, stu('s1', 'ผู้สอนหลัก'), stu('s2', 'ผู้ช่วยสอน')]).ok).toBe(true);
+  });
+
+  it('dance allows up to 16 across roles and rejects over-cap or unknown roles', () => {
+    const valid = [
+      adv,
+      ...Array.from({ length: 10 }, (_, i) => stu(`d${i}`, 'นักแสดง')),
+      ...Array.from({ length: 4 }, (_, i) => stu(`b${i}`, 'Backstage')),
+      stu('f1', 'ผู้ควบคุมไฟ'),
+      stu('s1', 'ผู้ควบคุมเสียง')
+    ];
+    expect(team('dance', valid).ok).toBe(true);
+    expect(team('dance', [adv, stu('f1', 'ผู้ควบคุมไฟ'), stu('f2', 'ผู้ควบคุมไฟ')]).ok).toBe(false);
+    expect(team('dance', [adv, stu('x', 'ตัวปลอม')]).ok).toBe(false);
+  });
+
+  it('hardware still requires a team leader', () => {
+    expect(team('hardware', [adv, stu('s1', 'ผู้แข่งขัน')]).ok).toBe(false);
+    expect(team('hardware', [adv, stu('s1', 'ผู้แข่งขัน', { isLeader: true })]).ok).toBe(true);
+  });
+});

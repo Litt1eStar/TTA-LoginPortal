@@ -71,7 +71,7 @@ function memberRow(uni, entry, key, m, config) {
     type,
     subType,
     status: STATUS_TH[entry.status] || entry.status,
-    role: m.type === 'advisor' ? 'อาจารย์' : 'ผู้แข่งขัน',
+    role: m.type === 'advisor' ? 'อาจารย์' : (m.role || 'ผู้แข่งขัน'),
     leader: m.isLeader ? 'ใช่' : '',
     title: m.title,
     fullName: m.fullName,

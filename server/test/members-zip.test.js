@@ -29,8 +29,8 @@ describe('admin members.zip', () => {
     saveDraft(db, 1, 'theory.g0', {
       members: [
         base({ id: 'a1', type: 'advisor', fullName: 'สมชาย ใจดี', email: 'somchai.j@kmutt.ac.th', photo: photo(p1) }),
-        base({ id: 's1', type: 'student', fullName: 'นักศึกษา หนึ่ง', studentId: '67080500203', year: '2', photo: { ...photo(p2), mime: 'image/webp' } }),
-        base({ id: 's2', type: 'student', fullName: 'นักศึกษา สอง', studentId: '', year: '1', photo: { ...photo(p3), mime: 'image/png' } })
+        base({ id: 's1', type: 'student', role: 'ผู้สอนหลัก', fullName: 'นักศึกษา หนึ่ง', studentId: '67080500203', year: '2', photo: { ...photo(p2), mime: 'image/webp' } }),
+        base({ id: 's2', type: 'student', role: 'ผู้ช่วยสอน', fullName: 'นักศึกษา สอง', studentId: '', year: '1', photo: { ...photo(p3), mime: 'image/png' } })
       ]
     }, 1);
 

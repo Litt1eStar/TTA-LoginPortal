@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { openDb } from '../src/db.js';
+import { TYPES, CULTURE_CATEGORY, getTrack } from '../../src/data/tracks.js';
 import { isValidEntryKey, allEntryKeys, blankData, sanitizeData, listEntries, getEntryRow, rowToEntry } from '../src/entries.js';
 
 let db;
@@ -55,7 +56,7 @@ describe('sanitizeData', () => {
     expect(d).not.toHaveProperty('hash');
     expect(d).not.toHaveProperty('universityId');
     expect(d.projectName).toBe('ok');
-    expect(d.members).toHaveLength(4); // hardware: 3 competitors + 1 advisor
+    expect(d.members).toHaveLength(3); // hardware: max 3 competitors (0 advisors in input)
     expect(d.members[0]).not.toHaveProperty('evil');
     expect(d.members[0].fullName).toHaveLength(200);
     expect(d.members[0].photo.dataUrl).toBe('/api/files/7');
@@ -98,5 +99,71 @@ describe('listEntries', () => {
     listEntries(db, 1);
     expect(db.prepare('SELECT COUNT(*) AS n FROM submissions').get().n).toBe(17);
     expect(rowToEntry(getEntryRow(db, 1, 'theory.g2')).subjectGroup).toBe('กลุ่มสาขาวิชาโยธา');
+  });
+});
+
+describe('tracks & member roles (P-3, P-4)', () => {
+  it('moves clip to its own top-level type and keeps 2 sub-types under culture', () => {
+    expect(getTrack('clip').category).toBeUndefined();
+    const culture = TYPES.find(t => t.label === CULTURE_CATEGORY);
+    expect(culture.tracks.map(t => t.id)).toEqual(['singing', 'dance']);
+    expect(TYPES.some(t => t.id === 'clip')).toBe(true);
+    expect(getTrack('dance').maxCompetitors).toBe(16);
+  });
+
+  it('enforces per-role maxima and rejects unknown roles in sanitizeData', () => {
+    const stu = (id, role, extra = {}) => ({ id, type: 'student', fullName: id, role, ...extra });
+
+    const theory = sanitizeData('theory.g0', {
+      members: [
+        stu('s1', 'ผู้สอนหลัก', { isLeader: true }),
+        stu('s2', 'ผู้สอนหลัก'),
+        stu('s3', 'ผู้ช่วยสอน'),
+        stu('s4', 'ผู้ช่วยสอน')
+      ]
+    });
+    expect(theory.members.map(m => [m.id, m.role, m.isLeader])).toEqual([
+      ['s1', 'ผู้สอนหลัก', false],
+      ['s3', 'ผู้ช่วยสอน', false]
+    ]);
+
+    const danceMembers = [
+      ...Array.from({ length: 11 }, (_, i) => stu(`d${i}`, 'นักแสดง')),
+      ...Array.from({ length: 4 }, (_, i) => stu(`b${i}`, 'Backstage')),
+      stu('l1', 'ผู้ควบคุมไฟ'),
+      stu('a1', 'ผู้ควบคุมเสียง')
+    ];
+    const dance = sanitizeData('dance', { members: danceMembers });
+    expect(dance.members).toHaveLength(16);
+    expect(dance.members.filter(m => m.role === 'นักแสดง')).toHaveLength(10);
+    expect(dance.members.filter(m => m.role === 'Backstage')).toHaveLength(4);
+    expect(dance.members.filter(m => m.role === 'ผู้ควบคุมไฟ')).toHaveLength(1);
+    expect(dance.members.filter(m => m.role === 'ผู้ควบคุมเสียง')).toHaveLength(1);
+
+    const danceCaps = sanitizeData('dance', {
+      members: [
+        ...Array.from({ length: 5 }, (_, i) => stu(`b${i}`, 'Backstage')),
+        stu('l1', 'ผู้ควบคุมไฟ'),
+        stu('l2', 'ผู้ควบคุมไฟ'),
+        stu('a1', 'ผู้ควบคุมเสียง'),
+        stu('a2', 'ผู้ควบคุมเสียง')
+      ]
+    });
+    expect(danceCaps.members.filter(m => m.role === 'Backstage')).toHaveLength(4);
+    expect(danceCaps.members.filter(m => m.role === 'ผู้ควบคุมไฟ')).toHaveLength(1);
+    expect(danceCaps.members.filter(m => m.role === 'ผู้ควบคุมเสียง')).toHaveLength(1);
+
+    const bad = sanitizeData('singing', { members: [stu('x', 'บทบาทปลอม')] });
+    expect(bad.members).toEqual([]);
+  });
+
+  it('defaults missing role on old saved student members when read', () => {
+    listEntries(db, 1);
+    db.prepare("UPDATE submissions SET data = ? WHERE university_id = 1 AND entry_key = 'theory.g0'")
+      .run(JSON.stringify({ ...blankData('theory.g0'), members: [{ id: 's1', type: 'student', fullName: 'ก' }] }));
+    db.prepare("UPDATE submissions SET data = ? WHERE university_id = 1 AND entry_key = 'singing'")
+      .run(JSON.stringify({ ...blankData('singing'), members: [{ id: 's2', type: 'student', fullName: 'ข' }] }));
+    expect(rowToEntry(getEntryRow(db, 1, 'theory.g0')).members[0].role).toBe('ผู้สอนหลัก');
+    expect(rowToEntry(getEntryRow(db, 1, 'singing')).members[0].role).toBe('นักร้อง');
   });
 });

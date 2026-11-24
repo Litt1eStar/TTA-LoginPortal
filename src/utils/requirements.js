@@ -1,3 +1,5 @@
+import { trackRoles, defaultRole, usesLeader } from '../data/tracks.js';
+
 // Submission rules shared by the submit button and the readiness checklist.
 // Each requirement: { key, section, label, ok, error, detail? }
 // `detail` names the people still missing something (shown under the checklist item).
@@ -7,6 +9,14 @@ export const getRequirements = (track, sub = {}) => {
   const advisors = members.filter(m => m.type === 'advisor');
   const students = members.filter(m => m.type === 'student');
   const hasLeader = students.some(m => m.isLeader);
+  const roles = trackRoles(track);
+  const roleCounts = Object.fromEntries(roles.map(r => [r.name, 0]));
+  const unknownRoles = [];
+  for (const m of students) {
+    const rName = m.role || defaultRole(track);
+    if (!(rName in roleCounts)) unknownRoles.push(rName);
+    else roleCounts[rName] += 1;
+  }
   const reqs = [];
 
   if (track.needsWorkInfo) {
@@ -19,7 +29,7 @@ export const getRequirements = (track, sub = {}) => {
     });
   }
 
-  const advisorLimit = track.advisorCount || 1;
+  const advisorLimit = track.advisorCount ?? 1;
   reqs.push({
     key: 'advisors',
     section: 'team',
@@ -34,15 +44,30 @@ export const getRequirements = (track, sub = {}) => {
 
   const max = track.maxCompetitors;
   const withinMax = !max || students.length <= max;
+  const needLeader = usesLeader(track);
+  const hasRequiredRoles = roles.some(r => r.required);
   let teamError = '';
   if (students.length === 0) teamError = 'กรุณาเพิ่มผู้แข่งขันอย่างน้อย 1 คน';
   else if (!withinMax) teamError = `จำนวนผู้แข่งขันเกินที่กำหนด (สูงสุด ${max} คน)`;
-  else if (!hasLeader) teamError = 'กรุณากำหนดหัวหน้าทีม';
+  else if (unknownRoles.length) teamError = `พบบทบาทที่ไม่รองรับ: ${unknownRoles[0]}`;
+  else {
+    const over = roles.find(r => roleCounts[r.name] > r.max);
+    const missingReq = roles.filter(r => r.required && roleCounts[r.name] < 1);
+    if (over) teamError = `${over.name}เกินจำนวนที่กำหนด (สูงสุด ${over.max} คน)`;
+    else if (missingReq.length) teamError = `กรุณาระบุ${missingReq.map(r => r.name).join(' และ ')}`;
+    else if (needLeader && !hasLeader) teamError = 'กรุณากำหนดหัวหน้าทีม';
+  }
+  const teamLabelText = hasRequiredRoles
+    ? `ผู้สอนหลักและผู้ช่วยสอน (${students.length}/${max} คน)`
+    : needLeader
+      ? `ผู้แข่งขัน ${students.length}${max ? `/${max}` : ''} คน พร้อมหัวหน้าทีม`
+      : `ผู้แข่งขัน ${students.length}${max ? `/${max}` : ''} คน`;
   reqs.push({
     key: 'team',
     section: 'team',
-    label: `ผู้แข่งขัน ${students.length}${max ? `/${max}` : ''} คน พร้อมหัวหน้าทีม`,
+    label: teamLabelText,
     ok: !teamError,
+    detail: students.length > 0 && teamError ? teamError : '',
     error: teamError
   });
 

@@ -3,7 +3,7 @@ import { usePortal } from '../../context/PortalContext';
 import { SectionNum } from './SectionNum';
 import { MemberModal } from './MemberModal';
 import { initials } from '../../utils/formatters';
-import { getTrack } from '../../data/tracks';
+import { getTrack, trackRoles, defaultRole, hasMultipleRoles, usesLeader } from '../../data/tracks';
 import { Plus, PencilSimple, Trash, Crown, WarningCircle } from '@phosphor-icons/react';
 
 const fullTitleName = (m) => [m.title, m.fullName].filter(Boolean).join(' ');
@@ -25,8 +25,11 @@ export const TeamMembersSection = ({ trackId, isLocked, error, number, done }) =
   }, [removing]);
 
   const track = getTrack(trackId);
-  const advisorLimit = track.advisorCount || 1;
+  const advisorLimit = track.advisorCount ?? 1;
   const maxCompetitors = track.maxCompetitors;
+  const allowLeader = usesLeader(track);
+  const showRoleBadge = hasMultipleRoles(track) || !allowLeader;
+  const roles = trackRoles(track);
   const advisors = sub.members.filter(m => m.type === 'advisor');
   const students = sub.members.filter(m => m.type === 'student');
   const canAddAdvisor = advisors.length < advisorLimit;
@@ -88,7 +91,9 @@ export const TeamMembersSection = ({ trackId, isLocked, error, number, done }) =
           </h3>
           <p className="section-desc">
             อาจารย์ที่ปรึกษา {advisorLimit > 1 ? `1-${advisorLimit}` : '1'} ท่าน
-            {' และ '}ผู้แข่งขัน {maxCompetitors > 1 ? `1-${maxCompetitors}` : '1'} คน ทุกคนต้องมีรูปถ่ายและหน่วยงาน
+            {' และ '}ผู้แข่งขัน {maxCompetitors > 1 ? `1-${maxCompetitors}` : '1'} คน
+            {hasMultipleRoles(track) && ` (${roles.map(r => `${r.name} ${r.max}`).join(' · ')})`}
+            {' '}ทุกคนต้องมีรูปถ่ายและหน่วยงาน
           </p>
         </div>
 
@@ -169,7 +174,10 @@ export const TeamMembersSection = ({ trackId, isLocked, error, number, done }) =
                   <div style={{ minWidth: 0 }}>
                     <div className="row-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                       <span>{index + 1}. {fullTitleName(st)}</span>
-                      {st.isLeader && (
+                      {showRoleBadge && (
+                        <span className="badge badge-blue">{st.role || defaultRole(track)}</span>
+                      )}
+                      {allowLeader && st.isLeader && (
                         <span className="badge badge-orange">
                           <Crown size={13} weight="fill" />
                           หัวหน้าทีม
@@ -179,7 +187,7 @@ export const TeamMembersSection = ({ trackId, isLocked, error, number, done }) =
                     <div className="row-meta">{metaLine(st)}</div>
                   </div>
                 </div>
-                {rowActions(st, !st.isLeader && students.length > 1 && (
+                {rowActions(st, allowLeader && !st.isLeader && students.length > 1 && (
                   <button type="button" className="btn btn-sm btn-ghost" onClick={() => makeLeader(trackId, st.id)}>
                     <Crown size={15} weight="bold" />
                     <span>ตั้งเป็นหัวหน้า</span>

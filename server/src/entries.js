@@ -1,4 +1,4 @@
-import { TRACKS, getTrack, entryKey, parseEntryKey, isGrouped } from '../../src/data/tracks.js';
+import { TRACKS, getTrack, entryKey, parseEntryKey, isGrouped, trackRoles, defaultRole, usesLeader } from '../../src/data/tracks.js';
 import { DEPT_BY_UNIVERSITY, departmentForUniversity } from '../../src/data/referenceData.js';
 import { emptySubmission } from '../../src/data/seedData.js';
 import { tx } from './db.js';
@@ -54,7 +54,7 @@ function sanitizeFile(f) {
   return { id, fileId: id, name: str(f.name, LIMITS.name), size: num(f.size), ext: str(f.ext, 10), mime: str(f.mime, 100), status: 'done', progress: 100, url: `/api/files/${id}` };
 }
 
-function sanitizeMember(m, lockedDept = null) {
+function sanitizeMember(m, track, lockedDept = null) {
   if (!m || (m.type !== 'advisor' && m.type !== 'student')) return null;
   const out = {
     id: str(m.id, LIMITS.id),
@@ -69,9 +69,13 @@ function sanitizeMember(m, lockedDept = null) {
     photo: sanitizePhoto(m.photo)
   };
   if (m.type === 'student') {
+    const rawRole = str(m.role, LIMITS.short);
+    const roleName = rawRole || defaultRole(track);
+    if (!trackRoles(track).some(r => r.name === roleName)) return null;
     out.studentId = str(m.studentId, LIMITS.short);
     out.year = str(m.year, 10);
-    out.isLeader = m.isLeader === true;
+    out.role = roleName;
+    out.isLeader = usesLeader(track) ? m.isLeader === true : false;
   }
   return out;
 }
@@ -83,23 +87,40 @@ function sanitizeVideo(v) {
   return { driveFileId: str(v.driveFileId, 200), name: str(v.name, LIMITS.name), size: num(v.size), mime: str(v.mime, 100) };
 }
 
-function capAdvisors(members, max) {
-  let seen = 0;
-  return members.filter(m => m.type !== 'advisor' || ++seen <= max);
+function capMembers(members, track) {
+  const maxAdvisors = track.advisorCount ?? 1;
+  const maxCompetitors = track.maxCompetitors ?? 0;
+  const roleLimit = new Map(trackRoles(track).map(r => [r.name, r.max]));
+  const roleCounts = new Map();
+  let advisors = 0;
+  let students = 0;
+  return members.filter(m => {
+    if (m.type === 'advisor') {
+      if (advisors >= maxAdvisors) return false;
+      advisors += 1;
+      return true;
+    }
+    const cap = roleLimit.get(m.role) ?? 0;
+    const cur = roleCounts.get(m.role) || 0;
+    if (students >= maxCompetitors || cur >= cap) return false;
+    students += 1;
+    roleCounts.set(m.role, cur + 1);
+    return true;
+  });
 }
 
 // Keeps only known keys; never trusts status/hash/version/times from the client.
 export function sanitizeData(key, rawData, universityCode = null) {
   const data = isObj(rawData) ? rawData : {};
   const track = getTrack(key);
-  const maxMembers = track.maxCompetitors + (track.advisorCount || 1);
+  const maxMembers = track.maxCompetitors + (track.advisorCount ?? 1);
   const list = (v) => (Array.isArray(v) ? v : []);
   const lockedDept = universityCode ? (DEPT_BY_UNIVERSITY[universityCode] ?? '') : null;
   return {
     projectName: str(data.projectName, LIMITS.name),
     summary: str(data.summary, LIMITS.text),
     notes: str(data.notes, LIMITS.text),
-    members: capAdvisors(list(data.members).slice(0, maxMembers).map(m => sanitizeMember(m, lockedDept)).filter(Boolean), track.advisorCount || 1),
+    members: capMembers(list(data.members).slice(0, maxMembers).map(m => sanitizeMember(m, track, lockedDept)).filter(Boolean), track),
     files: list(data.files).map(sanitizeFile).filter(Boolean).slice(0, MAX_FILES),
     links: { video: str(data.links?.video, LIMITS.url) },
     video: track.id === 'clip' ? sanitizeVideo(data.video) : null,
@@ -108,8 +129,15 @@ export function sanitizeData(key, rawData, universityCode = null) {
 }
 
 export function rowToEntry(row) {
+  const parsed = JSON.parse(row.data);
+  const fallbackRole = defaultRole(getTrack(row.entry_key));
+  if (Array.isArray(parsed.members)) {
+    parsed.members = parsed.members.map(m => (
+      m?.type === 'student' && !m.role ? { ...m, role: fallbackRole } : m
+    ));
+  }
   return {
-    ...JSON.parse(row.data),
+    ...parsed,
     status: STATUS_NAMES[row.status],
     draftAt: iso(row.draft_at),
     submittedAt: iso(row.submitted_at),

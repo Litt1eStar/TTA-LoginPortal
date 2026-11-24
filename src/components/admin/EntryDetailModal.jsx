@@ -103,7 +103,7 @@ export const EntryDetailModal = ({ university, column, onClose, onUnlocked }) =>
                                 ? <img src={m.photo.dataUrl} alt={m.fullName} width="44" height="44" style={{ borderRadius: '10px', objectFit: 'cover' }} />
                                 : <span style={{ color: 'var(--text-light)' }}>–</span>}
                             </td>
-                            <td style={td}>{m.type === 'advisor' ? 'อาจารย์' : 'ผู้แข่งขัน'}{m.isLeader ? ' · หัวหน้าทีม' : ''}</td>
+                            <td style={td}>{m.type === 'advisor' ? 'อาจารย์' : (m.role || 'ผู้แข่งขัน')}{m.isLeader ? ' · หัวหน้าทีม' : ''}</td>
                             <td style={{ ...td, fontWeight: 700 }}>{m.title} {m.fullName}</td>
                             <td style={td}>{m.dept || '–'}</td>
                             <td style={td}>{m.type === 'student' ? `${m.studentId || '–'} / ปี ${m.year || '–'}` : '–'}</td>

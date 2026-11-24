@@ -28,34 +28,90 @@ export const CULTURE_CATEGORY = 'การแข่งขันศิลปว�
 //   full           official category name, used as the page heading
 //   category       parent group, e.g. การแข่งขันศิลปวัฒนธรรม (optional)
 //   desc           Thai description shown under an English name (optional)
-//   maxCompetitors max competitors per team (from the sheet)
-//   teacherStudent number of นักศึกษาครู slots (from the sheet, info only)
+//   maxCompetitors max competitors per team (from the sheet / meeting 2)
 //   advisorCount   max advisors (ผู้ควบคุมทีม / อาจารย์ที่ปรึกษา)
 //   needsWorkInfo  true → form also asks for project info, links and files
 //   subjectGroups  กลุ่มสาขาวิชา list (theory / practice only)
+//   roles          allowed competitor roles: [{ name, max, required? }]
+//   usesLeader     true → team designates one หัวหน้าทีม
 //   icon           Phosphor icon name — final icons will come from the team (FEEDBACK #6)
 //
 // Order follows the organisers' list.
 // TODO (FEEDBACK #8): advisorCount = 2 for singing is a placeholder until พี่เต๋อ's Excel confirms.
 export const TRACKS = [
-  { id: 'theory', th: 'สอนทฤษฎี', full: 'สอนทฤษฎี', en: 'Teaching Theory', icon: 'ChalkboardTeacher', deadline: FINAL_DEADLINE, maxCompetitors: 2, teacherStudent: 0, advisorCount: 1, needsWorkInfo: false, subjectGroups: SUBJECT_GROUPS },
-  { id: 'practice', th: 'สอนปฏิบัติ', full: 'สอนปฏิบัติ', en: 'Teaching Practice', icon: 'HandPointing', deadline: FINAL_DEADLINE, maxCompetitors: 2, teacherStudent: 0, advisorCount: 1, needsWorkInfo: false, subjectGroups: PRACTICE_SUBJECT_GROUPS },
-  { id: 'singing', th: 'ร้องเพลงลูกทุ่ง', full: 'ประกวดร้องเพลงลูกทุ่ง', category: CULTURE_CATEGORY, en: 'Luk Thung Singing', icon: 'MicrophoneStage', deadline: FINAL_DEADLINE, maxCompetitors: 1, teacherStudent: 0, advisorCount: 2, needsWorkInfo: false },
-  { id: 'dance', th: 'แดนเซอร์จินตลีลา', full: 'แดนเซอร์จินตลีลา', category: CULTURE_CATEGORY, en: 'Creative Movement Dance', icon: 'PersonSimpleRun', deadline: FINAL_DEADLINE, maxCompetitors: 13, teacherStudent: 0, advisorCount: 1, needsWorkInfo: false },
-  { id: 'clip', th: 'สื่อสร้างสรรค์', full: 'การแข่งขันประเภทสื่อสร้างสรรค์', category: CULTURE_CATEGORY, en: 'Creative Media', icon: 'VideoCamera', deadline: FINAL_DEADLINE, maxCompetitors: 4, teacherStudent: 1, advisorCount: 1, needsWorkInfo: true },
-  { id: 'hardware', th: 'Hardware', full: 'Hardware', desc: 'สื่อฯ นวัตกรรมฮาร์ดแวร์', en: 'Hardware Innovation', icon: 'Cpu', deadline: FINAL_DEADLINE, maxCompetitors: 3, teacherStudent: 0, advisorCount: 1, needsWorkInfo: false },
-  { id: 'software', th: 'Software', full: 'Software', desc: 'สื่อฯ นวัตกรรมซอฟต์แวร์', en: 'Software Innovation', icon: 'Code', deadline: FINAL_DEADLINE, maxCompetitors: 2, teacherStudent: 1, advisorCount: 1, needsWorkInfo: false },
-  { id: 'robot', th: 'Robot', full: 'Robot', desc: 'การแข่งขันหุ่นยนต์ (Robot Contest)', en: 'Robot Contest', icon: 'Robot', deadline: FINAL_DEADLINE, maxCompetitors: 2, teacherStudent: 1, advisorCount: 1, needsWorkInfo: false },
-  { id: 'research', th: 'วิจัยในชั้นเรียน', full: 'วิจัยในชั้นเรียน', desc: 'นวัตกรรมงานวิจัยในชั้นเรียน', en: 'Classroom Research', icon: 'Flask', deadline: FINAL_DEADLINE, maxCompetitors: 3, teacherStudent: 0, advisorCount: 1, needsWorkInfo: false },
-  { id: 'pitching', th: 'Pitching', full: 'Pitching', desc: 'การเป็นผู้ประกอบการ', en: 'Entrepreneur Pitching', icon: 'PresentationChart', deadline: FINAL_DEADLINE, maxCompetitors: 3, teacherStudent: 0, advisorCount: 1, needsWorkInfo: false },
+  {
+    id: 'theory', th: 'สอนทฤษฎี', full: 'สอนทฤษฎี', en: 'Teaching Theory', icon: 'ChalkboardTeacher',
+    deadline: FINAL_DEADLINE, maxCompetitors: 2, advisorCount: 1, needsWorkInfo: false, subjectGroups: SUBJECT_GROUPS,
+    roles: [{ name: 'ผู้สอนหลัก', max: 1, required: true }, { name: 'ผู้ช่วยสอน', max: 1, required: true }],
+    usesLeader: false
+  },
+  {
+    id: 'practice', th: 'สอนปฏิบัติ', full: 'สอนปฏิบัติ', en: 'Teaching Practice', icon: 'HandPointing',
+    deadline: FINAL_DEADLINE, maxCompetitors: 2, advisorCount: 1, needsWorkInfo: false, subjectGroups: PRACTICE_SUBJECT_GROUPS,
+    roles: [{ name: 'ผู้สอนหลัก', max: 1, required: true }, { name: 'ผู้ช่วยสอน', max: 1, required: true }],
+    usesLeader: false
+  },
+  {
+    id: 'singing', th: 'ร้องเพลงลูกทุ่ง', full: 'ประกวดร้องเพลงลูกทุ่ง', category: CULTURE_CATEGORY, en: 'Luk Thung Singing', icon: 'MicrophoneStage',
+    deadline: FINAL_DEADLINE, maxCompetitors: 1, advisorCount: 2, needsWorkInfo: false,
+    roles: [{ name: 'นักร้อง', max: 1 }],
+    usesLeader: false
+  },
+  {
+    id: 'dance', th: 'แดนเซอร์จินตลีลา', full: 'แดนเซอร์จินตลีลา', category: CULTURE_CATEGORY, en: 'Creative Movement Dance', icon: 'PersonSimpleRun',
+    deadline: FINAL_DEADLINE, maxCompetitors: 16, advisorCount: 1, needsWorkInfo: false,
+    roles: [{ name: 'นักแสดง', max: 10 }, { name: 'Backstage', max: 4 }, { name: 'ผู้ควบคุมไฟ', max: 1 }, { name: 'ผู้ควบคุมเสียง', max: 1 }],
+    usesLeader: false
+  },
+  {
+    id: 'clip', th: 'สื่อสร้างสรรค์', full: 'การแข่งขันประเภทสื่อสร้างสรรค์', en: 'Creative Media', icon: 'VideoCamera',
+    deadline: FINAL_DEADLINE, maxCompetitors: 4, advisorCount: 1, needsWorkInfo: true,
+    roles: [{ name: 'ผู้แข่งขัน', max: 4 }],
+    usesLeader: true
+  },
+  {
+    id: 'hardware', th: 'Hardware', full: 'Hardware', desc: 'สื่อฯ นวัตกรรมฮาร์ดแวร์', en: 'Hardware Innovation', icon: 'Cpu',
+    deadline: FINAL_DEADLINE, maxCompetitors: 3, advisorCount: 1, needsWorkInfo: false,
+    roles: [{ name: 'ผู้แข่งขัน', max: 3 }],
+    usesLeader: true
+  },
+  {
+    id: 'software', th: 'Software', full: 'Software', desc: 'สื่อฯ นวัตกรรมซอฟต์แวร์', en: 'Software Innovation', icon: 'Code',
+    deadline: FINAL_DEADLINE, maxCompetitors: 2, advisorCount: 1, needsWorkInfo: false,
+    roles: [{ name: 'ผู้แข่งขัน', max: 2 }],
+    usesLeader: true
+  },
+  {
+    id: 'robot', th: 'Robot', full: 'Robot', desc: 'การแข่งขันหุ่นยนต์ (Robot Contest)', en: 'Robot Contest', icon: 'Robot',
+    deadline: FINAL_DEADLINE, maxCompetitors: 2, advisorCount: 1, needsWorkInfo: false,
+    roles: [{ name: 'ผู้แข่งขัน', max: 2 }],
+    usesLeader: true
+  },
+  {
+    id: 'research', th: 'วิจัยในชั้นเรียน', full: 'วิจัยในชั้นเรียน', desc: 'นวัตกรรมงานวิจัยในชั้นเรียน', en: 'Classroom Research', icon: 'Flask',
+    deadline: FINAL_DEADLINE, maxCompetitors: 3, advisorCount: 1, needsWorkInfo: false,
+    roles: [{ name: 'ผู้แข่งขัน', max: 3 }],
+    usesLeader: true
+  },
+  {
+    id: 'pitching', th: 'Pitching', full: 'Pitching', desc: 'การเป็นผู้ประกอบการ', en: 'Entrepreneur Pitching', icon: 'PresentationChart',
+    deadline: FINAL_DEADLINE, maxCompetitors: 3, advisorCount: 1, needsWorkInfo: false,
+    roles: [{ name: 'ผู้แข่งขัน', max: 3 }],
+    usesLeader: true
+  }
 ];
+
+export const trackRoles = (track) => track?.roles || [{ name: 'ผู้แข่งขัน', max: track?.maxCompetitors || 1 }];
+export const defaultRole = (track) => trackRoles(track)[0].name;
+export const hasMultipleRoles = (track) => trackRoles(track).length > 1;
+export const usesLeader = (track) => !!track?.usesLeader;
 
 // Second line under a category name: its parent group or Thai description
 export const trackSubtitle = (track) => track?.category || track?.desc || '';
 
-// ---- Top-level types (8), as the organisers list them ----
+// ---- Top-level types (9), as the organisers list them ----
 // Tracks that share a `category` become one type with sub-types
-// (การแข่งขันศิลปวัฒนธรรม → ร้องเพลงลูกทุ่ง / แดนเซอร์จินตลีลา / สื่อสร้างสรรค์).
+// (การแข่งขันศิลปวัฒนธรรม → ร้องเพลงลูกทุ่ง / แดนเซอร์จินตลีลา).
 // Every other track is a type of its own.
 const CATEGORY_META = {
   [CULTURE_CATEGORY]: { id: 'culture', icon: 'MaskHappy' }

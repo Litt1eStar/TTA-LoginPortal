@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getTrack } from '../data/tracks';
+import { getTrack, defaultRole, usesLeader } from '../data/tracks';
 import { DEPT_BY_UNIVERSITY, departmentForUniversity } from '../data/referenceData';
 import { generateId } from '../utils/formatters';
 import { api, ApiError, onUnauthenticated, uploadFile } from '../api';
@@ -288,7 +288,11 @@ export const PortalProvider = ({ children }) => {
     return members.filter(m => !dropIds.has(m.id));
   };
 
-  const ensureStudentLeader = (members = []) => {
+  const ensureStudentLeader = (trackId, members = []) => {
+    const track = getTrack(trackId);
+    if (!usesLeader(track)) {
+      return members.map(m => m.type === 'student' ? { ...m, isLeader: false } : m);
+    }
     const students = members.filter(m => m.type === 'student');
     if (students.length > 0 && !students.some(m => m.isLeader)) {
       const firstId = students[0].id;
@@ -299,11 +303,13 @@ export const PortalProvider = ({ children }) => {
 
   const addOrUpdateMember = (trackId, memberData) => {
     const sub = submissions[trackId];
+    const track = getTrack(trackId);
     let members = [...sub.members];
     const isEdit = !!memberData.id;
     const lockedDept = DEPT_BY_UNIVERSITY[user?.universityCode] || departmentForUniversity(user?.university) || '';
+    const role = memberData.type === 'advisor' ? undefined : (memberData.role || defaultRole(track));
     // University and department always come from the logged-in account
-    memberData = { ...memberData, university: user?.university || '', dept: lockedDept };
+    memberData = { ...memberData, ...(role ? { role } : {}), university: user?.university || '', dept: lockedDept };
 
     if (isEdit) {
       members = members.map(m => m.id === memberData.id ? { ...m, ...memberData } : m);
@@ -315,16 +321,16 @@ export const PortalProvider = ({ children }) => {
       };
       members.push(newMember);
       // Over the track's advisor limit → replace the oldest advisor
-      members = capAdvisors(members, getTrack(trackId).advisorCount || 1);
+      members = capAdvisors(members, track.advisorCount ?? 1);
     }
 
-    // Ensure only one student leader if this member was marked leader
-    if (memberData.type === 'student' && memberData.isLeader) {
+    // Ensure only one student leader if this track uses a team leader
+    if (usesLeader(track) && memberData.type === 'student' && memberData.isLeader) {
       const targetId = memberData.id || members[members.length - 1].id;
       members = members.map(m => m.type === 'student' ? { ...m, isLeader: m.id === targetId } : m);
     }
 
-    members = ensureStudentLeader(members);
+    members = ensureStudentLeader(trackId, members);
     updateSubmission(trackId, { members });
     showToast(isEdit ? `แก้ไขข้อมูล ${memberData.fullName} สำเร็จ` : `เพิ่ม ${memberData.fullName} ในทีมแล้ว`);
   };
@@ -332,7 +338,7 @@ export const PortalProvider = ({ children }) => {
   const removeMember = (trackId, memberId) => {
     const prevMembers = submissions[trackId].members;
     const removed = prevMembers.find(m => m.id === memberId);
-    const updated = ensureStudentLeader(prevMembers.filter(m => m.id !== memberId));
+    const updated = ensureStudentLeader(trackId, prevMembers.filter(m => m.id !== memberId));
 
     updateSubmission(trackId, { members: updated });
     showToast(`ลบ ${removed ? removed.fullName : 'สมาชิก'} แล้ว`, () => {
@@ -341,6 +347,7 @@ export const PortalProvider = ({ children }) => {
   };
 
   const makeLeader = (trackId, studentId) => {
+    if (!usesLeader(getTrack(trackId))) return;
     const prev = submissions[trackId].members;
     const updated = prev.map(m => m.type === 'student' ? { ...m, isLeader: m.id === studentId } : m);
     updateSubmission(trackId, { members: updated });
