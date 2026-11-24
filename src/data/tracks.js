@@ -68,37 +68,37 @@ export const TRACKS = [
     id: 'clip', th: 'สื่อสร้างสรรค์', full: 'การแข่งขันประเภทสื่อสร้างสรรค์', en: 'Creative Media', icon: 'VideoCamera', image: '/assets/mascots/clip.webp',
     deadline: FINAL_DEADLINE, maxCompetitors: 4, advisorCount: 1, needsWorkInfo: true,
     roles: [{ name: 'ผู้แข่งขัน', max: 4 }],
-    usesLeader: true
+    usesLeader: false
   },
   {
     id: 'hardware', th: 'Hardware', full: 'Hardware', desc: 'สื่อฯ นวัตกรรมฮาร์ดแวร์', en: 'Hardware Innovation', icon: 'Cpu', image: '/assets/mascots/hardware.webp',
     deadline: FINAL_DEADLINE, maxCompetitors: 3, advisorCount: 1, needsWorkInfo: false,
     roles: [{ name: 'ผู้แข่งขัน', max: 3 }],
-    usesLeader: true
+    usesLeader: false
   },
   {
     id: 'software', th: 'Software', full: 'Software', desc: 'สื่อฯ นวัตกรรมซอฟต์แวร์', en: 'Software Innovation', icon: 'Code', image: '/assets/mascots/software.webp',
     deadline: FINAL_DEADLINE, maxCompetitors: 2, advisorCount: 1, needsWorkInfo: false,
     roles: [{ name: 'ผู้แข่งขัน', max: 2 }],
-    usesLeader: true
+    usesLeader: false
   },
   {
     id: 'robot', th: 'Robot', full: 'Robot', desc: 'การแข่งขันหุ่นยนต์ (Robot Contest)', en: 'Robot Contest', icon: 'Robot', image: '/assets/mascots/robot.webp',
     deadline: FINAL_DEADLINE, maxCompetitors: 2, advisorCount: 1, needsWorkInfo: false,
     roles: [{ name: 'ผู้แข่งขัน', max: 2 }],
-    usesLeader: true
+    usesLeader: false
   },
   {
     id: 'research', th: 'วิจัยในชั้นเรียน', full: 'วิจัยในชั้นเรียน', desc: 'นวัตกรรมงานวิจัยในชั้นเรียน', en: 'Classroom Research', icon: 'Flask', image: '/assets/mascots/research.webp',
     deadline: FINAL_DEADLINE, maxCompetitors: 3, advisorCount: 1, needsWorkInfo: false,
     roles: [{ name: 'ผู้แข่งขัน', max: 3 }],
-    usesLeader: true
+    usesLeader: false
   },
   {
     id: 'pitching', th: 'Pitching', full: 'Pitching', desc: 'การเป็นผู้ประกอบการ', en: 'Entrepreneur Pitching', icon: 'PresentationChart', image: '/assets/mascots/pitching.webp',
     deadline: FINAL_DEADLINE, maxCompetitors: 3, advisorCount: 1, needsWorkInfo: false,
     roles: [{ name: 'ผู้แข่งขัน', max: 3 }],
-    usesLeader: true
+    usesLeader: false
   },
   {
     id: 'participants', th: 'ผู้เข้าร่วม', full: 'ผู้เข้าร่วม', desc: 'ผู้เข้าร่วมงาน (ไม่เกิน 10 คน)', en: 'Participants', icon: 'UsersThree',

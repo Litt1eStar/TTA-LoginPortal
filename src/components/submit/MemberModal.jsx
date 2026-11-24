@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { usePortal } from '../../context/PortalContext';
 import { TITLE_PREFIXES, DEPT_BY_UNIVERSITY, departmentForUniversity, PHOTO_RULES } from '../../data/referenceData';
-import { getTrack, trackRoles, defaultRole, hasMultipleRoles, usesLeader } from '../../data/tracks';
+import { getTrack, trackRoles, defaultRole, hasMultipleRoles } from '../../data/tracks';
 import { processPhoto, dataUrlToFile } from '../../utils/photo';
 import { uploadFile } from '../../api';
 import { X, ChalkboardTeacher, Student, Plus, Buildings, WarningCircle, Camera, Trash } from '@phosphor-icons/react';
@@ -17,7 +17,6 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
   const track = getTrack(trackId);
   const roles = trackRoles(track);
   const multiRole = hasMultipleRoles(track);
-  const allowLeader = usesLeader(track);
   const roleCounts = sub.members
     .filter(m => m.type === 'student' && m.id !== initialMember?.id)
     .reduce((acc, m) => {
@@ -35,7 +34,6 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
   const [phone, setPhone] = useState('');
   const [year, setYear] = useState('3');
   const [role, setRole] = useState('');
-  const [isLeader, setIsLeader] = useState(false);
   const [photo, setPhoto] = useState(null);
   const [errors, setErrors] = useState({});
   const [photoBusy, setPhotoBusy] = useState(false);
@@ -46,9 +44,9 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
   const snapshot = useRef('');
   const formState = (o) => JSON.stringify([
     o.type, o.title, o.fullName, o.studentId, o.email, o.phone, o.year,
-    o.type === 'advisor' ? '' : o.role, o.isLeader, o.photo?.fileId || o.photo?.dataUrl || null
+    o.type === 'advisor' ? '' : o.role, o.photo?.fileId || o.photo?.dataUrl || null
   ]);
-  const current = { type, title, fullName, studentId, email, phone, year, role, isLeader, photo };
+  const current = { type, title, fullName, studentId, email, phone, year, role, photo };
 
   useEffect(() => {
     if (initialMember) {
@@ -61,13 +59,12 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
       setPhone(initialMember.phone || '');
       setYear(initialMember.year || '3');
       setRole(initRole);
-      setIsLeader(!!initialMember.isLeader);
       setPhoto(initialMember.photo || null);
       snapshot.current = formState({
         type: initialMember.type || 'student', title: initialMember.title || '', fullName: initialMember.fullName || '',
         studentId: initialMember.studentId || '', email: initialMember.email || '', phone: initialMember.phone || '',
         year: initialMember.year || '3', role: initRole,
-        isLeader: !!initialMember.isLeader, photo: initialMember.photo || null
+        photo: initialMember.photo || null
       });
     } else {
       const initRole = firstOpenRole(roleCounts);
@@ -79,11 +76,10 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
       setPhone('');
       setYear('3');
       setRole(initRole);
-      setIsLeader(false);
       setPhoto(null);
       snapshot.current = formState({
         type: initialType, title: initialType === 'advisor' ? 'ดร.' : 'นาย', fullName: '', studentId: '',
-        email: '', phone: '', year: '3', role: initRole, isLeader: false, photo: null
+        email: '', phone: '', year: '3', role: initRole, photo: null
       });
     }
     setErrors({});
@@ -150,21 +146,20 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
       phone: isParticipants ? '' : phone.trim(),
       dept: isParticipants ? '' : lockedDept,
       year: isAdvisor || isParticipants ? '' : year,
-      role: isAdvisor ? undefined : (isParticipants ? defaultRole(track) : role),
-      isLeader: isAdvisor || isParticipants || !allowLeader ? false : isLeader,
+      role: isAdvisor ? undefined : (multiRole ? role : defaultRole(track)),
+      isLeader: false,
       photo
     });
 
     if (addAnother && !isAdvisor) {
       const nextCounts = { ...roleCounts, [role]: (roleCounts[role] || 0) + 1 };
       const nextRole = firstOpenRole(nextCounts);
-      snapshot.current = formState({ ...current, fullName: '', studentId: '', email: '', phone: '', role: nextRole, isLeader: false, photo: null });
+      snapshot.current = formState({ ...current, fullName: '', studentId: '', email: '', phone: '', role: nextRole, photo: null });
       setFullName('');
       setStudentId('');
       setEmail('');
       setPhone('');
       setRole(nextRole);
-      setIsLeader(false);
       setPhoto(null);
       setErrors({});
     } else {
@@ -343,30 +338,39 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
             </div>
           </div>
 
-          {/* Role selector when track has multiple roles */}
-          {!isAdvisor && multiRole && (
-            <div>
-              <label className="field-label" htmlFor="m-role">
-                บทบาท <span className="required">*</span>
-              </label>
-              <select
-                id="m-role"
-                className={`select ${errors.role ? 'has-error' : ''}`}
-                value={role}
-                onChange={(e) => { setRole(e.target.value); clearError('role'); }}
-              >
-                {roles.map(r => {
-                  const count = roleCounts[r.name] || 0;
-                  const full = count >= r.max;
-                  return (
-                    <option key={r.name} value={r.name} disabled={full}>
-                      {r.name} ({count}/{r.max} คน){full ? ' — เต็มแล้ว' : ''}
-                    </option>
-                  );
-                })}
-              </select>
-              <FieldError msg={errors.role} />
-            </div>
+          {/* Role: dropdown when >= 2 roles, read-only auto-filled field otherwise */}
+          {!isAdvisor && (
+            multiRole ? (
+              <div>
+                <label className="field-label" htmlFor="m-role">
+                  บทบาท <span className="required">*</span>
+                </label>
+                <select
+                  id="m-role"
+                  className={`select ${errors.role ? 'has-error' : ''}`}
+                  value={role}
+                  onChange={(e) => { setRole(e.target.value); clearError('role'); }}
+                >
+                  {roles.map(r => {
+                    const count = roleCounts[r.name] || 0;
+                    const full = count >= r.max;
+                    return (
+                      <option key={r.name} value={r.name} disabled={full}>
+                        {r.name} ({count}/{r.max} คน){full ? ' — เต็มแล้ว' : ''}
+                      </option>
+                    );
+                  })}
+                </select>
+                <FieldError msg={errors.role} />
+              </div>
+            ) : (
+              <div>
+                <label className="field-label">บทบาท</label>
+                <div className="readonly-field" title="กำหนดตามประเภทการแข่งขัน แก้ไขไม่ได้">
+                  <span>{role || defaultRole(track)}</span>
+                </div>
+              </div>
+            )
           )}
 
           {/* University (read-only from account) */}
@@ -441,27 +445,6 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
             </div>
           )}
 
-          {!isAdvisor && !isParticipants && allowLeader && (
-            <label style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              padding: '12px 14px',
-              borderRadius: '12px',
-              background: 'var(--bg-main)',
-              cursor: 'pointer',
-              userSelect: 'none',
-              fontSize: '15px'
-            }}>
-              <input
-                type="checkbox"
-                checked={isLeader}
-                onChange={(e) => setIsLeader(e.target.checked)}
-                style={{ width: '20px', height: '20px', accentColor: 'var(--primary)' }}
-              />
-              <span>ให้คนนี้เป็น <strong>หัวหน้าทีม</strong></span>
-            </label>
-          )}
         </div>
 
         {/* Footer */}

@@ -3,13 +3,13 @@ import { usePortal } from '../../context/PortalContext';
 import { SectionNum } from './SectionNum';
 import { MemberModal } from './MemberModal';
 import { initials } from '../../utils/formatters';
-import { getTrack, trackRoles, defaultRole, hasMultipleRoles, usesLeader } from '../../data/tracks';
-import { Plus, PencilSimple, Trash, Crown, WarningCircle } from '@phosphor-icons/react';
+import { getTrack, trackRoles, defaultRole, hasMultipleRoles } from '../../data/tracks';
+import { Plus, PencilSimple, Trash, WarningCircle } from '@phosphor-icons/react';
 
 const fullTitleName = (m) => [m.title, m.fullName].filter(Boolean).join(' ');
 
 export const TeamMembersSection = ({ trackId, isLocked, error, number, done }) => {
-  const { submissions, removeMember, makeLeader } = usePortal();
+  const { submissions, removeMember } = usePortal();
   const sub = submissions[trackId] || { members: [] };
 
   const [memberModalOpen, setMemberModalOpen] = useState(false);
@@ -28,8 +28,7 @@ export const TeamMembersSection = ({ trackId, isLocked, error, number, done }) =
   const advisorLimit = track.advisorCount ?? 1;
   const maxCompetitors = track.maxCompetitors;
   const isParticipants = !!track.participantsOnly;
-  const allowLeader = usesLeader(track);
-  const showRoleBadge = hasMultipleRoles(track) || !allowLeader;
+  const showRoleBadge = !isParticipants;
   const roles = trackRoles(track);
   const personLabel = isParticipants ? 'ผู้เข้าร่วม' : 'ผู้แข่งขัน';
   const advisors = sub.members.filter(m => m.type === 'advisor');
@@ -178,8 +177,8 @@ export const TeamMembersSection = ({ trackId, isLocked, error, number, done }) =
               <div key={st.id} className="row-item">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
                   {avatar(st, {
-                    background: st.isLeader ? 'var(--primary-subtle)' : 'var(--blue-bg)',
-                    color: st.isLeader ? 'var(--primary)' : 'var(--blue-text)'
+                    background: 'var(--blue-bg)',
+                    color: 'var(--blue-text)'
                   })}
                   <div style={{ minWidth: 0 }}>
                     <div className="row-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
@@ -187,22 +186,11 @@ export const TeamMembersSection = ({ trackId, isLocked, error, number, done }) =
                       {showRoleBadge && (
                         <span className="badge badge-blue">{st.role || defaultRole(track)}</span>
                       )}
-                      {allowLeader && st.isLeader && (
-                        <span className="badge badge-orange">
-                          <Crown size={13} weight="fill" />
-                          หัวหน้าทีม
-                        </span>
-                      )}
                     </div>
                     <div className="row-meta">{metaLine(st)}</div>
                   </div>
                 </div>
-                {rowActions(st, allowLeader && !st.isLeader && students.length > 1 && (
-                  <button type="button" className="btn btn-sm btn-ghost" onClick={() => makeLeader(trackId, st.id)}>
-                    <Crown size={15} weight="bold" />
-                    <span>ตั้งเป็นหัวหน้า</span>
-                  </button>
-                ))}
+                {rowActions(st)}
               </div>
             ))}
           </div>

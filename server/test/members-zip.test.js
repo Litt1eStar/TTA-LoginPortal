@@ -77,7 +77,7 @@ describe('admin members.zip', () => {
       ]
     }, 1);
     saveDraft(db, 1, 'clip', {
-      members: [base({ id: 'c1', type: 'student', role: 'ผู้แข่งขัน', isLeader: true, fullName: 'ค', studentId: '201', photo: photo(pClip) })]
+      members: [base({ id: 'c1', type: 'student', role: 'ผู้แข่งขัน', fullName: 'ค', studentId: '201', photo: photo(pClip) })]
     }, 1);
     saveDraft(db, 1, 'participants', {
       members: [base({ id: 'p1', type: 'student', fullName: 'ง', photo: photo(pPart) })]
@@ -93,7 +93,7 @@ describe('admin members.zip', () => {
 
     const clipDir = `${root}/${nn('clip')} สื่อสร้างสรรค์`;
     const clipCsv = files.get(`${clipDir}/รายชื่อสมาชิก.csv`).toString('utf8');
-    expect(clipCsv).toContain(',การแข่งขันประเภทสื่อสร้างสรรค์,,ฉบับร่าง,ผู้แข่งขัน,ใช่,');
+    expect(clipCsv).toContain(',การแข่งขันประเภทสื่อสร้างสรรค์,,ฉบับร่าง,ผู้แข่งขัน,,');
 
     const partDir = `${root}/${nn('participants')} ผู้เข้าร่วม`;
     expect(files.has(`${partDir}/ProfileImage_Kmutt_Student01.jpg`)).toBe(true);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { defaultRole, usesLeader } from '../../data/tracks';
+import { defaultRole } from '../../data/tracks';
 import { WarningCircle, X, Check, LockSimple } from '@phosphor-icons/react';
 
 const SummaryItem = ({ label, children, wide }) => (
@@ -121,23 +121,23 @@ export const ConfirmSubmitModal = ({ isOpen, onClose, onConfirm, track, submissi
                 {students.map(m => (
                   <li key={m.id}>
                     {nameOf(m)}
-                    {usesLeader(track) ? (m.isLeader ? ' (หัวหน้าทีม)' : '') : (!isParticipants ? ` (${m.role || defaultRole(track)})` : '')}
+                    {!isParticipants ? ` (${m.role || defaultRole(track)})` : ''}
                   </li>
                 ))}
               </ul>
             </SummaryItem>
             {showWorkInfo
               ? <SummaryItem label="ไฟล์และลิงก์" wide>
-                  <ul style={{ ...listStyle, wordBreak: 'break-word' }}>
-                    {doneFiles.map(f => <li key={f.id || f.name}>{f.name}</li>)}
-                    {submission.video && <li>วิดีโอ: {submission.video.name || 'อัปโหลดแล้ว'}</li>}
-                    {submission.links?.video && <li>ลิงก์: {submission.links.video}</li>}
-                    {!doneFiles.length && !submission.video && !submission.links?.video && <li>-</li>}
-                  </ul>
-                </SummaryItem>
+                <ul style={{ ...listStyle, wordBreak: 'break-word' }}>
+                  {doneFiles.map(f => <li key={f.id || f.name}>{f.name}</li>)}
+                  {submission.video && <li>วิดีโอ: {submission.video.name || 'อัปโหลดแล้ว'}</li>}
+                  {submission.links?.video && <li>ลิงก์: {submission.links.video}</li>}
+                  {!doneFiles.length && !submission.video && !submission.links?.video && <li>-</li>}
+                </ul>
+              </SummaryItem>
               : <SummaryItem label="รูปถ่าย">
-                  {(submission.members || []).filter(m => m.photo?.dataUrl).length}/{(submission.members || []).length} คน
-                </SummaryItem>}
+                {(submission.members || []).filter(m => m.photo?.dataUrl).length}/{(submission.members || []).length} คน
+              </SummaryItem>}
             {submission.subjectGroup && (
               <SummaryItem label="กลุ่มสาขา" wide>{submission.subjectGroup}</SummaryItem>
             )}

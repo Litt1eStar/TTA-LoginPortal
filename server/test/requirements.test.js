@@ -54,9 +54,8 @@ describe('per-track role validation', () => {
     expect(team('dance', [adv, stu('x', 'ตัวปลอม')]).ok).toBe(false);
   });
 
-  it('hardware still requires a team leader', () => {
-    expect(team('hardware', [adv, stu('s1', 'ผู้แข่งขัน')]).ok).toBe(false);
-    expect(team('hardware', [adv, stu('s1', 'ผู้แข่งขัน', { isLeader: true })]).ok).toBe(true);
+  it('single-role tracks use ผู้แข่งขัน without requiring a team leader', () => {
+    expect(team('hardware', [adv, stu('s1', 'ผู้แข่งขัน')]).ok).toBe(true);
   });
 
   it('participants requires 1-10 members with photos and no advisors or dept', () => {
