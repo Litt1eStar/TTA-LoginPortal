@@ -6,6 +6,7 @@ import {
 } from '@phosphor-icons/react';
 import { api } from '../../api';
 import { usePortal } from '../../context/PortalContext';
+import { useSwapTransition } from '../../hooks/useSwapTransition';
 import { TRACKS, groupShortName } from '../../data/tracks';
 import { getOverviewItems } from '../../utils/entries';
 import { StatusChip, StatusCell } from './StatusChip';
@@ -56,6 +57,11 @@ export const AdminView = () => {
   const [error, setError] = useState('');
   const [selected, setSelected] = useState(null); // { university, column }
   const [viewMode, setViewMode] = useState('matrix'); // 'matrix' | 'directory'
+  const viewSwap = useSwapTransition(viewMode, {
+    keyOf: (m) => m,
+    orderOf: (m) => (m === 'directory' ? 1 : 0),
+    outMs: 105
+  });
   const [zipKey, setZipKey] = useState(TRACKS[0].id);
   const [statusFilter, setStatusFilter] = useState('all');
   const [incompleteOnly, setIncompleteOnly] = useState(false);
@@ -417,8 +423,14 @@ export const AdminView = () => {
         {error && <p role="alert" style={{ padding: '16px 20px', color: 'var(--danger)' }}>{error}</p>}
         {!overview && !error && <p style={{ padding: '16px 20px', color: 'var(--text-muted)' }}>กำลังโหลด…</p>}
 
+        {overview && (
+          <div
+            key={viewSwap.displayedKey}
+            className={viewSwap.className}
+            style={{ ...viewSwap.style, '--swap-in-ms': '220ms' }}
+          >
         {/* Matrix view */}
-        {overview && viewMode === 'matrix' && (
+        {viewSwap.displayed === 'matrix' && (
           <>
             <div style={{ padding: '12px 20px', display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', borderBottom: '1px solid #ECECF1' }}>
               <span style={{ fontWeight: 600, fontSize: '14px' }}>แสดง:</span>
@@ -493,7 +505,7 @@ export const AdminView = () => {
         )}
 
         {/* Searchable Member Directory view */}
-        {overview && viewMode === 'directory' && (
+        {viewSwap.displayed === 'directory' && (
           <>
             <div style={{ padding: '14px 20px', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', borderBottom: '1px solid #ECECF1', background: '#FAFAFC' }}>
               <div style={{ position: 'relative', flex: '1 1 240px', minWidth: '220px' }}>
@@ -596,6 +608,8 @@ export const AdminView = () => {
               </table>
             </div>
           </>
+        )}
+          </div>
         )}
       </section>
 
