@@ -99,19 +99,31 @@ export const TrackCard = ({ type, index = 0 }) => {
       aria-label={`${multi ? type.label : track.full}: ${s.label}`}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
-        <div style={{
-          width: '52px',
-          height: '52px',
-          borderRadius: '16px',
-          background: s.tileBg,
-          color: s.tileFg,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0
-        }}>
-          <Icon size={28} weight="duotone" />
-        </div>
+        {type.image ? (
+          <img
+            src={type.image}
+            alt=""
+            width="52"
+            height="52"
+            loading="lazy"
+            decoding="async"
+            style={{ width: '52px', height: '52px', objectFit: 'contain', flexShrink: 0 }}
+          />
+        ) : (
+          <div style={{
+            width: '52px',
+            height: '52px',
+            borderRadius: '16px',
+            background: s.tileBg,
+            color: s.tileFg,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
+          }}>
+            <Icon size={28} weight="duotone" />
+          </div>
+        )}
         <span className={`badge ${s.badge}`}>
           {status === 'submitted' && <LockSimple size={13} weight="bold" />}
           {s.label}

@@ -141,18 +141,30 @@ export const SubmitView = () => {
         marginBottom: '24px',
         padding: '28px 32px'
       }}>
-        <div>
-          <div style={{ fontSize: 'var(--fs-sm)', fontWeight: 600, color: 'var(--primary)' }}>
-            {activeTrack.category || (activeTrack.participantsOnly ? 'ผู้เข้าร่วมงาน' : 'ประเภทการแข่งขัน')}
-          </div>
-          <h1 style={{ fontSize: 'clamp(26px, 3.4vw, 38px)', fontWeight: 700, marginTop: '2px' }}>
-            {activeTrack.full}
-          </h1>
-          {(groupName || activeTrack.desc) && (
-            <div style={{ fontSize: 'var(--fs-md)', color: 'var(--text-muted)', marginTop: '4px' }}>
-              {groupName || activeTrack.desc}
-            </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          {activeTrack.image && (
+            <img
+              src={activeTrack.image}
+              alt=""
+              width="64"
+              height="64"
+              decoding="async"
+              style={{ width: '64px', height: '64px', objectFit: 'contain', flexShrink: 0 }}
+            />
           )}
+          <div>
+            <div style={{ fontSize: 'var(--fs-sm)', fontWeight: 600, color: 'var(--primary)' }}>
+              {activeTrack.category || (activeTrack.participantsOnly ? 'ผู้เข้าร่วมงาน' : 'ประเภทการแข่งขัน')}
+            </div>
+            <h1 style={{ fontSize: 'clamp(26px, 3.4vw, 38px)', fontWeight: 700, marginTop: '2px' }}>
+              {activeTrack.full}
+            </h1>
+            {(groupName || activeTrack.desc) && (
+              <div style={{ fontSize: 'var(--fs-md)', color: 'var(--text-muted)', marginTop: '4px' }}>
+                {groupName || activeTrack.desc}
+              </div>
+            )}
+          </div>
         </div>
 
         {entryId && (

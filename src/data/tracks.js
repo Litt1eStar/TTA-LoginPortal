@@ -34,19 +34,20 @@ export const CULTURE_CATEGORY = 'การแข่งขันศิลปว�
 //   subjectGroups  กลุ่มสาขาวิชา list (theory / practice only)
 //   roles          allowed competitor roles: [{ name, max, required? }]
 //   usesLeader     true → team designates one หัวหน้าทีม
-//   icon           Phosphor icon name — final icons will come from the team (FEEDBACK #6)
+//   image          optional path to mascot image (falls back to Phosphor `icon`)
+//   icon           Phosphor icon name — fallback when `image` is not set
 //
 // Order follows the organisers' list.
 // TODO (FEEDBACK #8): advisorCount = 2 for singing is a placeholder until พี่เต๋อ's Excel confirms.
 export const TRACKS = [
   {
-    id: 'theory', th: 'สอนทฤษฎี', full: 'สอนทฤษฎี', en: 'Teaching Theory', icon: 'ChalkboardTeacher',
+    id: 'theory', th: 'สอนทฤษฎี', full: 'สอนทฤษฎี', en: 'Teaching Theory', icon: 'ChalkboardTeacher', image: '/assets/mascots/theory.webp',
     deadline: FINAL_DEADLINE, maxCompetitors: 2, advisorCount: 1, needsWorkInfo: false, subjectGroups: SUBJECT_GROUPS,
     roles: [{ name: 'ผู้สอนหลัก', max: 1, required: true }, { name: 'ผู้ช่วยสอน', max: 1, required: true }],
     usesLeader: false
   },
   {
-    id: 'practice', th: 'สอนปฏิบัติ', full: 'สอนปฏิบัติ', en: 'Teaching Practice', icon: 'HandPointing',
+    id: 'practice', th: 'สอนปฏิบัติ', full: 'สอนปฏิบัติ', en: 'Teaching Practice', icon: 'HandPointing', image: '/assets/mascots/practice.webp',
     deadline: FINAL_DEADLINE, maxCompetitors: 2, advisorCount: 1, needsWorkInfo: false, subjectGroups: PRACTICE_SUBJECT_GROUPS,
     roles: [{ name: 'ผู้สอนหลัก', max: 1, required: true }, { name: 'ผู้ช่วยสอน', max: 1, required: true }],
     usesLeader: false
@@ -64,37 +65,37 @@ export const TRACKS = [
     usesLeader: false
   },
   {
-    id: 'clip', th: 'สื่อสร้างสรรค์', full: 'การแข่งขันประเภทสื่อสร้างสรรค์', en: 'Creative Media', icon: 'VideoCamera',
+    id: 'clip', th: 'สื่อสร้างสรรค์', full: 'การแข่งขันประเภทสื่อสร้างสรรค์', en: 'Creative Media', icon: 'VideoCamera', image: '/assets/mascots/clip.webp',
     deadline: FINAL_DEADLINE, maxCompetitors: 4, advisorCount: 1, needsWorkInfo: true,
     roles: [{ name: 'ผู้แข่งขัน', max: 4 }],
     usesLeader: true
   },
   {
-    id: 'hardware', th: 'Hardware', full: 'Hardware', desc: 'สื่อฯ นวัตกรรมฮาร์ดแวร์', en: 'Hardware Innovation', icon: 'Cpu',
+    id: 'hardware', th: 'Hardware', full: 'Hardware', desc: 'สื่อฯ นวัตกรรมฮาร์ดแวร์', en: 'Hardware Innovation', icon: 'Cpu', image: '/assets/mascots/hardware.webp',
     deadline: FINAL_DEADLINE, maxCompetitors: 3, advisorCount: 1, needsWorkInfo: false,
     roles: [{ name: 'ผู้แข่งขัน', max: 3 }],
     usesLeader: true
   },
   {
-    id: 'software', th: 'Software', full: 'Software', desc: 'สื่อฯ นวัตกรรมซอฟต์แวร์', en: 'Software Innovation', icon: 'Code',
+    id: 'software', th: 'Software', full: 'Software', desc: 'สื่อฯ นวัตกรรมซอฟต์แวร์', en: 'Software Innovation', icon: 'Code', image: '/assets/mascots/software.webp',
     deadline: FINAL_DEADLINE, maxCompetitors: 2, advisorCount: 1, needsWorkInfo: false,
     roles: [{ name: 'ผู้แข่งขัน', max: 2 }],
     usesLeader: true
   },
   {
-    id: 'robot', th: 'Robot', full: 'Robot', desc: 'การแข่งขันหุ่นยนต์ (Robot Contest)', en: 'Robot Contest', icon: 'Robot',
+    id: 'robot', th: 'Robot', full: 'Robot', desc: 'การแข่งขันหุ่นยนต์ (Robot Contest)', en: 'Robot Contest', icon: 'Robot', image: '/assets/mascots/robot.webp',
     deadline: FINAL_DEADLINE, maxCompetitors: 2, advisorCount: 1, needsWorkInfo: false,
     roles: [{ name: 'ผู้แข่งขัน', max: 2 }],
     usesLeader: true
   },
   {
-    id: 'research', th: 'วิจัยในชั้นเรียน', full: 'วิจัยในชั้นเรียน', desc: 'นวัตกรรมงานวิจัยในชั้นเรียน', en: 'Classroom Research', icon: 'Flask',
+    id: 'research', th: 'วิจัยในชั้นเรียน', full: 'วิจัยในชั้นเรียน', desc: 'นวัตกรรมงานวิจัยในชั้นเรียน', en: 'Classroom Research', icon: 'Flask', image: '/assets/mascots/research.webp',
     deadline: FINAL_DEADLINE, maxCompetitors: 3, advisorCount: 1, needsWorkInfo: false,
     roles: [{ name: 'ผู้แข่งขัน', max: 3 }],
     usesLeader: true
   },
   {
-    id: 'pitching', th: 'Pitching', full: 'Pitching', desc: 'การเป็นผู้ประกอบการ', en: 'Entrepreneur Pitching', icon: 'PresentationChart',
+    id: 'pitching', th: 'Pitching', full: 'Pitching', desc: 'การเป็นผู้ประกอบการ', en: 'Entrepreneur Pitching', icon: 'PresentationChart', image: '/assets/mascots/pitching.webp',
     deadline: FINAL_DEADLINE, maxCompetitors: 3, advisorCount: 1, needsWorkInfo: false,
     roles: [{ name: 'ผู้แข่งขัน', max: 3 }],
     usesLeader: true
@@ -129,7 +130,7 @@ export const TYPES = (() => {
   const byCategory = {};
   TRACKS.forEach(t => {
     if (!t.category) {
-      out.push({ id: t.id, label: t.th, icon: t.icon, tracks: [t] });
+      out.push({ id: t.id, label: t.th, icon: t.icon, image: t.image || null, tracks: [t] });
       return;
     }
     if (!byCategory[t.category]) {
