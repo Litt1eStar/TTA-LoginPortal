@@ -115,9 +115,14 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
   const isEditing = !!initialMember;
   const isParticipants = !!track.participantsOnly;
   const isAdvisor = !isParticipants && type === 'advisor';
+  const advisorLimit = track.advisorCount ?? 1;
+  const advisorFull = !isEditing && !isParticipants &&
+    sub.members.filter(m => m.type === 'advisor').length >= advisorLimit;
+  const advisorFullMsg = `มีอาจารย์ที่ปรึกษาครบ ${advisorLimit} ท่านแล้ว กรุณาลบท่านเดิมก่อนเพิ่มใหม่`;
 
   const validate = () => {
     const errs = {};
+    if (isAdvisor && advisorFull) errs.type = advisorFullMsg;
     if (!fullName.trim()) errs.fullName = 'กรุณากรอกชื่อ-นามสกุล';
     if (!isAdvisor && !isParticipants) {
       const roleDef = roles.find(r => r.name === role);
@@ -143,7 +148,7 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
     if (photoBusy) return;
     if (!validate()) return;
 
-    addOrUpdateMember(trackId, {
+    const saved = addOrUpdateMember(trackId, {
       id: initialMember?.id,
       type: isParticipants ? 'student' : type,
       title,
@@ -157,6 +162,7 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
       isLeader: false,
       photo
     });
+    if (saved === false) return;
 
     if (addAnother && !isAdvisor) {
       const nextCounts = { ...roleCounts, [role]: (roleCounts[role] || 0) + 1 };
@@ -187,7 +193,10 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
     setPhotoBusy(true);
     setErrors(prev => ({ ...prev, photo: '' }));
     try {
-      const upload = dataUrlToFile(res.photo.dataUrl, `photo.${res.photo.ext}`);
+      const rawBase = `${title.trim()}${fullName.trim()}`.trim()
+        || String(file.name || '').replace(/\.[^.]+$/, '').trim()
+        || 'photo';
+      const upload = dataUrlToFile(res.photo.dataUrl, `${rawBase}.${res.photo.ext}`);
       const { file: ref } = await uploadFile(`/submissions/${trackId}/files?kind=photo`, upload);
       setPhoto(ref);
     } catch (err) {
@@ -197,11 +206,16 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
     }
   };
 
-  const typeTab = (value, Icon, label) => (
+  const typeTab = (value, Icon, label, disabled = false) => (
     <button
       type="button"
-      onClick={() => setType(value)}
+      onClick={() => { if (!disabled) { setType(value); clearError('type'); } }}
+      disabled={disabled}
+      aria-disabled={disabled}
+      title={disabled ? advisorFullMsg : undefined}
       style={{
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.5 : 1,
         padding: '10px',
         borderRadius: '10px',
         fontWeight: 700,
@@ -259,8 +273,13 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
               gap: '4px'
             }}>
               {typeTab('student', Student, 'ผู้แข่งขัน')}
-              {typeTab('advisor', ChalkboardTeacher, 'อาจารย์ที่ปรึกษา')}
+              {typeTab('advisor', ChalkboardTeacher, 'อาจารย์ที่ปรึกษา', advisorFull && !isAdvisor)}
             </div>
+          )}
+          {!isEditing && !isParticipants && advisorFull && (
+            <p role={isAdvisor ? 'alert' : undefined} style={{ margin: 0, fontSize: 'var(--fs-sm)', color: isAdvisor ? 'var(--danger)' : 'var(--text-muted)' }}>
+              {advisorFullMsg}
+            </p>
           )}
 
           {/* Personal photo: each person uploads their own */}

@@ -291,14 +291,6 @@ export const PortalProvider = ({ children }) => {
     patchEntry(trackId, sub => ({ ...sub, links: { ...sub.links, [linkField]: value } }));
   };
 
-  // Keep at most `limit` advisors, dropping the oldest ones first
-  const capAdvisors = (members, limit) => {
-    const advisors = members.filter(m => m.type === 'advisor');
-    if (advisors.length <= limit) return members;
-    const dropIds = new Set(advisors.slice(0, advisors.length - limit).map(m => m.id));
-    return members.filter(m => !dropIds.has(m.id));
-  };
-
   const ensureStudentLeader = (trackId, members = []) => {
     const track = getTrack(trackId);
     if (!usesLeader(track)) {
@@ -339,14 +331,18 @@ export const PortalProvider = ({ children }) => {
     if (isEdit) {
       members = members.map(m => m.id === memberData.id ? { ...m, ...memberData } : m);
     } else {
+      // Advisor slots full → refuse; the user must delete an existing advisor first
+      const advisorLimit = track.advisorCount ?? 1;
+      if (memberData.type === 'advisor' && members.filter(m => m.type === 'advisor').length >= advisorLimit) {
+        showToast(`มีอาจารย์ที่ปรึกษาครบ ${advisorLimit} ท่านแล้ว กรุณาลบท่านเดิมก่อนเพิ่มใหม่`);
+        return false;
+      }
       const newMember = {
         ...memberData,
         id: generateId('m'),
         source: 'manual'
       };
       members.push(newMember);
-      // Over the track's advisor limit → replace the oldest advisor
-      members = capAdvisors(members, track.advisorCount ?? 1);
     }
 
     // Ensure only one student leader if this track uses a team leader
@@ -358,6 +354,7 @@ export const PortalProvider = ({ children }) => {
     members = ensureStudentLeader(trackId, members);
     updateSubmission(trackId, { members });
     showToast(isEdit ? `แก้ไขข้อมูล ${memberData.fullName} สำเร็จ` : `เพิ่ม ${memberData.fullName} ในทีมแล้ว`);
+    return true;
   };
 
   const removeMember = (trackId, memberId) => {
