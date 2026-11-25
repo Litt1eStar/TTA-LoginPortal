@@ -14,7 +14,7 @@ function Check-Robocopy { if ($LASTEXITCODE -ge 8) { throw "robocopy failed ($LA
 # 0. What ships is HEAD, never uncommitted edits
 $sha = (git -C $repo rev-parse --short HEAD).Trim()
 if ($LASTEXITCODE) { throw 'git rev-parse failed' }
-$tag = (git -C $repo describe --tags --exact-match HEAD 2>$null)
+$tag = (git -C $repo tag --points-at HEAD) -join ','   # describe+2>$null throws under Stop in PS 5.1
 if (git -C $repo status --porcelain --untracked-files=no) {
   Write-Warning 'Uncommitted changes are NOT in this release. Commit them first if they should ship.'
 }
