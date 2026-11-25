@@ -4,8 +4,28 @@ services:
   tta-portal:
     image: ghcr.io/litt1estar/tta-portal:latest
     restart: unless-stopped
+    # /opt/tta-portal/.env on the droplet: SESSION_SECRET, TRUST_PROXY=1, COOKIE_SECURE=true, APP_ORIGIN, Google keys
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: "3001"
+      SERVE_STATIC: "true"
+      STATIC_DIR: /app/dist
+      DB_PATH: data/portal.db
+      UPLOAD_DIR: data/uploads
+      BACKUP_DIR: backups
+    volumes:
+      # Named volumes so the database, uploads and backups survive every redeploy
+      - tta-data:/app/server/data
+      - tta-backups:/app/server/backups
     expose:
-      - "80"
+      - "3001"
+
+volumes:
+  tta-data: {}
+  tta-backups: {}
 
 networks:
   default:

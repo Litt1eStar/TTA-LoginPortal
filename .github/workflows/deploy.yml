@@ -29,6 +29,8 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
+          # The API image: builds the frontend and serves it together with /api
+          file: server/Dockerfile
           push: true
           tags: |
             ghcr.io/litt1estar/tta-portal:latest
@@ -59,4 +61,4 @@ jobs:
       - name: Smoke check
         run: |
           # Retries cover a first boot, while Caddy is still getting the certificate.
-          curl -fsS --retry 10 --retry-delay 5 --retry-all-errors https://tta.portal.cmm.works/
+          curl -fsS --retry 10 --retry-delay 5 --retry-all-errors https://tta.portal.cmm.works/api/health

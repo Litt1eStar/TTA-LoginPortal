@@ -46,7 +46,10 @@ export function buildApp({ db, config, logger = false, googleFetch = globalThis.
     throw httpError(415, 'bad_type');
   });
 
-  app.register(helmet);
+  // The video uploader PUTs straight from the browser to a Drive resumable upload URL
+  app.register(helmet, {
+    contentSecurityPolicy: { directives: { connectSrc: ["'self'", 'https://www.googleapis.com'] } }
+  });
   app.register(compress);
   app.register(cookie, { secret: config.sessionSecret });
   app.register(rateLimit, {
@@ -56,13 +59,13 @@ export function buildApp({ db, config, logger = false, googleFetch = globalThis.
   });
 
   app.register(authPlugin, { db, config });
-  app.register(submissionsPlugin, { db, config });
+  const drive = createDrive({ db, config, fetch: googleFetch });
+  app.register(submissionsPlugin, { db, config, drive });
   app.register(adminPlugin, { db, config });
   app.register(healthPlugin, { db, config });
   registerStatic(app, config);
   app.register(multipart, { limits: { files: 1, fields: 5 } });
   app.register(filesRoutes, { prefix: '/api', db, config });
-  const drive = createDrive({ db, config, fetch: googleFetch });
   app.register(driveRoutes, { prefix: '/api', db, config, drive });
   app.register(videoRoutes, { prefix: '/api', db, config, drive });
   return app;
