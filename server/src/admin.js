@@ -6,6 +6,7 @@ import { getRequirements } from '../../src/utils/requirements.js';
 import { httpError } from './errors.js';
 import { allEntryKeys, isValidEntryKey, listEntries, unlockEntry } from './entries.js';
 import { buildMembersCsv, buildCertificatesCsv } from './csv.js';
+import { getSetting } from './settings.js';
 
 const STATUS_TH = { submitted: 'ส่งแล้ว', draft: 'ฉบับร่าง', not_started: 'ยังไม่เริ่ม' };
 
@@ -73,13 +74,26 @@ export const formatCertCompetition = (key) => {
   return groupIdx != null ? `${track.full} (${track.subjectGroups[groupIdx]})` : track.full;
 };
 
+function drivePhotoMapFor(db, uniCode, key) {
+  if (!db || !uniCode || !key) return {};
+  try {
+    const raw = getSetting(db, `drive.photos.${uniCode}.${key}`);
+    return raw ? (JSON.parse(raw) || {}) : {};
+  } catch {
+    return {};
+  }
+}
+
 // One member → one flat row (includes fields for both admin UI inspection and CSV exports)
-function memberRow(uni, entry, key, m, config) {
+function memberRow(uni, entry, key, m, config, drivePhotos = {}) {
   const track = getTrack(key);
   const { type, subType } = entryLabels(key);
   const recipientGroup = track.participantsOnly
     ? 'ผู้เข้าร่วม'
     : (m.type === 'advisor' ? 'อาจารย์ที่ปรึกษา' : 'ผู้แข่งขัน');
+  const driveFileId = drivePhotos?.[m.id]?.driveFileId || m.photo?.driveFileId || '';
+  const drivePhotoUrl = driveFileId ? `https://drive.google.com/file/d/${driveFileId}/view` : '';
+  const portalPhotoUrl = m.photo?.fileId ? `${config.appOrigin}/api/files/${m.photo.fileId}` : '';
   return {
     universityId: uni.id,
     universityCode: uni.code,
@@ -106,7 +120,8 @@ function memberRow(uni, entry, key, m, config) {
     phone: m.phone,
     hasPhoto: Boolean(m.photo?.fileId || m.photo?.dataUrl),
     photoDataUrl: m.photo?.dataUrl || (m.photo?.fileId ? `/api/files/${m.photo.fileId}` : ''),
-    photoUrl: m.photo?.fileId ? `${config.appOrigin}/api/files/${m.photo.fileId}` : '',
+    drivePhotoUrl,
+    photoUrl: drivePhotoUrl || portalPhotoUrl,
     submittedAt: bangkokTime(entry.submittedAt),
     hash: entry.hash || ''
   };
@@ -150,7 +165,8 @@ export function collectMemberRows(db, config) {
     const entries = listEntries(db, uni.id);
     for (const key of allEntryKeys()) {
       const entry = entries[key];
-      for (const m of entry.members || []) rows.push(memberRow(uni, entry, key, m, config));
+      const drivePhotos = drivePhotoMapFor(db, uni.code, key);
+      for (const m of entry.members || []) rows.push(memberRow(uni, entry, key, m, config, drivePhotos));
     }
   }
   return rows;
@@ -180,10 +196,11 @@ export function buildMembersZipPlan(db, config) {
       const dir = `${root}/${safeName(uniName)}/${safeName(label)}`;
       const used = new Set();
       const counts = { advisor: 0, student: 0 };
+      const drivePhotos = drivePhotoMapFor(db, uni.code, key);
       const rows = members.map((m) => {
         const role = m.type === 'advisor' ? 'advisor' : 'student';
         counts[role] += 1;
-        const row = { ...memberRow(uni, entry, key, m, config), photoFile: '' };
+        const row = { ...memberRow(uni, entry, key, m, config, drivePhotos), photoFile: '' };
         const who = `${uni.code}/${key}: ${m.fullName || m.id}`;
         if (!m.photo?.fileId) { missing.push(`${who} (ไม่มีรูปถ่าย)`); return row; }
         const file = fileRow.get(Number(m.photo.fileId), uni.id, key);
@@ -273,7 +290,8 @@ export default async function adminPlugin(app, { db, config }) {
           ready: !failed,
           firstError: failed?.error || ''
         };
-        for (const m of listMembers) members.push(memberRow(uni, e, key, m, config));
+        const drivePhotos = drivePhotoMapFor(db, uni.code, key);
+        for (const m of listMembers) members.push(memberRow(uni, e, key, m, config, drivePhotos));
       }
     }
     return { universities, entries, summaries, members };

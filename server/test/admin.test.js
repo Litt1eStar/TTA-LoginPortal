@@ -128,9 +128,13 @@ describe('admin export.csv', () => {
     expect(body.members[0].certCompetition).toBe('สอนทฤษฎี (กลุ่มสาขาวิชาไฟฟ้า)');
   });
 
-  it('exports certificate-ready CSV with concatenated prefix+name and filters', async () => {
+  it('exports certificate-ready CSV with concatenated prefix+name, Google Drive photo links and filters', async () => {
     ctx = await makeTestApp();
     seedEntries(ctx.db);
+    ctx.db.prepare("INSERT INTO settings (key, value) VALUES (?, ?)").run(
+      'drive.photos.kmutt.theory.g0',
+      JSON.stringify({ a1: { fileId: 1, sha256: 'abc', name: 'ดร.สมชาย ใจดี.webp', driveFileId: 'drive-photo-a1' } })
+    );
     const cookie = await loginAs(ctx.app, 'admin1', 'pass-admin-1');
 
     const submittedRes = await ctx.app.inject({
@@ -142,7 +146,16 @@ describe('admin export.csv', () => {
     expect(submittedRes.headers['content-disposition']).toMatch(/attachment; filename="tta-certificates-\d{8}\.csv"/);
     const subLines = submittedRes.rawPayload.toString('utf8').slice(1).split('\r\n').filter(Boolean);
     expect(subLines).toHaveLength(2); // header + 1 submitted advisor
+    expect(subLines[0]).toContain('ลิงก์รูปถ่าย (Google Drive)');
     expect(subLines[1]).toContain('1,ดร.สมชาย ใจดี,ดร.,สมชาย ใจดี,อาจารย์ที่ปรึกษา,อาจารย์,สอนทฤษฎี (กลุ่มสาขาวิชาไฟฟ้า),');
+    expect(subLines[1]).toContain('https://drive.google.com/file/d/drive-photo-a1/view');
+
+    const rawCsvRes = await ctx.app.inject({
+      method: 'GET',
+      url: '/api/admin/export.csv?status=submitted&group=advisor',
+      headers: { cookie }
+    });
+    expect(rawCsvRes.rawPayload.toString('utf8')).toContain('https://drive.google.com/file/d/drive-photo-a1/view');
 
     const draftRes = await ctx.app.inject({
       method: 'GET',
