@@ -44,7 +44,7 @@ cd "C:\Users\krittin pragopdee\OneDrive\Desktop\University\TeachingAcademy\TTA-L
 powershell -NoProfile -ExecutionPolicy Bypass -File .\deploy\kmutt\package-release.ps1
 ```
 
-Result: `deploy\kmutt\release\tta-portal.zip` (about 1.6 MB), built from the last commit: `RELEASE.txt` inside names the commit and tag. Uncommitted edits are not included. It contains no passwords, database or `.env`.
+Result: `deploy\kmutt\release\tta-portal.zip` (about 9 MB, includes the server dependencies), built from the last commit: `RELEASE.txt` inside names the commit and tag. Uncommitted edits are not included. It contains no passwords, database or `.env`.
 
 The script builds in a temporary copy, so it does not touch the project's `node_modules` or the tracked `dist\` folder. Run it again whenever the portal code changes.
 
