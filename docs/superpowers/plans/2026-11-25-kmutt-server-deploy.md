@@ -16,7 +16,7 @@
 
 | Phase | What | Owner | Due | State |
 |---|---|---|---|---|
-| 0 | Code ready: release built from a tag (branch `deploy/kmutt`) | Dev (laptop) | Wed 25 Nov | 🟨 In progress |
+| 0 | Code ready: release built from a tag (branch `deploy/kmutt`) | Dev (laptop) | Wed 25 Nov | ✅ Done (tag `v2026.11.27`; push waits for the owner) |
 | D | Domain placeholder `tta.cmm.works` → KMUTT | Owner (GoDaddy) | Wed 25 Nov | ⬜ Not started |
 | 1 | CITES: web port, outside access, domain | Owner → CITES | Ask Wed 25, need by Thu 26 12:00 | ⬜ Not started |
 | 2 | Install on `CIT_TTA2027` | Owner (VPN + RDP) | Thu 26 Nov AM | ⬜ Not started |
@@ -65,7 +65,7 @@ States: ⬜ Not started · 🟨 In progress · ✅ Done · 🟥 Blocked (write w
 
 **Files:** Modify `server/src/app.js` (the `app.register(helmet, …)` call). Test: `server/test/csp.test.js`.
 
-- [ ] **Step 1: Write the failing tests.** In `server/test/csp.test.js`, replace the `csp` helper with:
+- [x] **Step 1: Write the failing tests.** In `server/test/csp.test.js`, replace the `csp` helper with:
 
 ```js
 const headers = async (env = {}) => {
@@ -101,12 +101,12 @@ describe('https deploy (COOKIE_SECURE=true)', () => {
 });
 ```
 
-- [ ] **Step 2: Run and see the two "plain http" tests fail**
+- [x] **Step 2: Run and see the two "plain http" tests fail**
 
 Run: `cd server; npx vitest run test/csp.test.js`
 Expected: 2 FAIL (plain http), 4 PASS
 
-- [ ] **Step 3: Implement.** Replace the helmet registration in `server/src/app.js` with:
+- [x] **Step 3: Implement.** Replace the helmet registration in `server/src/app.js` with:
 
 ```js
   // The video uploader PUTs straight from the browser to a Drive resumable upload URL.
@@ -123,12 +123,12 @@ Expected: 2 FAIL (plain http), 4 PASS
   });
 ```
 
-- [ ] **Step 4: Full server suite**
+- [x] **Step 4: Full server suite**
 
 Run: `cd server; npm.cmd test`
 Expected: all pass (237 + 4 = 241 on the baseline)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/src/app.js server/test/csp.test.js
@@ -139,14 +139,14 @@ git commit -m "fix(server): skip HTTPS upgrade and HSTS when served over plain h
 
 **Files:** Create `deploy/kmutt/package-release.ps1` and `deploy/kmutt/install-on-server.ps1`. Modify `.gitignore`.
 
-- [ ] **Step 1: Copy the install script in unchanged.** It's changed in 0.4.
+- [x] **Step 1: Copy the install script in unchanged.** It's changed in 0.4.
 
 ```powershell
 New-Item -ItemType Directory -Force deploy\kmutt | Out-Null
 Copy-Item ..\university-server\install-on-server.ps1 deploy\kmutt\install-on-server.ps1
 ```
 
-- [ ] **Step 2: Write `deploy/kmutt/package-release.ps1`**
+- [x] **Step 2: Write `deploy/kmutt/package-release.ps1`**
 
 ```powershell
 # Run on the LAPTOP. Builds the last COMMIT of this repo into deploy\kmutt\release\tta-portal.zip.
@@ -208,14 +208,14 @@ Compress-Archive -Path "$out\*" -DestinationPath $zip
 "Done: $zip  (commit $sha $tag, {0:N1} MB)" -f ((Get-Item $zip).Length / 1MB)
 ```
 
-- [ ] **Step 3: Ignore the generated release.** Append to `.gitignore`:
+- [x] **Step 3: Ignore the generated release.** Append to `.gitignore`:
 
 ```
 # KMUTT release output (built by deploy/kmutt/package-release.ps1)
 /deploy/kmutt/release/
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add .gitignore deploy/kmutt/package-release.ps1 deploy/kmutt/install-on-server.ps1
@@ -226,7 +226,7 @@ git commit -m "chore(deploy): KMUTT release and install scripts, built from HEAD
 
 **Files:** Modify `deploy/kmutt/install-on-server.ps1`.
 
-- [ ] **Step 1: Stop the restart loop and back up before copying.** In section `# 2. Stop the running portal`, replace everything from `if (Get-ScheduledTask …` up to and including `Start-Sleep -Seconds 2` with:
+- [x] **Step 1: Stop the restart loop and back up before copying.** In section `# 2. Stop the running portal`, replace everything from `if (Get-ScheduledTask …` up to and including `Start-Sleep -Seconds 2` with:
 
 ```powershell
 if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) {
@@ -251,7 +251,7 @@ if (Test-Path "$InstallDir\server\data\portal.db") {
 }
 ```
 
-- [ ] **Step 2: Keep a copy of the previous release, for rollback.** Before `# 3. Copy files`, add:
+- [x] **Step 2: Keep a copy of the previous release, for rollback.** Before `# 3. Copy files`, add:
 
 ```powershell
 if (Test-Path "$InstallDir\RELEASE.txt") {
@@ -268,7 +268,7 @@ and after the `Copy-Item "$src\package.json" …` line in section 3:
 Copy-Item "$src\RELEASE.txt" "$InstallDir\RELEASE.txt" -Force
 ```
 
-- [ ] **Step 3: Restart loop.** In section `# 7.`, replace the `run.cmd` here-array with:
+- [x] **Step 3: Restart loop.** In section `# 7.`, replace the `run.cmd` here-array with:
 
 ```powershell
 @(
@@ -282,13 +282,13 @@ Copy-Item "$src\RELEASE.txt" "$InstallDir\RELEASE.txt" -Force
 ) | Set-Content -Path "$InstallDir\server\run.cmd" -Encoding ASCII
 ```
 
-- [ ] **Step 4: Print the release on success.** Replace the `Write-Host "OK: portal is running. …"` line with:
+- [x] **Step 4: Print the release on success.** Replace the `Write-Host "OK: portal is running. …"` line with:
 
 ```powershell
 Write-Host "OK: portal is running ($((Get-Content "$InstallDir\RELEASE.txt") -join ', ')). Open $AppOrigin from a machine on the KMUTT network or VPN."
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add deploy/kmutt/install-on-server.ps1
@@ -299,8 +299,8 @@ git commit -m "fix(deploy): back up before update, keep previous release, restar
 
 **Files:** Create `deploy/kmutt/README.md` and `deploy/cmm/README.md`. Modify `DEPLOYMENT_GUIDE.md` (root).
 
-- [ ] **Step 1:** `git mv DEPLOYMENT_GUIDE.md deploy/cmm/README.md`
-- [ ] **Step 2:** Copy `../university-server/DEPLOYMENT_GUIDE.md` to `deploy/kmutt/README.md`, then edit it:
+- [x] **Step 1:** `git mv DEPLOYMENT_GUIDE.md deploy/cmm/README.md`
+- [x] **Step 2:** Copy `../university-server/DEPLOYMENT_GUIDE.md` to `deploy/kmutt/README.md`, then edit it:
 
 | Find | Replace with |
 |---|---|
@@ -314,7 +314,7 @@ git commit -m "fix(deploy): back up before update, keep previous release, restar
 
 Add a section 5 row: `| Roll back | See the deploy plan, Phase 6 "Rollback" |`.
 
-- [ ] **Step 3: Write the root `DEPLOYMENT_GUIDE.md`**
+- [x] **Step 3: Write the root `DEPLOYMENT_GUIDE.md`**
 
 ```markdown
 # Deploying the TTA Portal
@@ -330,7 +330,7 @@ Moving between them = copy `portal.db` and `uploads/`.
 Progress: `docs/superpowers/plans/2026-11-25-kmutt-server-deploy.md`.
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add DEPLOYMENT_GUIDE.md deploy/
@@ -341,17 +341,17 @@ git commit -m "docs(deploy): KMUTT runbook as primary, CMM guide as fallback"
 
 ### Task 0.6: Tag and build the release
 
-- [ ] **Step 1:** Both suites green: `cd server; npm.cmd test` and `cd ..; npm.cmd test`.
-- [ ] **Step 2:** Tag: `git tag -a v2026.11.27 -m "KMUTT launch"`
-- [ ] **Step 3:** Build: `powershell -NoProfile -ExecutionPolicy Bypass -File .\deploy\kmutt\package-release.ps1`
+- [x] **Step 1:** Both suites green: `cd server; npm.cmd test` and `cd ..; npm.cmd test`.
+- [x] **Step 2:** Tag: `git tag -a v2026.11.27 -m "KMUTT launch"`
+- [x] **Step 3:** Build: `powershell -NoProfile -ExecutionPolicy Bypass -File .\deploy\kmutt\package-release.ps1`
 Expected: `Done: …tta-portal.zip  (commit <sha> v2026.11.27, ~1.6 MB)`
-- [ ] **Step 4:** Check the zip contains the 0.2 fix: `Select-String -Path deploy\kmutt\release\tta-portal\server\src\app.js -Pattern 'upgradeInsecureRequests'` finds one line.
+- [x] **Step 4:** Check the zip contains the 0.2 fix: `Select-String -Path deploy\kmutt\release\tta-portal\server\src\app.js -Pattern 'upgradeInsecureRequests'` finds one line.
 
-### Task 0.7: Keep `main` from deploying to CMM by accident
+### Task 0.7: Keep `main` from deploying to CMM by accident (Step 2, the push, waits for the owner)
 
 `main` is 88 commits ahead of `origin/main`. Pushing it runs `deploy.yml` against the droplet, which isn't set up (no DNS, Caddy block, `.env` or GHCR access), so that run fails.
 
-- [ ] **Step 1:** Change the trigger in `.github/workflows/deploy.yml` from `push: branches: [main]` to:
+- [x] **Step 1:** Change the trigger in `.github/workflows/deploy.yml` from `push: branches: [main]` to:
 
 ```yaml
 on:
