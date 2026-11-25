@@ -46,9 +46,17 @@ export function buildApp({ db, config, logger = false, googleFetch = globalThis.
     throw httpError(415, 'bad_type');
   });
 
-  // The video uploader PUTs straight from the browser to a Drive resumable upload URL
+  // The video uploader PUTs straight from the browser to a Drive resumable upload URL.
+  // Over plain http (COOKIE_SECURE=false, e.g. http://10.2.15.250:3001) the HTTPS-only headers must be off,
+  // or the browser fetches /assets/* over https and the page stays blank.
   app.register(helmet, {
-    contentSecurityPolicy: { directives: { connectSrc: ["'self'", 'https://www.googleapis.com'] } }
+    hsts: config.cookieSecure,
+    contentSecurityPolicy: {
+      directives: {
+        connectSrc: ["'self'", 'https://www.googleapis.com'],
+        upgradeInsecureRequests: config.cookieSecure ? [] : null
+      }
+    }
   });
   app.register(compress);
   app.register(cookie, { secret: config.sessionSecret });
