@@ -4,8 +4,8 @@ import { api } from '../../api';
 import { fmtDateTime, formatSize } from '../../utils/formatters';
 import { StatusChip } from './StatusChip';
 
-const th = { padding: '10px 12px', fontWeight: 700, fontSize: '13px', color: '#4F5366', textAlign: 'left', whiteSpace: 'nowrap' };
-const td = { padding: '10px 12px', fontSize: '14px', color: '#1B1D29', verticalAlign: 'top' };
+const th = { padding: '10px 12px', fontWeight: 700, fontSize: '13px', color: 'var(--color-ink-2)', textAlign: 'left', whiteSpace: 'nowrap' };
+const td = { padding: '10px 12px', fontSize: '14px', color: 'var(--color-ink)', verticalAlign: 'top' };
 
 const formatCertName = (m) => `${String(m.title || '').trim()}${String(m.fullName || '').trim()}`;
 
@@ -78,14 +78,14 @@ export const EntryDetailModal = ({ university, column, onClose, onUnlocked, onPr
   const counts = { advisor: 0, student: 0 };
 
   return (
-    <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) onClose(); }}>
+    <div className="modal-overlay" data-theme="admin" onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) onClose(); }}>
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="entry-detail-title" style={{ width: 'min(100%, 960px)' }}>
         <div className="modal-header">
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <div id="entry-detail-title" className="modal-title">{column.title}{column.sub ? ` · ${column.sub}` : ''}</div>
               {positionLabel && (
-                <span style={{ fontSize: '12px', fontWeight: 700, padding: '2px 8px', borderRadius: '999px', background: '#F2F4F8', color: '#4F5366' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, padding: '2px 8px', borderRadius: '999px', background: 'var(--color-paper-3)', color: 'var(--color-ink-2)' }}>
                   {positionLabel}
                 </span>
               )}
@@ -117,7 +117,7 @@ export const EntryDetailModal = ({ university, column, onClose, onUnlocked, onPr
                 <StatusChip status={entry.status} />
                 {entry.submittedAt && <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-muted)' }}>ส่งเมื่อ {fmtDateTime(entry.submittedAt)}</span>}
                 {!entry.submittedAt && entry.draftAt && <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-muted)' }}>บันทึกร่างล่าสุด {fmtDateTime(entry.draftAt)}</span>}
-                {entry.hash && <code style={{ background: '#EAF5FE', color: '#0A65B0', padding: '3px 8px', borderRadius: '8px', fontWeight: 700 }}>#{entry.hash}</code>}
+                {entry.hash && <code style={{ background: 'var(--color-done-bg)', color: 'var(--color-done)', padding: '3px 8px', borderRadius: '8px', fontWeight: 700 }}>#{entry.hash}</code>}
               </div>
 
               {(entry.projectName || entry.summary) && (
@@ -134,10 +134,10 @@ export const EntryDetailModal = ({ university, column, onClose, onUnlocked, onPr
                 {members.length === 0 ? (
                   <p style={{ color: 'var(--text-light)' }}>ยังไม่มีสมาชิก</p>
                 ) : (
-                  <div style={{ overflowX: 'auto', border: '1px solid #ECECF1', borderRadius: '14px' }}>
+                  <div style={{ overflowX: 'auto', border: '1px solid var(--color-rule)', borderRadius: '14px' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '760px' }}>
                       <thead>
-                        <tr style={{ background: '#FAFAFC', borderBottom: '1px solid #ECECF1' }}>
+                        <tr style={{ background: 'var(--color-paper-3)', borderBottom: '1px solid var(--color-rule)' }}>
                           <th style={th}>รูป</th><th style={th}>บทบาท</th><th style={th}>ชื่อสำหรับใบเกียรติบัตร</th>
                           <th style={th}>หน่วยงาน</th><th style={th}>รหัส / ชั้นปี</th><th style={th}>ติดต่อ</th>
                         </tr>
@@ -148,7 +148,7 @@ export const EntryDetailModal = ({ university, column, onClose, onUnlocked, onPr
                           counts[roleKey] += 1;
                           const photoFileName = m.photo?.dataUrl ? exportPhotoFilename(university.code, m, counts) : '';
                           return (
-                            <tr key={m.id} style={{ borderBottom: '1px solid #F0F1F5' }}>
+                            <tr key={m.id} style={{ borderBottom: '1px solid var(--color-rule)' }}>
                               <td style={td}>
                                 {m.photo?.dataUrl ? (
                                   <button
@@ -158,7 +158,7 @@ export const EntryDetailModal = ({ university, column, onClose, onUnlocked, onPr
                                     style={{ position: 'relative', padding: 0, borderRadius: '10px', overflow: 'hidden', display: 'block', background: 'transparent' }}
                                   >
                                     <img src={m.photo.dataUrl} alt={m.fullName} width="46" height="46" style={{ borderRadius: '10px', objectFit: 'cover', display: 'block' }} />
-                                    <span style={{ position: 'absolute', right: '2px', bottom: '2px', background: 'rgba(0,0,0,0.55)', color: '#fff', borderRadius: '6px', padding: '1px 3px', display: 'grid', placeItems: 'center' }}>
+                                    <span style={{ position: 'absolute', right: '2px', bottom: '2px', background: 'rgba(0,0,0,0.55)', color: 'var(--color-accent-ink)', borderRadius: '6px', padding: '1px 3px', display: 'grid', placeItems: 'center' }}>
                                       <MagnifyingGlassPlus size={12} weight="bold" />
                                     </span>
                                   </button>
@@ -170,7 +170,7 @@ export const EntryDetailModal = ({ university, column, onClose, onUnlocked, onPr
                                 <span style={{
                                   display: 'inline-block', padding: '2px 8px', borderRadius: '8px', fontSize: '12.5px', fontWeight: 700,
                                   background: m.type === 'advisor' ? 'var(--yellow-bg)' : 'var(--blue-bg)',
-                                  color: m.type === 'advisor' ? '#8C6200' : 'var(--blue-text)'
+                                  color: m.type === 'advisor' ? 'var(--color-draft)' : 'var(--blue-text)'
                                 }}>
                                   {m.type === 'advisor' ? 'อาจารย์ที่ปรึกษา' : (m.role || 'ผู้แข่งขัน')}
                                 </span>
@@ -255,10 +255,10 @@ export const EntryDetailModal = ({ university, column, onClose, onUnlocked, onPr
               <img
                 src={previewMember.photo.dataUrl}
                 alt={previewMember.fullName}
-                style={{ width: '100%', maxHeight: '60vh', objectFit: 'contain', borderRadius: '14px', background: '#F6F7FB' }}
+                style={{ width: '100%', maxHeight: '60vh', objectFit: 'contain', borderRadius: '14px', background: 'var(--color-paper-3)' }}
               />
               {previewMember.photoFileName && (
-                <code style={{ fontSize: '12.5px', background: '#F2F4F8', padding: '4px 10px', borderRadius: '8px', color: '#4F5366' }}>
+                <code style={{ fontSize: '12.5px', background: 'var(--color-paper-3)', padding: '4px 10px', borderRadius: '8px', color: 'var(--color-ink-2)' }}>
                   {previewMember.photoFileName}
                 </code>
               )}

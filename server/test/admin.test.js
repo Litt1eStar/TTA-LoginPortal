@@ -153,4 +153,22 @@ describe('admin export.csv', () => {
     expect(draftLines).toHaveLength(2);
     expect(draftLines[1]).toContain('1,ดร.สมหญิง ร้องดี,ดร.,สมหญิง ร้องดี,อาจารย์ที่ปรึกษา,อาจารย์,ประกวดร้องเพลงลูกทุ่ง,');
   });
+
+  it('filters exports by search text and missing photo, like the admin directory', async () => {
+    ctx = await makeTestApp();
+    seedEntries(ctx.db);
+    const cookie = await loginAs(ctx.app, 'admin1', 'pass-admin-1');
+    const rows = async (query) => {
+      const res = await ctx.app.inject({ method: 'GET', url: `/api/admin/export.csv?${query}`, headers: { cookie } });
+      expect(res.statusCode).toBe(200);
+      return res.rawPayload.toString('utf8').slice(1).split('\r\n').filter(Boolean).length - 1;
+    };
+    expect(await rows('status=all')).toBe(3);
+    expect(await rows(`status=all&q=${encodeURIComponent('สมหญิง')}`)).toBe(1);
+    expect(await rows('status=all&q=6401234567')).toBe(1);
+    expect(await rows('status=all&q=SOMCHAI%40KMUTT')).toBe(2); // the same advisor email in both universities
+    expect(await rows('status=all&q=S%40KMUTT.AC')).toBe(1);
+    expect(await rows('status=all&missingPhoto=1')).toBe(3);
+    expect(await rows(`status=submitted&missingPhoto=1&q=${encodeURIComponent('สมชาย')}`)).toBe(1);
+  });
 });

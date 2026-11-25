@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { GoogleDriveLogo, ArrowsClockwise } from '@phosphor-icons/react';
+import { GoogleDriveLogo, ArrowsClockwise, ArrowSquareOut } from '@phosphor-icons/react';
 import { api } from '../../api';
 
 const gb = (bytes) => (bytes / 1024 ** 3).toFixed(1);
+const GB = <abbr title="กิกะไบต์">GB</abbr>;
 
 export const DriveCard = () => {
   const [state, setState] = useState({ loading: true, error: '', data: null });
@@ -25,46 +26,48 @@ export const DriveCard = () => {
   const pct = limit ? Math.min(100, Math.round((usage / limit) * 100)) : 0;
 
   return (
-    <section className="card" aria-labelledby="drive-title">
-      <div className="section-head">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <GoogleDriveLogo size={26} weight="duotone" color="var(--blue)" />
-          <h2 id="drive-title" className="section-title">Google Drive (วิดีโอสื่อสร้างสรรค์)</h2>
-        </div>
-        <button type="button" className="btn btn-sm" onClick={load} disabled={state.loading}>
+    <section className="adm-drive" aria-labelledby="drive-title">
+      <div className="adm-drive-head">
+        <h2 id="drive-title"><GoogleDriveLogo size={24} weight="duotone" /> Google Drive (วิดีโอสื่อสร้างสรรค์)</h2>
+        <button type="button" className="btn btn-sm" onClick={load} disabled={state.loading} aria-busy={state.loading}>
           <ArrowsClockwise size={16} /> รีเฟรช
         </button>
       </div>
 
-      {state.loading && <p style={{ color: 'var(--text-muted)' }}>กำลังโหลด…</p>}
-      {state.error && <p role="alert" style={{ color: 'var(--danger)' }}>{state.error}</p>}
+      {state.loading && !data && <p className="adm-note">กำลังโหลดสถานะ…</p>}
+      {state.error && <p role="alert" className="adm-note adm-note--error">{state.error}</p>}
 
       {data && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+        <>
+          <div className="adm-drive-account">
             <span className={data.connected ? 'badge badge-blue' : 'badge badge-orange'}>
               {data.connected ? 'เชื่อมต่อแล้ว' : 'ต้องเชื่อมต่อใหม่'}
             </span>
-            {data.email && <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-muted)' }}>{data.email}</span>}
+            {data.email && <span>{data.email}</span>}
           </div>
 
           {data.connected && data.quota && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <div className="seg-tip-bar" aria-hidden="true"><span style={{ width: `${pct}%` }} /></div>
-              <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-dark)' }}>
+            <div className="adm-drive-quota">
+              <span className="adm-meter" aria-hidden="true"><span style={{ transform: `scaleX(${pct / 100})` }} /></span>
+              <span>
                 {limit
-                  ? <>ใช้ไป {gb(usage)} GB จาก {gb(limit)} GB · เหลือ <strong>{gb(Math.max(0, limit - usage))} GB</strong></>
-                  : <>ใช้ไป {gb(usage)} GB (ไม่จำกัดพื้นที่)</>}
-              </div>
+                  ? <>ใช้ไป <span className="num">{gb(usage)}</span> {GB} จาก <span className="num">{gb(limit)}</span> {GB}, เหลือ <strong className="num">{gb(Math.max(0, limit - usage))}</strong> {GB}</>
+                  : <>ใช้ไป <span className="num">{gb(usage)}</span> {GB} (ไม่จำกัดพื้นที่)</>}
+              </span>
             </div>
           )}
 
-          <div>
-            <a className={data.connected ? 'btn btn-sm' : 'btn btn-primary btn-sm'} href="/api/admin/google/connect">
+          <div className="adm-drive-act">
+            {data.connected && data.folderUrl && (
+              <a className="btn btn-sm" href={data.folderUrl} target="_blank" rel="noopener noreferrer">
+                <ArrowSquareOut size={16} /> เปิดโฟลเดอร์ใน Google Drive
+              </a>
+            )}
+            <a className={data.connected ? 'btn btn-sm btn-ghost' : 'btn btn-primary btn-sm'} href="/api/admin/google/connect">
               <GoogleDriveLogo size={16} /> {data.connected ? 'เชื่อมต่อบัญชีอื่น' : 'เชื่อมต่อ Google Drive'}
             </a>
           </div>
-        </div>
+        </>
       )}
     </section>
   );

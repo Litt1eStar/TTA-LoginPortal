@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { makeTestApp, loginAs } from './helpers.js';
 import { fakeGoogle, connectDrive, GOOGLE_ENV, GOOD_CODE, REFRESH_TOKEN } from './fakeGoogle.js';
-import { getSetting } from '../src/settings.js';
+import { getSetting, setSetting } from '../src/settings.js';
 import { decrypt } from '../src/crypto.js';
 import { ROOT_FOLDER_NAME } from '../src/drive.js';
 
@@ -83,10 +83,17 @@ describe('Google OAuth', () => {
 
   it('status reports disconnected, then connected with quota', async () => {
     const get = () => t.app.inject({ method: 'GET', url: '/api/admin/google/status', headers: { cookie: admin } });
-    expect((await get()).json()).toEqual({ connected: false, email: null, quota: null });
+    expect((await get()).json()).toEqual({ connected: false, email: null, quota: null, folderUrl: null });
     connectDrive(t.db, t.config);
     expect((await get()).json()).toEqual({
-      connected: true, email: 'lead@gmail.com', quota: { limit: 16106127360, usage: 1048576 }
+      connected: true, email: 'lead@gmail.com', quota: { limit: 16106127360, usage: 1048576 }, folderUrl: null
     });
+  });
+
+  it('status links to the root Drive folder once it exists', async () => {
+    connectDrive(t.db, t.config);
+    setSetting(t.db, 'drive.root_folder', 'abc_123-XYZ');
+    const res = await t.app.inject({ method: 'GET', url: '/api/admin/google/status', headers: { cookie: admin } });
+    expect(res.json().folderUrl).toBe('https://drive.google.com/drive/folders/abc_123-XYZ');
   });
 });

@@ -1,104 +1,124 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  ShieldCheck, DownloadSimple, FileZip, ArrowsClockwise, UsersThree,
-  Certificate, MagnifyingGlass, Table, ListBullets, WarningCircle, X, MagnifyingGlassPlus
+  DownloadSimple, FileZip, ArrowsClockwise, UsersThree, Certificate, MagnifyingGlass,
+  Table, ListBullets, WarningCircle, X, CheckCircle, PencilSimpleLine
 } from '@phosphor-icons/react';
 import { api } from '../../api';
 import { usePortal } from '../../context/PortalContext';
 import { useSwapTransition } from '../../hooks/useSwapTransition';
 import { TRACKS, groupShortName } from '../../data/tracks';
 import { getOverviewItems } from '../../utils/entries';
-import { StatusChip, StatusCell } from './StatusChip';
+import { StatusCell, isIncompleteDraft } from './StatusChip';
 import { EntryDetailModal } from './EntryDetailModal';
 import { DriveCard } from './DriveCard';
+import './admin.css';
 
 // All 18 submission columns, in the same order as the coordinator dashboard
 const COLUMNS = getOverviewItems({}).map(it => ({
   key: it.key,
+  trackId: it.track.id,
   title: it.track.th,
   sub: it.groupLabel ? groupShortName(it.groupLabel) : ''
 }));
 
-const headCell = { padding: '12px 8px', fontWeight: 700, fontSize: '13px', color: '#4F5366', textAlign: 'center', verticalAlign: 'bottom' };
-const dirHead = { padding: '10px 12px', fontWeight: 700, fontSize: '13px', color: '#4F5366', textAlign: 'left', whiteSpace: 'nowrap' };
-const dirCell = { padding: '10px 12px', fontSize: '13.5px', color: '#1B1D29', verticalAlign: 'top' };
-
-const STATUS_FILTERS = [
-  { id: 'all', label: 'ทั้งหมด' },
+const CELL_FILTERS = [
+  { id: 'all', label: 'ทุกสถานะ' },
   { id: 'submitted', label: 'ส่งแล้ว' },
-  { id: 'draft', label: 'ร่าง' },
+  { id: 'draft', label: 'ฉบับร่าง' },
+  { id: 'incomplete', label: 'ฉบับร่างที่ยังขาดข้อมูล' },
   { id: 'not_started', label: 'ยังไม่เริ่ม' }
+];
+
+const ROW_FILTERS = [
+  { id: 'all', label: 'ทุกมหาวิทยาลัย' },
+  { id: 'incomplete', label: 'ยังส่งไม่ครบ' },
+  { id: 'none', label: 'ยังไม่ส่งเลย' }
 ];
 
 const GROUP_OPTIONS = [
   { id: 'all', label: 'ทุกกลุ่มผู้รับ', labelTh: '' },
-  { id: 'competitor', label: 'เฉพาะผู้แข่งขัน', labelTh: 'ผู้แข่งขัน' },
-  { id: 'advisor', label: 'เฉพาะอาจารย์ที่ปรึกษา', labelTh: 'อาจารย์ที่ปรึกษา' },
-  { id: 'participant', label: 'เฉพาะผู้เข้าร่วม', labelTh: 'ผู้เข้าร่วม' }
+  { id: 'competitor', label: 'ผู้แข่งขัน', labelTh: 'ผู้แข่งขัน' },
+  { id: 'advisor', label: 'อาจารย์ที่ปรึกษา', labelTh: 'อาจารย์ที่ปรึกษา' },
+  { id: 'participant', label: 'ผู้เข้าร่วม', labelTh: 'ผู้เข้าร่วม' }
 ];
 
-const stickyCol = { position: 'sticky', left: 0, background: '#FFFFFF', zIndex: 1, textAlign: 'left', padding: '12px 16px', minWidth: '220px' };
+const ENTRY_STATUS = [
+  { id: 'all', label: 'ทุกสถานะ' },
+  { id: 'submitted', label: 'ส่งแล้ว' },
+  { id: 'draft', label: 'ฉบับร่าง' }
+];
 
-const selectStyle = {
-  minHeight: '42px',
-  borderRadius: '12px',
-  padding: '0 12px',
-  border: '1.5px solid #D5D7E0',
-  background: '#FFFFFF',
-  fontSize: '14px',
-  fontFamily: 'inherit'
-};
+const STATUS_LABEL = { submitted: 'ส่งแล้ว', draft: 'ฉบับร่าง', not_started: 'ยังไม่เริ่ม' };
+
+// Every filter lives in the URL; a value equal to its default is left out
+const DEFAULTS = { view: 'matrix', uni: 'all', track: 'all', cell: 'all', rows: 'all', q: '', group: 'all', est: 'submitted', photo: '' };
+
+// Same fields as the server's export filter (server/src/admin.js, memberSearchText)
+const memberSearchText = (m) =>
+  [m.certName, m.fullName, m.studentId, m.email, m.phone, m.role, m.certCompetition, m.university, m.dept]
+    .map(v => v || '').join(' ').toLowerCase();
 
 export const AdminView = () => {
   const { showToast } = usePortal();
   const [searchParams, setSearchParams] = useSearchParams();
   const [overview, setOverview] = useState(null);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null); // { university, column }
-  const [viewMode, setViewMode] = useState('matrix'); // 'matrix' | 'directory'
+  const [zipKey, setZipKey] = useState(TRACKS[0].id);
+  const [loadedAt, setLoadedAt] = useState(null);
+  const [previewMember, setPreviewMember] = useState(null);
+
+  const f = useMemo(() => {
+    const out = {};
+    for (const [k, d] of Object.entries(DEFAULTS)) out[k] = searchParams.get(k) ?? d;
+    out.view = out.view === 'people' ? 'directory' : 'matrix';
+    return out;
+  }, [searchParams]);
+
+  const setFilters = useCallback((patch, { reset = false } = {}) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(reset ? '' : prev);
+      for (const [k, v] of Object.entries(patch)) {
+        const value = k === 'view' ? (v === 'directory' ? 'people' : v) : v;
+        if (value === undefined || value === null || value === DEFAULTS[k] || (k === 'view' && value === 'matrix')) next.delete(k);
+        else next.set(k, value);
+      }
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
+
+  const viewMode = f.view;
   const viewSwap = useSwapTransition(viewMode, {
     keyOf: (m) => m,
     orderOf: (m) => (m === 'directory' ? 1 : 0),
     outMs: 105
   });
-  const [zipKey, setZipKey] = useState(TRACKS[0].id);
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [incompleteOnly, setIncompleteOnly] = useState(false);
-  const [loadedAt, setLoadedAt] = useState(null);
-
-  // Certificate & filtered CSV export controls
-  const [exportStatus, setExportStatus] = useState('submitted');
-  const [exportGroup, setExportGroup] = useState('all');
-  const [exportUniversity, setExportUniversity] = useState('all');
-  const [exportTrack, setExportTrack] = useState('all');
-
-  // Directory filters
-  const [searchText, setSearchText] = useState('');
-  const [dirUniversity, setDirUniversity] = useState('all');
-  const [dirTrack, setDirTrack] = useState('all');
-  const [dirGroup, setDirGroup] = useState('all');
-  const [dirStatus, setDirStatus] = useState('all');
-  const [missingPhotoOnly, setMissingPhotoOnly] = useState(false);
-  const [previewMember, setPreviewMember] = useState(null);
 
   const load = useCallback(async () => {
     setError('');
+    setLoading(true);
     try {
       setOverview(await api.get('/admin/overview'));
       setLoadedAt(new Date());
     } catch (err) {
       setError(err.message || 'โหลดข้อมูลไม่สำเร็จ');
+    } finally {
+      setLoading(false);
     }
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
+  // Google OAuth comes back with ?google=…; drop only that key so the filters stay
   useEffect(() => {
-    if (searchParams.get('google') === 'connected') {
-      showToast('เชื่อมต่อ Google Drive เรียบร้อยแล้ว');
-      setSearchParams({}, { replace: true });
-    }
+    const g = searchParams.get('google');
+    if (!g) return;
+    if (g === 'connected') showToast('เชื่อมต่อ Google Drive เรียบร้อยแล้ว');
+    else if (g === 'denied') showToast('ยกเลิกการเชื่อมต่อ Google Drive แล้ว');
+    else if (g === 'error') showToast('เชื่อมต่อ Google Drive ไม่สำเร็จ กรุณาลองใหม่');
+    setSearchParams(prev => { const next = new URLSearchParams(prev); next.delete('google'); return next; }, { replace: true });
   }, [searchParams, setSearchParams, showToast]);
 
   useEffect(() => {
@@ -119,105 +139,97 @@ export const AdminView = () => {
         [university.id]: { ...o.entries[university.id], [column.key]: { status: entry.status, submittedAt: entry.submittedAt } }
       }
     }));
-    showToast(`ปลดล็อก ${column.title}${column.sub ? ` · ${column.sub}` : ''} ของ ${university.name} แล้ว`);
+    showToast(`ปลดล็อก ${column.title}${column.sub ? ` (${column.sub})` : ''} ของ ${university.name} แล้ว`);
     load();
   };
 
   const statusOf = useCallback((uid, key) => overview?.entries?.[uid]?.[key]?.status || 'not_started', [overview]);
   const summaryOf = useCallback((uid, key) => overview?.summaries?.[uid]?.[key], [overview]);
-  const submittedCount = (uid) => COLUMNS.filter(c => statusOf(uid, c.key) === 'submitted').length;
-  const columnCount = (key) => (overview?.universities || []).filter(u => statusOf(u.id, key) === 'submitted').length;
+  const warnOf = useCallback((uid, key) => isIncompleteDraft(statusOf(uid, key), summaryOf(uid, key)), [statusOf, summaryOf]);
+  const submittedCount = useCallback((uid) => COLUMNS.filter(c => statusOf(uid, c.key) === 'submitted').length, [statusOf]);
 
-  const universities = overview?.universities || [];
-  const allMembers = overview?.members || [];
+  const universities = useMemo(() => overview?.universities || [], [overview]);
+  const allMembers = useMemo(() => overview?.members || [], [overview]);
 
   const stats = useMemo(() => {
     let submittedEntries = 0;
-    let draftEntries = 0;
-    let draftWithWarnings = 0;
+    let incompleteDrafts = 0;
     for (const u of universities) {
       for (const c of COLUMNS) {
-        const st = statusOf(u.id, c.key);
-        const sm = summaryOf(u.id, c.key);
-        if (st === 'submitted') submittedEntries += 1;
-        else if (st === 'draft') {
-          draftEntries += 1;
-          if (sm && (!sm.ready || sm.missingPhotoCount > 0)) draftWithWarnings += 1;
-        }
+        if (statusOf(u.id, c.key) === 'submitted') submittedEntries += 1;
+        else if (warnOf(u.id, c.key)) incompleteDrafts += 1;
       }
     }
-    const competitors = allMembers.filter(m => m.recipientGroup === 'ผู้แข่งขัน').length;
-    const advisors = allMembers.filter(m => m.recipientGroup === 'อาจารย์ที่ปรึกษา').length;
-    const participants = allMembers.filter(m => m.recipientGroup === 'ผู้เข้าร่วม').length;
-    const missingPhotos = allMembers.filter(m => !m.hasPhoto).length;
     return {
       totalEntries: universities.length * COLUMNS.length,
       submittedEntries,
-      draftEntries,
-      draftWithWarnings,
-      competitors,
-      advisors,
-      participants,
-      missingPhotos
+      incompleteDrafts,
+      noSubmission: universities.filter(u => submittedCount(u.id) === 0).length,
+      missingPhotos: allMembers.filter(m => !m.hasPhoto).length,
+      competitors: allMembers.filter(m => m.recipientGroup === 'ผู้แข่งขัน').length,
+      advisors: allMembers.filter(m => m.recipientGroup === 'อาจารย์ที่ปรึกษา').length,
+      participants: allMembers.filter(m => m.recipientGroup === 'ผู้เข้าร่วม').length
     };
-  }, [universities, allMembers, statusOf, summaryOf]);
+  }, [universities, allMembers, statusOf, warnOf, submittedCount]);
 
-  // Status filter dims non-matching cells and hides universities with no matching cell
-  const visibleUniversities = universities.filter(u =>
-    (!incompleteOnly || submittedCount(u.id) < COLUMNS.length) &&
-    (statusFilter === 'all' || COLUMNS.some(c => statusOf(u.id, c.key) === statusFilter)));
+  // ---------- Ledger (matrix) ----------
+  const visibleColumns = useMemo(() => COLUMNS.filter(c => f.track === 'all' || c.trackId === f.track), [f.track]);
 
-  // Navigation order for Prev / Next in EntryDetailModal
+  const cellMatches = useCallback((uid, key) => {
+    if (f.cell === 'all') return true;
+    if (f.cell === 'incomplete') return warnOf(uid, key);
+    return statusOf(uid, key) === f.cell;
+  }, [f.cell, statusOf, warnOf]);
+
+  const visibleUniversities = useMemo(() => universities.filter(u => {
+    if (f.uni !== 'all' && String(u.id) !== f.uni) return false;
+    const done = submittedCount(u.id);
+    if (f.rows === 'incomplete' && done >= COLUMNS.length) return false;
+    if (f.rows === 'none' && done > 0) return false;
+    if (f.cell !== 'all' && !visibleColumns.some(c => cellMatches(u.id, c.key))) return false;
+    return true;
+  }), [universities, f.uni, f.rows, f.cell, visibleColumns, cellMatches, submittedCount]);
+
+  // Prev / Next in EntryDetailModal walk only the cells on screen
   const navCells = useMemo(() => {
     const out = [];
     for (const u of visibleUniversities) {
-      for (const c of COLUMNS) out.push({ university: u, column: c });
+      for (const c of visibleColumns) out.push({ university: u, column: c });
     }
     return out;
-  }, [visibleUniversities]);
+  }, [visibleUniversities, visibleColumns]);
 
   const selectedIndex = selected
     ? navCells.findIndex(item => item.university.id === selected.university.id && item.column.key === selected.column.key)
     : -1;
 
-  // Live preview of filtered rows matching the certificate CSV settings
-  const matchingExportMembers = useMemo(() => {
-    const groupLabel = GROUP_OPTIONS.find(g => g.id === exportGroup)?.labelTh || '';
+  // ---------- People (directory) and the export that matches it ----------
+  const directoryMembers = useMemo(() => {
+    const q = f.q.trim().toLowerCase().slice(0, 200);
+    const groupLabel = GROUP_OPTIONS.find(g => g.id === f.group)?.labelTh || '';
     return allMembers.filter(m => {
-      if (exportStatus !== 'all' && m.entryStatus !== exportStatus) return false;
+      if (f.est !== 'all' && m.entryStatus !== f.est) return false;
       if (groupLabel && m.recipientGroup !== groupLabel) return false;
-      if (exportUniversity !== 'all' && String(m.universityId) !== exportUniversity) return false;
-      if (exportTrack !== 'all' && m.trackId !== exportTrack) return false;
+      if (f.uni !== 'all' && String(m.universityId) !== f.uni) return false;
+      if (f.track !== 'all' && m.trackId !== f.track) return false;
+      if (f.photo === 'missing' && m.hasPhoto) return false;
+      if (q && !memberSearchText(m).includes(q)) return false;
       return true;
     });
-  }, [allMembers, exportStatus, exportGroup, exportUniversity, exportTrack]);
+  }, [allMembers, f.q, f.group, f.est, f.uni, f.track, f.photo]);
+
+  const draftsInSet = useMemo(() => directoryMembers.filter(m => m.entryStatus === 'draft').length, [directoryMembers]);
 
   const exportQuery = useMemo(() => {
     const p = new URLSearchParams();
-    p.set('status', exportStatus);
-    if (exportGroup !== 'all') p.set('group', exportGroup);
-    if (exportUniversity !== 'all') p.set('universityId', exportUniversity);
-    if (exportTrack !== 'all') p.set('trackId', exportTrack);
+    p.set('status', f.est);
+    if (f.group !== 'all') p.set('group', f.group);
+    if (f.uni !== 'all') p.set('universityId', f.uni);
+    if (f.track !== 'all') p.set('trackId', f.track);
+    if (f.q.trim()) p.set('q', f.q.trim());
+    if (f.photo === 'missing') p.set('missingPhoto', '1');
     return p.toString();
-  }, [exportStatus, exportGroup, exportUniversity, exportTrack]);
-
-  // Filtered list for Directory view
-  const directoryMembers = useMemo(() => {
-    const q = searchText.trim().toLowerCase();
-    const groupLabel = GROUP_OPTIONS.find(g => g.id === dirGroup)?.labelTh || '';
-    return allMembers.filter(m => {
-      if (dirUniversity !== 'all' && String(m.universityId) !== dirUniversity) return false;
-      if (dirTrack !== 'all' && m.trackId !== dirTrack) return false;
-      if (groupLabel && m.recipientGroup !== groupLabel) return false;
-      if (dirStatus !== 'all' && m.entryStatus !== dirStatus) return false;
-      if (missingPhotoOnly && m.hasPhoto) return false;
-      if (q) {
-        const hay = `${m.certName} ${m.fullName} ${m.studentId} ${m.email} ${m.phone} ${m.role} ${m.certCompetition} ${m.university} ${m.dept}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      return true;
-    });
-  }, [allMembers, searchText, dirUniversity, dirTrack, dirGroup, dirStatus, missingPhotoOnly]);
+  }, [f.est, f.group, f.uni, f.track, f.q, f.photo]);
 
   const openMemberEntry = (m) => {
     const university = universities.find(u => u.id === m.universityId);
@@ -225,395 +237,421 @@ export const AdminView = () => {
     if (university && column) setSelected({ university, column });
   };
 
+  const filtersActive = viewMode === 'matrix'
+    ? f.uni !== 'all' || f.track !== 'all' || f.cell !== 'all' || f.rows !== 'all'
+    : f.uni !== 'all' || f.track !== 'all' || f.group !== 'all' || f.est !== DEFAULTS.est || f.photo !== '' || f.q !== '';
+  const clearFilters = () => setFilters({ view: viewMode }, { reset: true });
+
   const loadedTime = loadedAt ? loadedAt.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', hour12: false }) : '';
+  const sample = directoryMembers[0];
+  const pct = stats.totalEntries ? Math.round((stats.submittedEntries / stats.totalEntries) * 100) : 0;
+
+  const pulseItem = ({ id, label, figure, note, onClick, pressed, alert }) => {
+    const body = (
+      <>
+        <span className="adm-pulse-label">{label}</span>
+        <span className={`adm-pulse-figure${alert ? ' is-alert' : ''}`}>{figure}</span>
+        {note}
+      </>
+    );
+    return onClick
+      ? <button key={id} type="button" className="adm-pulse-item" aria-pressed={pressed} onClick={onClick}>{body}</button>
+      : <div key={id} className="adm-pulse-item">{body}</div>;
+  };
+
+  const universitySelect = (
+    <label className="adm-field">
+      มหาวิทยาลัย
+      <select className="adm-select" value={f.uni} onChange={(e) => setFilters({ uni: e.target.value })}>
+        <option value="all">ทุกมหาวิทยาลัย</option>
+        {universities.map(u => <option key={u.id} value={String(u.id)}>{u.name}</option>)}
+      </select>
+    </label>
+  );
+  const trackSelect = (
+    <label className="adm-field">
+      ประเภทการแข่งขัน
+      <select className="adm-select" value={f.track} onChange={(e) => setFilters({ track: e.target.value })}>
+        <option value="all">ทุกประเภท</option>
+        {TRACKS.map(t => <option key={t.id} value={t.id}>{t.th}</option>)}
+      </select>
+    </label>
+  );
 
   return (
-    <div className="app-container" style={{ padding: '36px 20px 80px 20px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {/* Header */}
-      <div className="card" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+    <div className="adm" data-theme="admin">
+      <header className="adm-head">
         <div>
-          <div className="page-kicker"><ShieldCheck size={18} weight="bold" /><span>ผู้ดูแลระบบ</span></div>
-          <h1 className="page-title">ภาพรวมและส่งออกข้อมูล</h1>
-          <p className="page-desc">ตรวจสอบรายชื่อ รูปถ่าย สถานะการส่ง และส่งออกไฟล์ CSV สำหรับทำใบเกียรติบัตร</p>
+          <h1>ภาพรวมและส่งออกข้อมูล</h1>
+          <p>ตรวจสอบรายชื่อ รูปถ่าย สถานะการส่ง และส่งออกไฟล์ CSV สำหรับทำใบเกียรติบัตร</p>
         </div>
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <button type="button" className="btn" onClick={load}><ArrowsClockwise size={18} /> รีเฟรช</button>
-          <a className="btn btn-primary" href={`/api/admin/certificates.csv?${exportQuery}`} download>
-            <Certificate size={18} weight="bold" /> ส่งออก CSV ใบเกียรติบัตร
-          </a>
-          <a className="btn" href="/api/admin/members.zip" download>
-            <UsersThree size={18} /> ดาวน์โหลดรายชื่อ + รูปถ่าย (.zip)
-          </a>
+        <div className="adm-head-tools">
+          {loadedTime && <span>อัปเดตล่าสุด <span className="num">{loadedTime}</span> น.</span>}
+          <button type="button" className="btn btn-sm" onClick={load} disabled={loading} aria-busy={loading}>
+            <ArrowsClockwise size={16} /> {loading ? 'กำลังโหลด…' : 'รีเฟรช'}
+          </button>
         </div>
-      </div>
+      </header>
 
-      {/* Summary KPIs */}
-      {overview && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
-          <div className="card" style={{ padding: '18px 20px', gap: '4px' }}>
-            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)' }}>รายการที่ส่งแล้ว</span>
-            <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--primary)' }}>
-              {stats.submittedEntries} <span style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-light)' }}>/ {stats.totalEntries} รายการ</span>
+      {/* Attention strip: each figure filters the table to exactly the set it counts */}
+      {(overview || !error) && <section className="adm-pulse" aria-label="สรุปสิ่งที่ต้องติดตาม">
+        {!overview ? (
+          [0, 1, 2, 3].map(i => (
+            <div key={i} className="adm-pulse-item" aria-hidden="true">
+              <span className="adm-skel-figure" />
             </div>
-            <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-              ฉบับร่าง {stats.draftEntries} รายการ{stats.draftWithWarnings > 0 ? ` · ขาดข้อมูล ${stats.draftWithWarnings}` : ''}
-            </span>
-          </div>
+          ))
+        ) : (
+          <>
+            {pulseItem({
+              id: 'done',
+              label: 'รายการที่ส่งแล้ว',
+              figure: <>{stats.submittedEntries} <small>/ {stats.totalEntries} รายการ</small></>,
+              note: <span className="adm-meter" role="img" aria-label={`ส่งแล้ว ${pct}%`}><span style={{ transform: `scaleX(${pct / 100})` }} /></span>,
+              onClick: stats.submittedEntries ? () => setFilters({ view: 'matrix', cell: 'submitted' }, { reset: true }) : null,
+              pressed: viewMode === 'matrix' && f.cell === 'submitted'
+            })}
+            {pulseItem({
+              id: 'incomplete',
+              label: 'ฉบับร่างที่ยังขาดข้อมูล',
+              figure: <>{stats.incompleteDrafts} <small>รายการ</small></>,
+              note: <span className="adm-pulse-note">{stats.incompleteDrafts ? 'ขาดไฟล์ ข้อมูล หรือรูปถ่าย' : 'ไม่มีฉบับร่างที่ขาดข้อมูล'}</span>,
+              onClick: stats.incompleteDrafts ? () => setFilters({ view: 'matrix', cell: 'incomplete' }, { reset: true }) : null,
+              pressed: viewMode === 'matrix' && f.cell === 'incomplete',
+              alert: stats.incompleteDrafts > 0
+            })}
+            {pulseItem({
+              id: 'none',
+              label: 'มหาวิทยาลัยที่ยังไม่ส่งเลย',
+              figure: <>{stats.noSubmission} <small>/ {universities.length} แห่ง</small></>,
+              note: <span className="adm-pulse-note">{stats.noSubmission ? 'ยังไม่มีรายการที่ส่งแล้ว' : 'ทุกแห่งส่งแล้วอย่างน้อย 1 รายการ'}</span>,
+              onClick: stats.noSubmission ? () => setFilters({ view: 'matrix', rows: 'none' }, { reset: true }) : null,
+              pressed: viewMode === 'matrix' && f.rows === 'none',
+              alert: stats.noSubmission > 0
+            })}
+            {pulseItem({
+              id: 'photos',
+              label: 'รายชื่อที่ขาดรูปถ่าย',
+              figure: <>{stats.missingPhotos} <small>/ {allMembers.length} คน</small></>,
+              note: <span className="adm-pulse-note">{stats.missingPhotos ? 'คลิกเพื่อดูรายชื่อ' : 'รูปถ่ายครบทุกคน'}</span>,
+              onClick: stats.missingPhotos ? () => setFilters({ view: 'directory', photo: 'missing', est: 'all' }, { reset: true }) : null,
+              pressed: viewMode === 'directory' && f.photo === 'missing',
+              alert: stats.missingPhotos > 0
+            })}
+          </>
+        )}
+      </section>}
 
-          <div className="card" style={{ padding: '18px 20px', gap: '4px' }}>
-            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)' }}>รายชื่อทั้งหมดในระบบ</span>
-            <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--blue-text)' }}>
-              {allMembers.length} <span style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-light)' }}>คน</span>
+      {/* Workspace */}
+      <section className="adm-work" aria-label="ตรวจสอบข้อมูล">
+        <div className="adm-tabs" role="tablist" aria-label="มุมมองตรวจสอบข้อมูล">
+          <button type="button" role="tab" className="adm-tab" aria-selected={viewMode === 'matrix'} onClick={() => setFilters({ view: 'matrix' })}>
+            <Table size={18} weight="bold" /> ติดตามการส่ง
+          </button>
+          <button type="button" role="tab" className="adm-tab" aria-selected={viewMode === 'directory'} onClick={() => setFilters({ view: 'directory' })}>
+            <ListBullets size={18} weight="bold" /> รายชื่อและส่งออก {overview && <span className="num">{allMembers.length}</span>}
+          </button>
+          {viewMode === 'matrix' && (
+            <div className="adm-tabs-end" aria-label="คำอธิบายสัญลักษณ์">
+              <span className="adm-legend"><CheckCircle size={14} weight="fill" color="var(--color-done)" /> ส่งแล้ว</span>
+              <span className="adm-legend"><PencilSimpleLine size={14} weight="bold" color="var(--color-draft)" /> ฉบับร่าง</span>
+              <span className="adm-legend"><WarningCircle size={14} weight="fill" color="var(--color-error)" /> ร่างที่ขาดข้อมูล</span>
+              <span>ตัวเลข คือ จำนวนคน</span>
             </div>
-            <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-              ผู้แข่งขัน {stats.competitors} · อาจารย์ {stats.advisors} · ผู้เข้าร่วม {stats.participants}
-            </span>
-          </div>
-
-          <div className="card" style={{ padding: '18px 20px', gap: '4px' }}>
-            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)' }}>ความครบถ้วนของรูปถ่าย</span>
-            <div style={{ fontSize: '26px', fontWeight: 800, color: stats.missingPhotos > 0 ? 'var(--danger)' : '#0B7A4B' }}>
-              {stats.missingPhotos > 0 ? `ขาดรูป ${stats.missingPhotos} คน` : 'รูปถ่ายครบทุกคน'}
-            </div>
-            {stats.missingPhotos > 0 ? (
-              <button
-                type="button"
-                className="btn btn-sm btn-ghost"
-                style={{ alignSelf: 'flex-start', padding: '0 4px', minHeight: '28px', color: 'var(--danger)' }}
-                onClick={() => { setViewMode('directory'); setMissingPhotoOnly(true); }}
-              >
-                <WarningCircle size={15} weight="fill" /> ดูรายชื่อที่ขาดรูป
-              </button>
-            ) : (
-              <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>จากทั้งหมด {allMembers.length} คน</span>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Certificate Export Card */}
-      <section className="card" aria-labelledby="cert-export-title">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
-          <div>
-            <h2 id="cert-export-title" className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Certificate size={22} weight="duotone" color="var(--primary)" />
-              ส่งออกไฟล์สำหรับทำใบเกียรติบัตร (.csv)
-            </h2>
-            <p style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-sm)' }}>
-              รวมคอลัมน์ <strong>“ชื่อ-นามสกุล (สำหรับใบเกียรติบัตร)”</strong> (คำนำหน้าติดกับชื่อ เช่น <code>นายสมชาย ใจดี</code>) และ <strong>“รายการแข่งขัน (สำหรับใบเกียรติบัตร)”</strong> พร้อมนำเข้า Canva Bulk Create / Excel
-            </p>
-          </div>
-          {overview && (
-            <span style={{ padding: '6px 12px', borderRadius: '999px', background: '#F2F4F8', fontSize: '13px', fontWeight: 700, color: '#1B1D29' }}>
-              ตรงตามเงื่อนไข {matchingExportMembers.length} คน
-            </span>
           )}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '10px', marginTop: '6px' }}>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '13px', fontWeight: 600 }}>
-            สถานะการส่ง
-            <select value={exportStatus} onChange={(e) => setExportStatus(e.target.value)} style={selectStyle}>
-              <option value="submitted">เฉพาะที่ส่งแล้ว (แนะนำ)</option>
-              <option value="all">ทั้งหมด (รวมฉบับร่าง)</option>
-              <option value="draft">เฉพาะฉบับร่าง</option>
-            </select>
-          </label>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '13px', fontWeight: 600 }}>
-            กลุ่มผู้รับ
-            <select value={exportGroup} onChange={(e) => setExportGroup(e.target.value)} style={selectStyle}>
-              {GROUP_OPTIONS.map(g => <option key={g.id} value={g.id}>{g.label}</option>)}
-            </select>
-          </label>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '13px', fontWeight: 600 }}>
-            มหาวิทยาลัย
-            <select value={exportUniversity} onChange={(e) => setExportUniversity(e.target.value)} style={selectStyle}>
-              <option value="all">ทุกมหาวิทยาลัย</option>
-              {universities.map(u => <option key={u.id} value={String(u.id)}>{u.name}</option>)}
-            </select>
-          </label>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '13px', fontWeight: 600 }}>
-            ประเภทการแข่งขัน
-            <select value={exportTrack} onChange={(e) => setExportTrack(e.target.value)} style={selectStyle}>
-              <option value="all">ทุกประเภท</option>
-              {TRACKS.map(t => <option key={t.id} value={t.id}>{t.th}</option>)}
-            </select>
-          </label>
-        </div>
-
-        {matchingExportMembers[0] && (
-          <div style={{ fontSize: '13px', color: 'var(--text-muted)', background: '#FAFAFC', padding: '10px 14px', borderRadius: '12px', border: '1px solid #ECECF1' }}>
-            ตัวอย่างแถวแรก: <strong>{matchingExportMembers[0].certName}</strong> · {matchingExportMembers[0].recipientGroup} ({matchingExportMembers[0].role}) · {matchingExportMembers[0].certCompetition} · {matchingExportMembers[0].university}
+        {/* Shared filter row */}
+        {viewMode === 'matrix' ? (
+          <div className="adm-filters">
+            {universitySelect}
+            {trackSelect}
+            <label className="adm-field">
+              สถานะรายการ
+              <select className="adm-select" value={f.cell} onChange={(e) => setFilters({ cell: e.target.value })}>
+                {CELL_FILTERS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+              </select>
+            </label>
+            <label className="adm-field">
+              ความคืบหน้า
+              <select className="adm-select" value={f.rows} onChange={(e) => setFilters({ rows: e.target.value })}>
+                {ROW_FILTERS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+              </select>
+            </label>
+            {filtersActive && <button type="button" className="btn btn-sm btn-ghost" onClick={clearFilters}><X size={14} /> ล้างตัวกรอง</button>}
+            {overview && (
+              <span className="adm-count">แสดง <strong className="num">{visibleUniversities.length}</strong> / <span className="num">{universities.length}</span> มหาวิทยาลัย</span>
+            )}
           </div>
-        )}
-
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', marginTop: '4px' }}>
-          <a className="btn btn-primary" href={`/api/admin/certificates.csv?${exportQuery}`} download>
-            <Certificate size={18} weight="bold" /> ดาวน์โหลด CSV ใบเกียรติบัตร ({matchingExportMembers.length} คน)
-          </a>
-          <a className="btn" href={`/api/admin/export.csv?${exportQuery}`} download>
-            <DownloadSimple size={18} /> ดาวน์โหลด CSV ข้อมูลดิบ (ตามตัวกรองนี้)
-          </a>
-        </div>
-      </section>
-
-      {/* Zip download */}
-      <section className="card" aria-labelledby="zip-title">
-        <h2 id="zip-title" className="section-title">ดาวน์โหลดไฟล์ตามประเภท (.zip)</h2>
-        <p style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-sm)' }}>
-          รูปถ่ายและไฟล์ผลงานของทุกมหาวิทยาลัย แยกโฟลเดอร์ตามมหาวิทยาลัย · สื่อสร้างสรรค์มีไฟล์ links.txt สำหรับลิงก์วิดีโอ
-        </p>
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <label htmlFor="zip-key" style={{ fontWeight: 600 }}>ประเภท</label>
-          <select id="zip-key" value={zipKey} onChange={(e) => setZipKey(e.target.value)} style={selectStyle}>
-            {TRACKS.map(t => <option key={t.id} value={t.id}>{t.th}</option>)}
-          </select>
-          <a className="btn" href={`/api/admin/files.zip?key=${encodeURIComponent(zipKey)}`} download>
-            <FileZip size={18} /> ดาวน์โหลด .zip
-          </a>
-        </div>
-        <p style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-sm)', marginTop: '8px' }}>
-          ปุ่ม "ดาวน์โหลดรายชื่อ + รูปถ่าย" ด้านบน: โฟลเดอร์ตามมหาวิทยาลัยและประเภท มีไฟล์รายชื่อ (CSV) และรูปชื่อ ProfileImage_มหาวิทยาลัย_รหัสนักศึกษา
-        </p>
-      </section>
-
-      {/* Main Inspection Section (Matrix / Directory switcher) */}
-      <section style={{ background: '#FFFFFF', borderRadius: '24px', border: '1px solid #ECECF1', boxShadow: '0 4px 20px -2px rgba(27, 29, 41, 0.04)', overflow: 'hidden' }}>
-        {/* View mode switcher + status legend */}
-        <div style={{ padding: '16px 20px', display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', borderBottom: '1px solid #ECECF1' }}>
-          <div role="tablist" aria-label="มุมมองตรวจสอบข้อมูล" style={{ display: 'inline-flex', background: '#F2F4F8', padding: '4px', borderRadius: '12px', gap: '4px' }}>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={viewMode === 'matrix'}
-              onClick={() => setViewMode('matrix')}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 14px', borderRadius: '9px',
-                fontWeight: 700, fontSize: '14px',
-                background: viewMode === 'matrix' ? '#FFFFFF' : 'transparent',
-                color: viewMode === 'matrix' ? '#1B1D29' : '#4F5366',
-                boxShadow: viewMode === 'matrix' ? '0 1px 4px rgba(0,0,0,0.08)' : 'none'
-              }}
-            >
-              <Table size={16} weight="bold" /> ตาราง 18 รายการ
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={viewMode === 'directory'}
-              onClick={() => setViewMode('directory')}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 14px', borderRadius: '9px',
-                fontWeight: 700, fontSize: '14px',
-                background: viewMode === 'directory' ? '#FFFFFF' : 'transparent',
-                color: viewMode === 'directory' ? '#1B1D29' : '#4F5366',
-                boxShadow: viewMode === 'directory' ? '0 1px 4px rgba(0,0,0,0.08)' : 'none'
-              }}
-            >
-              <ListBullets size={16} weight="bold" /> ค้นหารายชื่อ ({allMembers.length})
-            </button>
-          </div>
-
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-            <StatusChip status="submitted" /><StatusChip status="draft" /><StatusChip status="not_started" />
-          </div>
-          {loadedTime && <span style={{ marginLeft: 'auto', color: 'var(--text-muted)', fontSize: '13px' }}>อัปเดตล่าสุด {loadedTime}</span>}
-        </div>
-
-        {error && <p role="alert" style={{ padding: '16px 20px', color: 'var(--danger)' }}>{error}</p>}
-        {!overview && !error && <p style={{ padding: '16px 20px', color: 'var(--text-muted)' }}>กำลังโหลด…</p>}
-
-        {overview && (
-          <div
-            key={viewSwap.displayedKey}
-            className={viewSwap.className}
-            style={{ ...viewSwap.style, '--swap-in-ms': '220ms' }}
-          >
-        {/* Matrix view */}
-        {viewSwap.displayed === 'matrix' && (
-          <>
-            <div style={{ padding: '12px 20px', display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', borderBottom: '1px solid #ECECF1' }}>
-              <span style={{ fontWeight: 600, fontSize: '14px' }}>แสดง:</span>
-              <div role="group" aria-label="กรองตามสถานะ" style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                {STATUS_FILTERS.map(f => (
-                  <button key={f.id} type="button" className={`btn${statusFilter === f.id ? ' btn-primary' : ''}`}
-                    aria-pressed={statusFilter === f.id} onClick={() => setStatusFilter(f.id)}
-                    style={{ minHeight: '36px', padding: '0 14px' }}>
-                    {f.label}
-                  </button>
-                ))}
-              </div>
-              <label style={{ display: 'inline-flex', gap: '6px', alignItems: 'center', marginLeft: '8px', fontSize: '14px', cursor: 'pointer' }}>
-                <input type="checkbox" checked={incompleteOnly} onChange={(e) => setIncompleteOnly(e.target.checked)} />
-                ยังไม่ครบเท่านั้น
-              </label>
-              <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
-                ({visibleUniversities.length}/{universities.length} มหาวิทยาลัย · ตัวเลขในช่อง = จำนวนคนในรายการนั้น)
-              </span>
-            </div>
-
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1580px' }}>
-                <thead>
-                  <tr style={{ background: '#FAFAFC', borderBottom: '1px solid #ECECF1' }}>
-                    <th style={{ ...headCell, ...stickyCol, background: '#FAFAFC' }}>มหาวิทยาลัย</th>
-                    {COLUMNS.map(c => (
-                      <th key={c.key} style={headCell}>
-                        <div>{c.title}</div>
-                        {c.sub && <div style={{ fontWeight: 500, color: 'var(--text-light)' }}>{c.sub}</div>}
-                      </th>
-                    ))}
-                    <th style={headCell}>ส่งแล้ว</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleUniversities.length === 0 && (
-                    <tr><td colSpan={COLUMNS.length + 2} style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)' }}>ไม่มีมหาวิทยาลัยที่ตรงกับตัวกรอง</td></tr>
-                  )}
-                  {visibleUniversities.map(u => (
-                    <tr key={u.id} style={{ borderBottom: '1px solid #F0F1F5' }}>
-                      <th scope="row" style={{ ...stickyCol, fontWeight: 700, fontSize: '14px' }}>
-                        <div>{u.name}</div>
-                        <div style={{ fontWeight: 500, fontSize: '13px', color: 'var(--text-light)' }}>{u.code}</div>
-                      </th>
-                      {COLUMNS.map(c => (
-                        <td key={c.key} style={{ padding: '8px 4px', textAlign: 'center', opacity: statusFilter === 'all' || statusOf(u.id, c.key) === statusFilter ? 1 : 0.2 }}>
-                          <StatusCell
-                            status={statusOf(u.id, c.key)}
-                            summary={summaryOf(u.id, c.key)}
-                            title={`${u.name} · ${c.title}${c.sub ? ` · ${c.sub}` : ''}`}
-                            onClick={() => setSelected({ university: u, column: c })}
-                          />
-                        </td>
-                      ))}
-                      <td style={{ padding: '8px 12px', textAlign: 'center', fontWeight: 700 }}>{submittedCount(u.id)}/{COLUMNS.length}</td>
-                    </tr>
-                  ))}
-                  <tr style={{ background: '#FAFAFC' }}>
-                    <th scope="row" style={{ ...stickyCol, background: '#FAFAFC', fontSize: '13px' }}>ส่งแล้ว (มหาวิทยาลัย)</th>
-                    {COLUMNS.map(c => (
-                      <td key={c.key} style={{ padding: '8px 4px', textAlign: 'center', fontSize: '13px', fontWeight: 700 }}>
-                        {columnCount(c.key)}/{universities.length}
-                      </td>
-                    ))}
-                    <td />
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
-
-        {/* Searchable Member Directory view */}
-        {viewSwap.displayed === 'directory' && (
-          <>
-            <div style={{ padding: '14px 20px', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', borderBottom: '1px solid #ECECF1', background: '#FAFAFC' }}>
-              <div style={{ position: 'relative', flex: '1 1 240px', minWidth: '220px' }}>
-                <MagnifyingGlass size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-light)' }} />
+        ) : (
+          <div className="adm-filters">
+            <label className="adm-field adm-field--grow">
+              ค้นหา
+              <span className="adm-search">
+                <MagnifyingGlass size={16} />
                 <input
                   type="search"
-                  className="input"
-                  value={searchText}
-                  onChange={(e) => setSearchText(e.target.value)}
-                  placeholder="ค้นหาชื่อ, รหัสนักศึกษา, อีเมล, เบอร์โทร, บทบาท…"
-                  style={{ paddingLeft: '36px', minHeight: '42px' }}
+                  className="adm-input"
+                  value={f.q}
+                  onChange={(e) => setFilters({ q: e.target.value })}
+                  placeholder="ชื่อ รหัสนักศึกษา อีเมล เบอร์โทร บทบาท"
                 />
-              </div>
-              <select value={dirUniversity} onChange={(e) => setDirUniversity(e.target.value)} style={selectStyle} aria-label="กรองตามมหาวิทยาลัย">
-                <option value="all">ทุกมหาวิทยาลัย</option>
-                {universities.map(u => <option key={u.id} value={String(u.id)}>{u.name}</option>)}
-              </select>
-              <select value={dirTrack} onChange={(e) => setDirTrack(e.target.value)} style={selectStyle} aria-label="กรองตามประเภท">
-                <option value="all">ทุกประเภท</option>
-                {TRACKS.map(t => <option key={t.id} value={t.id}>{t.th}</option>)}
-              </select>
-              <select value={dirGroup} onChange={(e) => setDirGroup(e.target.value)} style={selectStyle} aria-label="กรองตามกลุ่มผู้รับ">
+              </span>
+            </label>
+            {universitySelect}
+            {trackSelect}
+            <label className="adm-field">
+              กลุ่มผู้รับ
+              <select className="adm-select" value={f.group} onChange={(e) => setFilters({ group: e.target.value })}>
                 {GROUP_OPTIONS.map(g => <option key={g.id} value={g.id}>{g.label}</option>)}
               </select>
-              <select value={dirStatus} onChange={(e) => setDirStatus(e.target.value)} style={selectStyle} aria-label="กรองตามสถานะ">
-                <option value="all">ทุกสถานะ</option>
-                <option value="submitted">ส่งแล้วเท่านั้น</option>
-                <option value="draft">ฉบับร่างเท่านั้น</option>
+            </label>
+            <label className="adm-field">
+              สถานะการส่ง
+              <select className="adm-select" value={f.est} onChange={(e) => setFilters({ est: e.target.value })}>
+                {ENTRY_STATUS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
               </select>
-              <label style={{ display: 'inline-flex', gap: '6px', alignItems: 'center', fontSize: '13.5px', cursor: 'pointer', fontWeight: 600 }}>
-                <input type="checkbox" checked={missingPhotoOnly} onChange={(e) => setMissingPhotoOnly(e.target.checked)} />
-                ขาดรูปถ่ายเท่านั้น
-              </label>
-              <span style={{ fontSize: '13px', color: 'var(--text-muted)', marginLeft: 'auto' }}>
-                พบ {directoryMembers.length} / {allMembers.length} คน
-              </span>
-            </div>
-
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1080px' }}>
-                <thead>
-                  <tr style={{ background: '#FAFAFC', borderBottom: '1px solid #ECECF1' }}>
-                    <th style={dirHead}>รูป</th>
-                    <th style={dirHead}>ชื่อสำหรับใบเกียรติบัตร</th>
-                    <th style={dirHead}>บทบาท / กลุ่ม</th>
-                    <th style={dirHead}>รายการแข่งขัน</th>
-                    <th style={dirHead}>มหาวิทยาลัย / หน่วยงาน</th>
-                    <th style={dirHead}>รหัส / ติดต่อ</th>
-                    <th style={dirHead}>สถานะ</th>
-                    <th style={dirHead}>ดูรายการ</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {directoryMembers.length === 0 && (
-                    <tr><td colSpan={8} style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>ไม่พบรายชื่อที่ตรงกับเงื่อนไข</td></tr>
-                  )}
-                  {directoryMembers.map((m, idx) => (
-                    <tr key={`${m.universityId}-${m.entryKey}-${m.memberId}-${idx}`} style={{ borderBottom: '1px solid #F0F1F5' }}>
-                      <td style={dirCell}>
-                        {m.hasPhoto && m.photoDataUrl ? (
-                          <button
-                            type="button"
-                            onClick={() => setPreviewMember(m)}
-                            title="คลิกเพื่อขยายรูปถ่าย"
-                            style={{ position: 'relative', padding: 0, borderRadius: '10px', overflow: 'hidden', display: 'block', background: 'transparent' }}
-                          >
-                            <img src={m.photoDataUrl} alt={m.fullName} width="42" height="42" style={{ borderRadius: '10px', objectFit: 'cover', display: 'block' }} />
-                            <span style={{ position: 'absolute', right: '2px', bottom: '2px', background: 'rgba(0,0,0,0.55)', color: '#fff', borderRadius: '6px', padding: '1px 3px', display: 'grid', placeItems: 'center' }}>
-                              <MagnifyingGlassPlus size={11} weight="bold" />
-                            </span>
-                          </button>
-                        ) : (
-                          <span style={{ color: 'var(--danger)', fontSize: '12.5px', fontWeight: 700 }}>ขาดรูป</span>
-                        )}
-                      </td>
-                      <td style={dirCell}>
-                        <div style={{ fontWeight: 700 }}>{m.certName}</div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{m.title || '-'} / {m.fullName}</div>
-                      </td>
-                      <td style={dirCell}>
-                        <div style={{ fontWeight: 700 }}>{m.role}</div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{m.recipientGroup}</div>
-                      </td>
-                      <td style={dirCell}>{m.certCompetition}</td>
-                      <td style={dirCell}>
-                        <div style={{ fontWeight: 600 }}>{m.university}</div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{m.dept || '–'}</div>
-                      </td>
-                      <td style={dirCell}>
-                        <div>{m.studentId ? `${m.studentId}${m.year ? ` (ปี ${m.year})` : ''}` : '–'}</div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{m.email || m.phone || ''}</div>
-                      </td>
-                      <td style={dirCell}><StatusChip status={m.entryStatus} /></td>
-                      <td style={dirCell}>
-                        <button type="button" className="btn btn-sm" onClick={() => openMemberEntry(m)}>เปิด</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
+            </label>
+            <label className="adm-check">
+              <input type="checkbox" checked={f.photo === 'missing'} onChange={(e) => setFilters({ photo: e.target.checked ? 'missing' : '' })} />
+              ขาดรูปถ่ายเท่านั้น
+            </label>
+            {filtersActive && <button type="button" className="btn btn-sm btn-ghost" onClick={clearFilters}><X size={14} /> ล้างตัวกรอง</button>}
+            {overview && (
+              <span className="adm-count">พบ <strong className="num">{directoryMembers.length}</strong> / <span className="num">{allMembers.length}</span> คน</span>
+            )}
+          </div>
         )}
+
+        {/* Export bar: the files contain exactly the rows below */}
+        {viewMode === 'directory' && overview && (
+          <div className="adm-export">
+            <div className="adm-export-what">
+              <strong>ส่งออกตามตัวกรองนี้ <span className="num">{directoryMembers.length}</span> คน</strong>
+              <span className="adm-export-sample">ไฟล์ใบเกียรติบัตรมีคอลัมน์ “ชื่อ-นามสกุล (สำหรับใบเกียรติบัตร)” ที่คำนำหน้าติดกับชื่อ และ “รายการแข่งขัน (สำหรับใบเกียรติบัตร)” พร้อมนำเข้า Canva Bulk Create หรือ Excel</span>
+              {sample ? (
+                <span className="adm-export-sample">
+                  <span>แถวแรก <b>{sample.certName}</b></span>
+                  <span>{sample.recipientGroup} ({sample.role})</span>
+                  <span>{sample.certCompetition}</span>
+                  <span>{sample.university}</span>
+                </span>
+              ) : (
+                <span className="adm-export-sample">ไม่มีรายชื่อตรงกับตัวกรอง ไฟล์จะมีเฉพาะหัวตาราง</span>
+              )}
+            </div>
+            <div className="adm-export-actions">
+              <a className="btn btn-sm btn-primary" href={`/api/admin/certificates.csv?${exportQuery}`} download>
+                <Certificate size={16} weight="bold" /> ใบเกียรติบัตร (.csv)
+              </a>
+              <a className="btn btn-sm" href={`/api/admin/export.csv?${exportQuery}`} download>
+                <DownloadSimple size={16} /> ข้อมูลดิบ (.csv)
+              </a>
+            </div>
+            {draftsInSet > 0 && (
+              <div className="adm-export-warn" role="status">
+                <WarningCircle size={16} weight="fill" />
+                <span>ชุดนี้มีรายชื่อจากฉบับร่าง <span className="num">{draftsInSet}</span> คน ใบเกียรติบัตรควรใช้เฉพาะรายการที่ส่งแล้ว</span>
+                <button type="button" className="adm-link-btn" onClick={() => setFilters({ est: 'submitted' })}>แสดงเฉพาะที่ส่งแล้ว</button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {error && (
+          <div className="adm-state adm-state--error" role="alert">
+            <strong>{error}</strong>
+            <p>ข้อมูลที่แสดงอาจไม่เป็นปัจจุบัน ตรวจสอบการเชื่อมต่อแล้วลองโหลดใหม่</p>
+            <button type="button" className="btn btn-sm" onClick={load}><ArrowsClockwise size={16} /> ลองใหม่</button>
+          </div>
+        )}
+        {!overview && !error && (
+          <div className="adm-skel" aria-busy="true" aria-label="กำลังโหลดข้อมูล">
+            {[0, 1, 2, 3, 4, 5].map(i => <span key={i} />)}
+          </div>
+        )}
+
+        {overview && (
+          <div key={viewSwap.displayedKey} className={viewSwap.className} style={{ ...viewSwap.style, '--swap-in-ms': '220ms' }}>
+            {viewSwap.displayed === 'matrix' && (
+              <div className="adm-scroll">
+                <table className="adm-table adm-ledger">
+                  <thead>
+                    <tr>
+                      <th scope="col" className="adm-rowhead">มหาวิทยาลัย</th>
+                      {visibleColumns.map(c => (
+                        <th scope="col" key={c.key} className="adm-col">
+                          {c.title}
+                          {c.sub && <span className="adm-sub">{c.sub}</span>}
+                        </th>
+                      ))}
+                      <th scope="col" className="adm-total">ส่งแล้ว</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibleUniversities.length === 0 && (
+                      <tr>
+                        <td colSpan={visibleColumns.length + 2}>
+                          <div className="adm-state">
+                            <strong>ไม่มีมหาวิทยาลัยที่ตรงกับตัวกรอง</strong>
+                            <button type="button" className="btn btn-sm" onClick={clearFilters}>ล้างตัวกรอง</button>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    {visibleUniversities.map(u => {
+                      const done = submittedCount(u.id);
+                      return (
+                        <tr key={u.id}>
+                          <th scope="row" className="adm-rowhead">
+                            <span className="adm-strong">{u.name}</span>
+                            <span className="adm-sub">{u.code}</span>
+                          </th>
+                          {visibleColumns.map(c => (
+                            <td key={c.key} className="adm-cellwrap">
+                              <StatusCell
+                                status={statusOf(u.id, c.key)}
+                                summary={summaryOf(u.id, c.key)}
+                                dim={!cellMatches(u.id, c.key)}
+                                title={`${u.name} ${c.title}${c.sub ? ` (${c.sub})` : ''}`}
+                                onClick={() => setSelected({ university: u, column: c })}
+                              />
+                            </td>
+                          ))}
+                          <td className="adm-total">
+                            <span className="num adm-strong">{done}/{COLUMNS.length}</span>
+                            <span className="adm-meter" aria-hidden="true"><span style={{ transform: `scaleX(${done / COLUMNS.length})` }} /></span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <th scope="row" className="adm-rowhead">ส่งแล้ว (มหาวิทยาลัย)</th>
+                      {visibleColumns.map(c => (
+                        <td key={c.key} className="num">
+                          {universities.filter(u => statusOf(u.id, c.key) === 'submitted').length}/{universities.length}
+                        </td>
+                      ))}
+                      <td />
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+
+            {viewSwap.displayed === 'directory' && (
+              allMembers.length === 0 ? (
+                <div className="adm-state">
+                  <strong>ยังไม่มีรายชื่อในระบบ</strong>
+                  <p>รายชื่อจะปรากฏที่นี่เมื่อผู้ประสานงานของแต่ละมหาวิทยาลัยเพิ่มสมาชิกในรายการ</p>
+                  <button type="button" className="btn btn-sm" onClick={load}><ArrowsClockwise size={16} /> โหลดใหม่</button>
+                </div>
+              ) : (
+                <div className="adm-scroll">
+                  <table className="adm-table adm-people">
+                    <thead>
+                      <tr>
+                        <th scope="col">รูป</th>
+                        <th scope="col">ชื่อสำหรับใบเกียรติบัตร</th>
+                        <th scope="col">บทบาท / กลุ่ม</th>
+                        <th scope="col">รายการแข่งขัน</th>
+                        <th scope="col">มหาวิทยาลัย / หน่วยงาน</th>
+                        <th scope="col">รหัส / ติดต่อ</th>
+                        <th scope="col">สถานะ</th>
+                        <th scope="col">ดูรายการ</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {directoryMembers.length === 0 && (
+                        <tr>
+                          <td colSpan={8}>
+                            <div className="adm-state">
+                              <strong>ไม่พบรายชื่อที่ตรงกับตัวกรอง</strong>
+                              <button type="button" className="btn btn-sm" onClick={clearFilters}>ล้างตัวกรอง</button>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      {directoryMembers.map((m, idx) => (
+                        <tr key={`${m.universityId}-${m.entryKey}-${m.memberId}-${idx}`}>
+                          <td>
+                            {m.hasPhoto && m.photoDataUrl ? (
+                              <button type="button" className="adm-thumb" onClick={() => setPreviewMember(m)} aria-label={`ขยายรูปถ่าย ${m.fullName}`}>
+                                <img src={m.photoDataUrl} alt="" width="42" height="42" />
+                              </button>
+                            ) : (
+                              <span className="adm-missing"><WarningCircle size={14} weight="fill" /> ขาดรูป</span>
+                            )}
+                          </td>
+                          <td>
+                            <span className="adm-strong">{m.certName}</span>
+                            <span className="adm-sub">{m.title || '-'} / {m.fullName}</span>
+                          </td>
+                          <td>
+                            <span className="adm-strong">{m.role}</span>
+                            <span className="adm-sub">{m.recipientGroup}</span>
+                          </td>
+                          <td>{m.certCompetition}</td>
+                          <td>
+                            <span className="adm-strong">{m.university}</span>
+                            <span className="adm-sub">{m.dept || '–'}</span>
+                          </td>
+                          <td>
+                            <span>{m.studentId ? `${m.studentId}${m.year ? ` (ปี ${m.year})` : ''}` : '–'}</span>
+                            <span className="adm-sub">{m.email || m.phone || ''}</span>
+                          </td>
+                          <td><span className={`adm-status adm-status--${m.entryStatus}`}>{STATUS_LABEL[m.entryStatus] || m.entryStatus}</span></td>
+                          <td><button type="button" className="btn btn-sm" onClick={() => openMemberEntry(m)}>เปิด</button></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            )}
           </div>
         )}
       </section>
 
-      <DriveCard />
+      {/* Whole-event files and storage */}
+      <div className="adm-foot">
+        <section className="adm-files" aria-labelledby="files-title">
+          <h2 id="files-title">ไฟล์รวมสำหรับดาวน์โหลด</h2>
+          <div className="adm-files-row">
+            <span className="adm-files-title">รายชื่อและรูปถ่ายทั้งหมด (.zip)</span>
+            <p>โฟลเดอร์ตามมหาวิทยาลัยและประเภท มีไฟล์รายชื่อ (CSV) และรูปชื่อ ProfileImage_มหาวิทยาลัย_รหัสนักศึกษา</p>
+            {overview && (
+              <p>
+                ผู้แข่งขัน <span className="num">{stats.competitors}</span> คน, อาจารย์ <span className="num">{stats.advisors}</span> คน, ผู้เข้าร่วม <span className="num">{stats.participants}</span> คน
+              </p>
+            )}
+            <div className="adm-files-act">
+              <a className="btn btn-sm" href="/api/admin/members.zip" download>
+                <UsersThree size={16} /> ดาวน์โหลดรายชื่อ + รูปถ่าย
+              </a>
+            </div>
+          </div>
+          <div className="adm-files-row">
+            <span className="adm-files-title">ไฟล์ผลงานตามประเภท (.zip)</span>
+            <p>รูปถ่ายและไฟล์ผลงานของทุกมหาวิทยาลัย แยกโฟลเดอร์ตามมหาวิทยาลัย สื่อสร้างสรรค์มีไฟล์ links.txt สำหรับลิงก์วิดีโอ</p>
+            <div className="adm-files-act">
+              <label className="adm-field">
+                ประเภท
+                <select id="zip-key" className="adm-select" value={zipKey} onChange={(e) => setZipKey(e.target.value)}>
+                  {TRACKS.map(t => <option key={t.id} value={t.id}>{t.th}</option>)}
+                </select>
+              </label>
+              <a className="btn btn-sm" href={`/api/admin/files.zip?key=${encodeURIComponent(zipKey)}`} download style={{ alignSelf: 'flex-end' }}>
+                <FileZip size={16} /> ดาวน์โหลด .zip
+              </a>
+            </div>
+          </div>
+        </section>
+
+        <DriveCard />
+      </div>
 
       {selected && (
         <EntryDetailModal
@@ -629,22 +667,16 @@ export const AdminView = () => {
 
       {previewMember && (
         <div className="modal-overlay" style={{ zIndex: 1000 }} onMouseDown={(e) => { if (e.target === e.currentTarget) setPreviewMember(null); }}>
-          <div className="modal" role="dialog" aria-modal="true" aria-label="ดูรูปถ่ายขนาดใหญ่" style={{ width: 'min(100%, 460px)' }}>
+          <div className="modal adm-lightbox" role="dialog" aria-modal="true" aria-label="ดูรูปถ่ายขนาดใหญ่" style={{ width: 'min(100%, 460px)' }}>
             <div className="modal-header">
               <div>
                 <div className="modal-title">{previewMember.certName}</div>
-                <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-muted)' }}>
-                  {previewMember.role} · {previewMember.university}
-                </div>
+                <div className="adm-note">{previewMember.role}, {previewMember.university}</div>
               </div>
               <button type="button" className="btn btn-sm btn-ghost" onClick={() => setPreviewMember(null)} aria-label="ปิดรูป"><X size={18} /></button>
             </div>
             <div className="modal-body" style={{ alignItems: 'center' }}>
-              <img
-                src={previewMember.photoDataUrl}
-                alt={previewMember.fullName}
-                style={{ width: '100%', maxHeight: '60vh', objectFit: 'contain', borderRadius: '14px', background: '#F6F7FB' }}
-              />
+              <img src={previewMember.photoDataUrl} alt={previewMember.fullName} />
             </div>
           </div>
         </div>

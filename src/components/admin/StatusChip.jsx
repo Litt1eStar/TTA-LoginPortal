@@ -1,4 +1,5 @@
 import React from 'react';
+import { CheckCircle, PencilSimpleLine, WarningCircle } from '@phosphor-icons/react';
 import { statusMeta } from '../../utils/formatters';
 
 // Same colours as the History table badges
@@ -16,31 +17,35 @@ export const StatusChip = ({ status }) => {
   );
 };
 
-// Compact cell for the matrix
-const SHORT = { submitted: 'ส่งแล้ว', draft: 'ร่าง', not_started: '–' };
+// A draft the coordinator still has to finish: a failed requirement or a missing photo
+export const isIncompleteDraft = (status, summary) =>
+  status === 'draft' && !!summary && (!summary.ready || summary.missingPhotoCount > 0);
 
-export const StatusCell = ({ status, summary, onClick, title }) => {
-  const meta = statusMeta(status || 'not_started', null);
+const CELL_LABEL = { submitted: 'ส่งแล้ว', draft: 'ฉบับร่าง', not_started: 'ยังไม่เริ่ม' };
+
+// One cell of the admin ledger: status by fill, a problem by icon, the number is people in the entry
+export const StatusCell = ({ status, summary, onClick, title, dim = false }) => {
+  const st = status || 'not_started';
   const count = summary?.memberCount || 0;
-  const warn = status === 'draft' && summary && (!summary.ready || summary.missingPhotoCount > 0);
-  const hint = warn
-    ? `${title}\n${summary.missingPhotoCount > 0 ? `ยังขาดรูปถ่าย ${summary.missingPhotoCount} คน` : summary.firstError}`
-    : title;
+  const warn = isIncompleteDraft(st, summary);
+  const problem = warn
+    ? (summary.missingPhotoCount > 0 ? `ยังขาดรูปถ่าย ${summary.missingPhotoCount} คน` : summary.firstError)
+    : '';
+  const label = `${title}: ${warn ? 'ฉบับร่างที่ยังขาดข้อมูล' : CELL_LABEL[st]}${count ? `, ${count} คน` : ''}${problem ? `, ${problem}` : ''}`;
+  const kind = warn ? 'warn' : st;
   return (
     <button
       type="button"
       onClick={onClick}
-      title={hint}
-      style={{
-        width: '100%', minWidth: '64px', padding: '6px 5px', borderRadius: '10px', fontSize: '12.5px', fontWeight: 700,
-        background: meta.badgeBg, color: meta.badgeColor, border: meta.badgeBorder,
-        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
-        position: 'relative', whiteSpace: 'nowrap'
-      }}
+      title={problem ? `${title}
+${problem}` : title}
+      aria-label={label}
+      className={`adm-cell adm-cell--${kind}${dim ? ' is-dim' : ''}`}
     >
-      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: warn ? '#D92D20' : meta.dotColor, flexShrink: 0 }} />
-      <span>{SHORT[status] || '–'}</span>
-      {count > 0 && <span style={{ opacity: 0.78, fontSize: '11.5px', fontWeight: 700 }}>· {count}</span>}
+      {st === 'submitted' && <CheckCircle size={14} weight="fill" aria-hidden="true" />}
+      {st === 'draft' && !warn && <PencilSimpleLine size={14} weight="bold" aria-hidden="true" />}
+      {warn && <WarningCircle size={14} weight="fill" aria-hidden="true" />}
+      <span>{st === 'not_started' ? '–' : count}</span>
     </button>
   );
 };

@@ -112,11 +112,17 @@ function memberRow(uni, entry, key, m, config) {
   };
 }
 
+const memberSearchText = (r) =>
+  [r.certName, r.fullName, r.studentId, r.email, r.phone, r.role, r.certCompetition, r.university, r.dept]
+    .map(v => v || '').join(' ').toLowerCase();
+
 export function filterMemberRows(rows, query = {}) {
   const status = String(query.status || '').trim();
   const group = String(query.group || '').trim();
   const universityId = String(query.universityId || '').trim();
   const trackId = String(query.trackId || '').trim();
+  const q = String(query.q || '').trim().toLowerCase().slice(0, 200);
+  const missingPhoto = query.missingPhoto === '1' || query.missingPhoto === 'true';
   const groupLabel = group === 'competitor'
     ? 'ผู้แข่งขัน'
     : group === 'advisor'
@@ -130,6 +136,9 @@ export function filterMemberRows(rows, query = {}) {
     if (groupLabel && r.recipientGroup !== groupLabel) return false;
     if (universityId && universityId !== 'all' && Number(r.universityId) !== Number(universityId)) return false;
     if (trackId && trackId !== 'all' && r.trackId !== trackId && r.entryKey !== trackId) return false;
+    if (missingPhoto && r.hasPhoto) return false;
+    // Same fields as the admin directory search (src/components/admin/AdminView.jsx, memberSearchText)
+    if (q && !memberSearchText(r).includes(q)) return false;
     return true;
   });
 }

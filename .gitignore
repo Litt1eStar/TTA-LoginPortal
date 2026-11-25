@@ -1,3 +1,7 @@
 # graft's local graph cache — regenerable, not committed (run `graft build`).
 /graft/
 /node_modules
+
+# Local design-tool output (Hallmark records and Playwright snapshots)
+/.hallmark/
+/.playwright-mcp/
