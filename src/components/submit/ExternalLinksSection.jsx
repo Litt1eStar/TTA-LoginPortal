@@ -1,14 +1,14 @@
 import React from 'react';
 import { usePortal } from '../../context/PortalContext';
 import { SectionNum } from './SectionNum';
-import { YoutubeLogo } from '@phosphor-icons/react';
+import { YoutubeLogo, WarningCircle } from '@phosphor-icons/react';
 
 // Only a YouTube link is collected (GitHub / Google Drive removed)
 const LINK_FIELDS = [
   { key: 'video', label: 'ลิงก์ YouTube', placeholder: 'https://youtu.be/...', Icon: YoutubeLogo, color: '#E62117' }
 ];
 
-export const ExternalLinksSection = ({ trackId, isLocked, number, done }) => {
+export const ExternalLinksSection = ({ trackId, isLocked, number, done, error }) => {
   const { submissions, updateLink } = usePortal();
   const links = submissions[trackId]?.links || {};
 
@@ -19,8 +19,15 @@ export const ExternalLinksSection = ({ trackId, isLocked, number, done }) => {
           <SectionNum number={number} done={done} />
           ลิงก์ผลงาน
         </h3>
-        <p className="section-desc">แนบลิงก์ YouTube หรืออัปโหลดไฟล์ด้านล่าง อย่างน้อย 1 รายการ</p>
+        <p className="section-desc">แนบลิงก์ YouTube หรืออัปโหลดวิดีโอด้านล่าง อย่างน้อย 1 รายการ</p>
       </div>
+
+      {error && (
+        <div className="alert alert-error">
+          <WarningCircle size={18} weight="fill" />
+          <span>{error}</span>
+        </div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
         {LINK_FIELDS.map(({ key, label, placeholder, Icon, color }) => (

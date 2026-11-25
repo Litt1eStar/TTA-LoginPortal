@@ -46,7 +46,6 @@ export const ConfirmSubmitModal = ({ isOpen, onClose, onConfirm, track, submissi
   const nameOf = (m) => [m.title, m.fullName].filter(Boolean).join(' ');
   const advisors = (submission.members || []).filter(m => m.type === 'advisor');
   const students = (submission.members || []).filter(m => m.type === 'student');
-  const doneFiles = (submission.files || []).filter(f => f.status === 'done');
   const listStyle = { margin: '2px 0 0', paddingLeft: '18px', fontWeight: 500 };
 
   return (
@@ -127,12 +126,11 @@ export const ConfirmSubmitModal = ({ isOpen, onClose, onConfirm, track, submissi
               </ul>
             </SummaryItem>
             {showWorkInfo
-              ? <SummaryItem label="ไฟล์และลิงก์" wide>
+              ? <SummaryItem label="วิดีโอและลิงก์" wide>
                 <ul style={{ ...listStyle, wordBreak: 'break-word' }}>
-                  {doneFiles.map(f => <li key={f.id || f.name}>{f.name}</li>)}
                   {submission.video && <li>วิดีโอ: {submission.video.name || 'อัปโหลดแล้ว'}</li>}
                   {submission.links?.video && <li>ลิงก์: {submission.links.video}</li>}
-                  {!doneFiles.length && !submission.video && !submission.links?.video && <li>-</li>}
+                  {!submission.video && !submission.links?.video && <li>-</li>}
                 </ul>
               </SummaryItem>
               : <SummaryItem label="รูปถ่าย">

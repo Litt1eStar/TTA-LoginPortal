@@ -10,7 +10,6 @@ import { GroupBar } from './GroupBar';
 import { ProjectInfoSection } from './ProjectInfoSection';
 import { ExternalLinksSection } from './ExternalLinksSection';
 import { TeamMembersSection } from './TeamMembersSection';
-import { FileUploader } from './FileUploader';
 import { VideoUploader } from './VideoUploader';
 import { SubmissionChecklist } from './SubmissionChecklist';
 import { ConfirmSubmitModal } from './ConfirmSubmitModal';
@@ -157,7 +156,6 @@ export const SubmitView = () => {
     const list = reqs.filter(r => r.section === section);
     return list.length > 0 && list.every(r => r.ok);
   };
-  const hasLink = !!sub.links?.video;
   const groupName = grouped && activeGroup != null ? activeTrack.subjectGroups[activeGroup] : null;
   const outerClass = isTypeTransition ? entrySwap.className : 'swap-stage';
   const innerClass = !isTypeTransition ? entrySwap.className : 'swap-stage';
@@ -288,7 +286,7 @@ export const SubmitView = () => {
                   done={done('team')}
                 />
 
-                {/* Project info, links and files: video clip only */}
+                {/* Project info, links and video: video clip only */}
                 {activeTrack.needsWorkInfo && (
                   <>
                     <ProjectInfoSection
@@ -301,8 +299,9 @@ export const SubmitView = () => {
                     <ExternalLinksSection
                       trackId={entryId}
                       isLocked={isLocked}
+                      error={formErrors.links}
                       number={next()}
-                      done={hasLink}
+                      done={done('links')}
                     />
                     {activeTrack.id === 'clip' && (
                       <VideoUploader
@@ -311,13 +310,6 @@ export const SubmitView = () => {
                         number={next()}
                       />
                     )}
-                    <FileUploader
-                      trackId={entryId}
-                      isLocked={isLocked}
-                      error={formErrors.deliverables}
-                      number={next()}
-                      done={done('deliverables')}
-                    />
                   </>
                 )}
               </div>

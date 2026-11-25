@@ -111,15 +111,15 @@ export const getRequirements = (track, sub = {}) => {
   });
 
   if (track.needsWorkInfo) {
-    const hasFiles = (sub.files || []).some(f => f.status === 'done');
+    // The work-file upload was removed: a clip is delivered as a Drive video or a YouTube link
     const hasLinks = !!sub.links?.video;
     const hasVideo = !!sub.video?.driveFileId;
     reqs.push({
       key: 'deliverables',
-      section: 'deliverables',
-      label: 'อัปโหลดไฟล์ วิดีโอ หรือแนบลิงก์ YouTube',
-      ok: hasFiles || hasLinks || hasVideo,
-      error: 'กรุณาอัปโหลดไฟล์ วิดีโอ หรือแนบลิงก์ YouTube อย่างน้อย 1 รายการ'
+      section: 'links',
+      label: 'อัปโหลดวิดีโอ หรือแนบลิงก์ YouTube',
+      ok: hasLinks || hasVideo,
+      error: 'กรุณาอัปโหลดวิดีโอ หรือแนบลิงก์ YouTube อย่างน้อย 1 รายการ'
     });
   }
 

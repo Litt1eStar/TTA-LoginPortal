@@ -6,7 +6,7 @@ const clip = getTrack('clip');
 const deliverables = (sub) => getRequirements(clip, sub).find(r => r.key === 'deliverables');
 
 describe('deliverables rule (clip)', () => {
-  it('fails with no file, link or video', () => {
+  it('fails with no link or video', () => {
     expect(deliverables({}).ok).toBe(false);
     expect(deliverables({ files: [], links: { video: '' }, video: null }).ok).toBe(false);
   });
@@ -21,9 +21,17 @@ describe('deliverables rule (clip)', () => {
     expect(deliverables({ video: { name: 'clip.mp4' } }).ok).toBe(false);
   });
 
-  it('still passes with a YouTube link or a finished file', () => {
+  it('passes with a YouTube link', () => {
     expect(deliverables({ links: { video: 'https://youtu.be/x' } }).ok).toBe(true);
-    expect(deliverables({ files: [{ status: 'done' }] }).ok).toBe(true);
+  });
+
+  it('no longer counts an uploaded work file: the file section was removed', () => {
+    expect(deliverables({ files: [{ status: 'done' }] }).ok).toBe(false);
+    expect(deliverables({}).label).not.toContain('ไฟล์');
+  });
+
+  it('points its error at the links section, which stays on the page', () => {
+    expect(deliverables({}).section).toBe('links');
   });
 
   it('mentions the video in the label', () => {
