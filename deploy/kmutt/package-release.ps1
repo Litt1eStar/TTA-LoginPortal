@@ -2,6 +2,7 @@
 # Works in a temp copy: never touches the project's node_modules or the tracked dist\, so dev servers keep running.
 # Usage (repo root):  powershell -NoProfile -ExecutionPolicy Bypass -File .\deploy\kmutt\package-release.ps1
 # Output: deploy\kmutt\release\tta-portal\  and  deploy\kmutt\release\tta-portal.zip  (no passwords, database or .env)
+# The release includes the production server\node_modules (npm ci --omit=dev), so the server needs no internet.
 $ErrorActionPreference = 'Stop'
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $releaseDir = Join-Path $PSScriptRoot 'release'
@@ -38,11 +39,15 @@ try {
 }
 finally { Pop-Location }
 
+# Production server dependencies (pure JS, portable to the Windows x64 server): shipped so the server needs no npm registry
+Push-Location "$work\server"
+try { npm.cmd ci --omit=dev; if ($LASTEXITCODE) { throw 'server npm ci failed' } } finally { Pop-Location }
+
 # 3. Assemble the release
 if (Test-Path $out) { Remove-Item $out -Recurse -Force }
 New-Item -ItemType Directory -Force $out | Out-Null
 robocopy "$work\dist" "$out\dist" /E /NFL /NDL /NJH /NJS | Out-Null; Check-Robocopy
-robocopy "$work\server" "$out\server" /E /XD "$work\server\node_modules" "$work\server\data" "$work\server\backups" "$work\server\test" /XF .env /NFL /NDL /NJH /NJS | Out-Null; Check-Robocopy
+robocopy "$work\server" "$out\server" /E /XD "$work\server\data" "$work\server\backups" "$work\server\test" /XF .env /NFL /NDL /NJH /NJS | Out-Null; Check-Robocopy
 # The server imports these shared files via ../../src/...
 robocopy "$work\src\data" "$out\src\data" /E /NFL /NDL /NJH /NJS | Out-Null; Check-Robocopy
 robocopy "$work\src\utils" "$out\src\utils" /E /NFL /NDL /NJH /NJS | Out-Null; Check-Robocopy

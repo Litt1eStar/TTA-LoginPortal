@@ -451,12 +451,15 @@ Use a **browser on the laptop**, over VPN, unless a step says otherwise.
 - [ ] **6.2** Weekly off-server copy of `server\backups` until CITES offers off-machine backup.
 - [ ] **6.3** When there's a domain + HTTPS: in `C:\tta-portal\server\.env` set `COOKIE_SECURE=true` (this also turns HSTS and the https upgrade back on), `APP_ORIGIN=https://<domain>`, `TRUST_PROXY=1` if a proxy sits in front, and `GOOGLE_REDIRECT_URI=https://<domain>/api/admin/google/callback` (also register it in Google Cloud). Then restart and connect Drive from `/admin`. Update `PORTAL_URL` again.
 - [ ] **6.4** Before connecting Drive (R7): make the photo sync in `server/src/submissions.js` run without blocking the response (`syncPhotos(...)` not awaited, its errors still logged), with a test that a save returns while the Drive fake is stalled.
+- [ ] **6.5** Tighten C:\tta-portal permissions (it inherits Authenticated Users: Modify from C:\): `icacls C:\tta-portal /inheritance:r /grant:r "Administrators:(OI)(CI)F" "SYSTEM:(OI)(CI)F"`.
 
 ### Rollback (any time after Phase 2)
 
 1. On the server, as Administrator: `Stop-ScheduledTask TTA-Portal`, then kill whatever listens on 3001 (the Restart row in the runbook).
-2. **Code only:** `robocopy C:\tta-portal-previous C:\tta-portal /E /XD data backups node_modules logs /XF .env`, then `cd C:\tta-portal\server; npm.cmd ci --omit=dev; Start-ScheduledTask TTA-Portal`.
+2. **Code only:** `robocopy C:\tta-portal-previous C:\tta-portal /E /XD data backups logs /XF .env`, then `Start-ScheduledTask TTA-Portal`. The previous release includes `node_modules`, so no `npm ci` and no internet are needed.
 3. **Data too:** copy the newest snapshot from `C:\tta-portal\server\backups\db` over `server\data\portal.db`, after deleting `portal.db-wal` and `portal.db-shm`. Then start the task.
+
+Rolling back code leaves the database at the newer schema; this is fine while migrations only add tables or columns (true for 001–003: only `CREATE TABLE` and `CREATE INDEX`, no drop or rename).
 4. Check `/api/health` and `Get-Content C:\tta-portal\RELEASE.txt`.
 
 ---

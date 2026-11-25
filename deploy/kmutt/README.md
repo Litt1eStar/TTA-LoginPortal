@@ -57,6 +57,7 @@ The script builds in a temporary copy, so it does not touch the project's `node_
 3. **Unzip and run**:
 
 ```powershell
+Remove-Item C:\temp\tta-portal -Recurse -Force -ErrorAction SilentlyContinue
 Expand-Archive C:\temp\tta-portal.zip C:\temp\tta-portal -Force
 cd C:\temp\tta-portal
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install-on-server.ps1 -AccountsFile C:\temp\TTA-portal-accounts.md -AppOrigin http://tta.cmm.works:3001
@@ -65,7 +66,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install-on-server.ps1 -Acc
    The script:
    - checks Node is 22.13 or newer
    - copies the site to `C:\tta-portal`
-   - runs `npm ci --omit=dev`
+   - copies the bundled server dependencies (no internet needed)
    - creates `server\.env` once, with a random `SESSION_SECRET`
    - seeds the 10 coordinator and admin accounts (bcrypt hashes only)
    - on an update: stops the portal, backs up the database and uploads, and keeps the previous release in `C:\tta-portal-previous`
@@ -103,7 +104,7 @@ Run through this once, from a machine on the KMUTT network or VPN:
 | Task | Command (PowerShell as Administrator) |
 |---|---|
 | Update to a new version | Build a new zip (section 2), copy it over, unzip, run `install-on-server.ps1` again with no `-AccountsFile`. Keeps `.env`, database and uploads. |
-| Restart | `Stop-ScheduledTask TTA-Portal; Get-NetTCPConnection -LocalPort 3001 -State Listen \| % { Stop-Process -Id $_.OwningProcess -Force }; Start-ScheduledTask TTA-Portal` |
+| Restart | See *Restart* below |
 | Which version is running | `Get-Content C:\tta-portal\RELEASE.txt` |
 | Roll back | See the deploy plan, Phase 6 "Rollback" |
 | Logs | `Get-Content C:\tta-portal\logs\portal.log -Tail 50` |
@@ -111,7 +112,28 @@ Run through this once, from a machine on the KMUTT network or VPN:
 | Re-seed or reset a password | Copy the accounts file over, then in `C:\tta-portal\server`: `npm.cmd run seed -- C:\temp\TTA-portal-accounts.md`, then delete the file |
 | Change the deadline or other settings | Edit `C:\tta-portal\server\.env`, then restart. Default is `DEADLINE=2026-12-15T23:59:00+07:00`. |
 | Backup now | `cd C:\tta-portal\server; npm.cmd run backup`. Output in `server\backups` (database snapshots kept 14 days, uploads copied). |
-| Restore | Stop the task, replace `server\data\portal.db` with a snapshot from `server\backups\db`, start the task. |
+| Restore | See *Restore* below |
+
+If an update fails, fix the cause and run it again: the previous good release in `C:\tta-portal-previous` is kept.
+
+### Restart
+
+```powershell
+Stop-ScheduledTask TTA-Portal
+Get-NetTCPConnection -LocalPort 3001 -State Listen | % { Stop-Process -Id $_.OwningProcess -Force }
+Start-ScheduledTask TTA-Portal
+```
+
+### Restore a database snapshot
+
+```powershell
+Stop-ScheduledTask TTA-Portal
+Get-NetTCPConnection -LocalPort 3001 -State Listen | % { Stop-Process -Id $_.OwningProcess -Force }
+# The database runs in WAL mode: remove the old WAL files, or SQLite replays them onto the snapshot
+Remove-Item C:\tta-portal\server\data\portal.db-wal, C:\tta-portal\server\data\portal.db-shm -ErrorAction SilentlyContinue
+Copy-Item C:\tta-portal\server\backups\db\portal-<timestamp>.db C:\tta-portal\server\data\portal.db -Force
+Start-ScheduledTask TTA-Portal
+```
 
 The daily backup stays on the same disk. Copy `C:\tta-portal\server\backups` somewhere else regularly (for example through Remote Desktop drive redirection) until CITES offers off-machine backup.
 

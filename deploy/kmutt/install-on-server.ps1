@@ -16,7 +16,7 @@ $backupTask = 'TTA-Portal-Backup'
 function Check-Robocopy { if ($LASTEXITCODE -ge 8) { throw "robocopy failed ($LASTEXITCODE)" } }
 
 # 1. Node.js >= 22.13
-$nodeCmd = Get-Command node -ErrorAction SilentlyContinue
+$nodeCmd = Get-Command node -ErrorAction SilentlyContinue | Select-Object -First 1
 if (-not $nodeCmd) { throw 'Node.js not found. Install the Node.js LTS (22 or newer) MSI from https://nodejs.org, then open a NEW PowerShell window and re-run.' }
 $ver = [version]((& node --version).TrimStart('v'))
 if ($ver -lt [version]'22.13.0') { throw "Node $ver is too old. Need 22.13 or newer." }
@@ -34,23 +34,30 @@ Get-CimInstance Win32_Process -Filter "Name='cmd.exe'" |
 Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue |
   ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }
 Start-Sleep -Seconds 2
+if (Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue) { throw "Port $Port is still in use after stopping the portal; stop that process and re-run" }
 
 # Update: snapshot the database and uploads before touching any file
 if (Test-Path "$InstallDir\server\data\portal.db") {
   Push-Location "$InstallDir\server"
   try {
     & $nodeExe scripts\backup.js
-    if ($LASTEXITCODE) { throw 'pre-update backup failed; nothing was changed' }
+    if ($LASTEXITCODE) {
+      Start-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+      throw 'pre-update backup failed; nothing was changed and the portal was restarted'
+    }
     Write-Host 'Pre-update backup written to server\backups'
   } finally { Pop-Location }
 }
 
-if (Test-Path "$InstallDir\RELEASE.txt") {
+if ((Test-Path "$InstallDir\RELEASE.txt") -and -not (Test-Path "$InstallDir\UPDATING")) {
   $prev = "$InstallDir-previous"
   if (Test-Path $prev) { Remove-Item $prev -Recurse -Force }
   New-Item -ItemType Directory -Force $prev | Out-Null
-  robocopy "$InstallDir" $prev /E /XD "$InstallDir\server\data" "$InstallDir\server\backups" "$InstallDir\server\node_modules" "$InstallDir\logs" /XF .env /NFL /NDL /NJH /NJS | Out-Null; Check-Robocopy
+  robocopy "$InstallDir" $prev /E /XD "$InstallDir\server\data" "$InstallDir\server\backups" "$InstallDir\logs" /XF .env /NFL /NDL /NJH /NJS | Out-Null; Check-Robocopy
 }
+# Marker: an update is in progress. If it fails and is re-run, the good previous release above is not overwritten.
+New-Item -ItemType Directory -Force $InstallDir | Out-Null
+New-Item -ItemType File -Force "$InstallDir\UPDATING" | Out-Null
 
 # 3. Copy files (never touches .env, data\, backups\)
 New-Item -ItemType Directory -Force $InstallDir, "$InstallDir\logs" | Out-Null
@@ -60,11 +67,10 @@ robocopy "$src\src" "$InstallDir\src" /MIR /NFL /NDL /NJH /NJS | Out-Null; Check
 Copy-Item "$src\package.json" "$InstallDir\package.json" -Force
 Copy-Item "$src\RELEASE.txt" "$InstallDir\RELEASE.txt" -Force
 
-# 4. Dependencies
+# 4. Dependencies (bundled production node_modules from the release; no internet needed)
+robocopy "$src\server\node_modules" "$InstallDir\server\node_modules" /MIR /NFL /NDL /NJH /NJS | Out-Null; Check-Robocopy
 Push-Location "$InstallDir\server"
 try {
-  npm.cmd ci --omit=dev
-  if ($LASTEXITCODE) { throw 'npm ci failed' }
 
   # 5. .env (created once; edit it by hand afterwards)
   $envFile = "$InstallDir\server\.env"
@@ -108,7 +114,7 @@ finally { Pop-Location }
   ':loop',
   "`"$nodeExe`" src\index.js >> ..\logs\portal.log 2>&1",
   'echo %date% %time% portal exited with %errorlevel%, restarting in 5 s >> ..\logs\portal.log',
-  'timeout /t 5 /nobreak > nul',
+  'ping -n 6 127.0.0.1 > nul',
   'goto loop'
 ) | Set-Content -Path "$InstallDir\server\run.cmd" -Encoding ASCII
 @(
@@ -118,7 +124,7 @@ finally { Pop-Location }
 ) | Set-Content -Path "$InstallDir\server\run-backup.cmd" -Encoding ASCII
 
 $principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
-$settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -StartWhenAvailable
+$settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -StartWhenAvailable -Priority 4
 Register-ScheduledTask -TaskName $taskName -Force -Principal $principal -Settings $settings `
   -Action (New-ScheduledTaskAction -Execute "$InstallDir\server\run.cmd" -WorkingDirectory "$InstallDir\server") `
   -Trigger (New-ScheduledTaskTrigger -AtStartup) | Out-Null
@@ -136,9 +142,10 @@ Start-ScheduledTask -TaskName $taskName
 $ok = $false
 for ($i = 0; $i -lt 20 -and -not $ok; $i++) {
   Start-Sleep -Seconds 1
-  try { $ok = (Invoke-RestMethod "http://localhost:$Port/api/health").ok } catch { }
+  try { $ok = (Invoke-RestMethod "http://127.0.0.1:$Port/api/health").ok } catch { }
 }
 if ($ok) {
+  Remove-Item "$InstallDir\UPDATING" -Force -ErrorAction SilentlyContinue
   Write-Host "OK: portal is running ($((Get-Content "$InstallDir\RELEASE.txt") -join ', ')). Open $AppOrigin from a machine on the KMUTT network or VPN."
 } else {
   Write-Host "NOT healthy. Read $InstallDir\logs\portal.log" -ForegroundColor Red
