@@ -16,7 +16,8 @@
 
 | Phase | What | Owner | Due | State |
 |---|---|---|---|---|
-| 0 | Code ready: release built from a tag | Dev (laptop) | Wed 25 Nov | ⬜ Not started |
+| 0 | Code ready: release built from a tag (branch `deploy/kmutt`) | Dev (laptop) | Wed 25 Nov | 🟨 In progress |
+| D | Domain placeholder `tta.cmm.works` → KMUTT | Owner (GoDaddy) | Wed 25 Nov | ⬜ Not started |
 | 1 | CITES: web port, outside access, domain | Owner → CITES | Ask Wed 25, need by Thu 26 12:00 | ⬜ Not started |
 | 2 | Install on `CIT_TTA2027` | Owner (VPN + RDP) | Thu 26 Nov AM | ⬜ Not started |
 | 3 | Verify on the server | Owner | Thu 26 Nov AM | ⬜ Not started |
@@ -26,7 +27,7 @@
 
 States: ⬜ Not started · 🟨 In progress · ✅ Done · 🟥 Blocked (write why)
 
-## Baseline (checked 2026-11-25 on `main` @ `7c10233`)
+## Baseline (checked 2026-11-25 on `main` @ `7c10233`; the submit-form work was committed in `b23ed15`, `09dc087`)
 
 | Check | Result |
 |---|---|
@@ -34,7 +35,7 @@ States: ⬜ Not started · 🟨 In progress · ✅ Done · 🟥 Blocked (write w
 | Frontend tests | ✅ 45 passed |
 | Production build | ✅ builds |
 | CMM fallback pipeline (API image, data volumes, `connect-src` for Drive) | ✅ on `main` (`9546fcf`) |
-| Working tree | ⚠️ Uncommitted edits in progress: `SubmitView.jsx`, `ConfirmSubmitModal.jsx`, `ExternalLinksSection.jsx`, `requirements.js`, `requirements.test.js`, `FileUploader.jsx` (deleted). Only committed code ships (Task 0.3). |
+| Working tree | ✅ The submit-form edits were committed on `main` (`b23ed15`, `09dc087`). Phase 0 runs in worktree `../TTA-LoginPortal-deploy` on branch `deploy/kmutt`. |
 | `dist/` in git | ⚠️ Doesn't match a fresh build. Harmless: the release always builds fresh. Never deploy the tracked `dist/`. |
 | `main` vs `origin/main` | ⚠️ `main` is 88 commits ahead. Pushing `main` starts the **CMM** deploy workflow, so don't push until the CMM side is set up or the workflow is disabled (Task 0.7). |
 
@@ -54,11 +55,11 @@ States: ⬜ Not started · 🟨 In progress · ✅ Done · 🟥 Blocked (write w
 
 ## Phase 0: Code ready (laptop)
 
-### Task 0.1: Finish and commit the in-progress submit-form work
+### Task 0.1: Finish and commit the in-progress submit-form work ✅ (`b23ed15`, `09dc087`)
 
-- [ ] **Step 1:** Finish or stash the 6 uncommitted files listed in the baseline. Decide whether they ship on Friday.
-- [ ] **Step 2:** Run both suites: `cd server; npm.cmd test` and `cd ..; npm.cmd test`. Expected: all pass.
-- [ ] **Step 3:** Commit them on `main`, or `git stash` them if they're not for Friday.
+- [x] **Step 1:** Finish or stash the 6 uncommitted files listed in the baseline. Decide whether they ship on Friday.
+- [x] **Step 2:** Run both suites: `cd server; npm.cmd test` and `cd ..; npm.cmd test`. Expected: all pass.
+- [x] **Step 3:** Commit them on `main`, or `git stash` them if they're not for Friday.
 
 ### Task 0.2: Don't upgrade to HTTPS while serving plain HTTP (R1)
 
@@ -363,6 +364,19 @@ on:
 
 ---
 
+## Phase D: Domain placeholder (today: `tta.cmm.works`; swap for the real name later)
+
+`cmm.works` is the owner's own domain on GoDaddy. Today, every `*.cmm.works` name resolves to the CMM droplet (`139.59.100.44`), so the KMUTT name needs its own record.
+
+**Limits of a placeholder that points at a private IP:** `10.2.15.250` is a KMUTT-internal address. The name works only for people on the KMUTT network or VPN, and no certificate authority can issue HTTPS for it until CITES gives a public address. So today the URL is `http://tta.cmm.works:3001/`.
+
+- [ ] **D.1 (owner, GoDaddy → cmm.works → DNS):** add an `A` record, name `tta`, value `10.2.15.250`, TTL 600. Don't add an AAAA record.
+- [ ] **D.2** Check: `nslookup tta.cmm.works 8.8.8.8` → `10.2.15.250`.
+- [ ] **D.3** Install with `-AppOrigin http://tta.cmm.works:3001` (Phase 2.4). On an existing install, set `APP_ORIGIN=http://tta.cmm.works:3001` in `C:\tta-portal\server\.env` and restart.
+- [ ] **D.4 (when the real domain + public address arrive):** change the record, or the new domain's record, to the public IP CITES gives, then follow 6.3 (HTTPS).
+
+---
+
 ## Phase 1: CITES (send today, needed by Thursday 12:00)
 
 - [ ] **1.1** Send CITES the message in `deploy/kmutt/README.md` section 7: TCP 3001 (or 80/443) from the VPN **and the internet**, TCP 22, plus a domain + HTTPS. Write the date sent and the ticket/contact here: `__________`
@@ -380,7 +394,7 @@ Follow `deploy/kmutt/README.md` sections 1 and 3.
 - [ ] **2.1** VPN up and Remote Desktop in, with the laptop's `C:` drive shared.
 - [ ] **2.2** Node.js LTS (22.13+) installed. In a new admin PowerShell, `node --version` shows `v22.13` or newer.
 - [ ] **2.3** Copy `tta-portal.zip` and `data\TTA-portal-accounts.md` to `C:\temp\`.
-- [ ] **2.4** Unzip and run `install-on-server.ps1 -AccountsFile C:\temp\TTA-portal-accounts.md`. It ends with `OK: portal is running (commit …, tag v2026.11.27 …)`.
+- [ ] **2.4** Unzip and run `install-on-server.ps1 -AccountsFile C:\temp\TTA-portal-accounts.md -AppOrigin http://tta.cmm.works:3001`. It ends with `OK: portal is running (commit …, tag v2026.11.27 …)`.
 - [ ] **2.5** `Remove-Item C:\temp\TTA-portal-accounts.md`
 - [ ] **2.6** `Get-Content C:\tta-portal\server\.env` contains `NODE_ENV=production`, `COOKIE_SECURE=false`, `HOST=0.0.0.0` and a long `SESSION_SECRET`.
 
