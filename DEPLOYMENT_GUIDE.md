@@ -8,4 +8,7 @@
 Both run the same build: one Node process serving `/api` and the frontend, data in `server/data` (SQLite + uploads).
 Moving between them = copy `portal.db` and `uploads/`.
 
+Step-by-step first install on KMUTT (Login Portal and Landing Page): [`deploy/kmutt/DEPLOY_STEP_BY_STEP.md`](deploy/kmutt/DEPLOY_STEP_BY_STEP.md).
+Updating after an edit (laptop → GitHub → server): [`docs/MAINTENANCE_WORKFLOW.md`](docs/MAINTENANCE_WORKFLOW.md).
+
 Progress: `docs/superpowers/plans/2026-11-25-kmutt-server-deploy.md`.
