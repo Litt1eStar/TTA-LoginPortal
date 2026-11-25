@@ -1,0 +1,120 @@
+# Run ON THE SERVER (PowerShell as Administrator) from the extracted tta-portal folder.
+# First install:  .\install-on-server.ps1 -AccountsFile C:\temp\TTA-portal-accounts.md
+# Update later:   .\install-on-server.ps1            (keeps .env, database and uploads)
+#requires -RunAsAdministrator
+param(
+  [string]$InstallDir = 'C:\tta-portal',
+  [string]$AccountsFile = '',
+  [int]$Port = 3001,
+  [string]$AppOrigin = 'http://10.2.15.250:3001'
+)
+$ErrorActionPreference = 'Stop'
+$src = $PSScriptRoot
+$taskName = 'TTA-Portal'
+$backupTask = 'TTA-Portal-Backup'
+
+function Check-Robocopy { if ($LASTEXITCODE -ge 8) { throw "robocopy failed ($LASTEXITCODE)" } }
+
+# 1. Node.js >= 22.13
+$nodeCmd = Get-Command node -ErrorAction SilentlyContinue
+if (-not $nodeCmd) { throw 'Node.js not found. Install the Node.js LTS (22 or newer) MSI from https://nodejs.org, then open a NEW PowerShell window and re-run.' }
+$ver = [version]((& node --version).TrimStart('v'))
+if ($ver -lt [version]'22.13.0') { throw "Node $ver is too old. Need 22.13 or newer." }
+$nodeExe = $nodeCmd.Source
+Write-Host "Node $ver at $nodeExe"
+
+# 2. Stop the running portal (if this is an update)
+if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) {
+  Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+}
+Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue |
+  ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }
+Start-Sleep -Seconds 2
+
+# 3. Copy files (never touches .env, data\, backups\)
+New-Item -ItemType Directory -Force $InstallDir, "$InstallDir\logs" | Out-Null
+robocopy "$src\dist" "$InstallDir\dist" /MIR /NFL /NDL /NJH /NJS | Out-Null; Check-Robocopy
+robocopy "$src\server" "$InstallDir\server" /E /XD data backups node_modules /XF .env /NFL /NDL /NJH /NJS | Out-Null; Check-Robocopy
+robocopy "$src\src" "$InstallDir\src" /MIR /NFL /NDL /NJH /NJS | Out-Null; Check-Robocopy
+Copy-Item "$src\package.json" "$InstallDir\package.json" -Force
+
+# 4. Dependencies
+Push-Location "$InstallDir\server"
+try {
+  npm.cmd ci --omit=dev
+  if ($LASTEXITCODE) { throw 'npm ci failed' }
+
+  # 5. .env (created once; edit it by hand afterwards)
+  $envFile = "$InstallDir\server\.env"
+  if (-not (Test-Path $envFile)) {
+    $bytes = New-Object byte[] 48
+    $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+    $rng.GetBytes($bytes)
+    $secret = [Convert]::ToBase64String($bytes)
+    @(
+      'NODE_ENV=production',
+      "PORT=$Port",
+      'HOST=0.0.0.0',
+      'SERVE_STATIC=true',
+      'STATIC_DIR=../dist',
+      "SESSION_SECRET=$secret",
+      '# Must stay false while the site is served over plain http, otherwise login cookies are dropped.',
+      'COOKIE_SECURE=false',
+      'DEADLINE=2026-12-15T23:59:00+07:00',
+      "APP_ORIGIN=$AppOrigin",
+      'DB_PATH=data/portal.db',
+      'UPLOAD_DIR=data/uploads',
+      'BACKUP_DIR=backups'
+    ) | Set-Content -Path $envFile -Encoding ASCII
+    Write-Host "Created $envFile"
+  } else {
+    Write-Host '.env already exists, kept as is'
+  }
+
+  # 6. Accounts (bcrypt hashes only; the note itself is not copied anywhere)
+  if ($AccountsFile) {
+    npm.cmd run seed -- "$AccountsFile"
+    if ($LASTEXITCODE) { throw 'seed failed' }
+  }
+}
+finally { Pop-Location }
+
+# 7. Start at boot, restart if it crashes
+@(
+  '@echo off',
+  'cd /d "%~dp0"',
+  "`"$nodeExe`" src\index.js >> ..\logs\portal.log 2>&1"
+) | Set-Content -Path "$InstallDir\server\run.cmd" -Encoding ASCII
+@(
+  '@echo off',
+  'cd /d "%~dp0"',
+  "`"$nodeExe`" scripts\backup.js >> ..\logs\backup.log 2>&1"
+) | Set-Content -Path "$InstallDir\server\run-backup.cmd" -Encoding ASCII
+
+$principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
+$settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -StartWhenAvailable
+Register-ScheduledTask -TaskName $taskName -Force -Principal $principal -Settings $settings `
+  -Action (New-ScheduledTaskAction -Execute "$InstallDir\server\run.cmd" -WorkingDirectory "$InstallDir\server") `
+  -Trigger (New-ScheduledTaskTrigger -AtStartup) | Out-Null
+Register-ScheduledTask -TaskName $backupTask -Force -Principal $principal `
+  -Action (New-ScheduledTaskAction -Execute "$InstallDir\server\run-backup.cmd" -WorkingDirectory "$InstallDir\server") `
+  -Trigger (New-ScheduledTaskTrigger -Daily -At 3am) | Out-Null
+
+# 8. Firewall for the web port
+if (-not (Get-NetFirewallRule -DisplayName 'TTA Portal' -ErrorAction SilentlyContinue)) {
+  New-NetFirewallRule -DisplayName 'TTA Portal' -Direction Inbound -Protocol TCP -LocalPort $Port -Action Allow | Out-Null
+}
+
+# 9. Start and check
+Start-ScheduledTask -TaskName $taskName
+$ok = $false
+for ($i = 0; $i -lt 20 -and -not $ok; $i++) {
+  Start-Sleep -Seconds 1
+  try { $ok = (Invoke-RestMethod "http://localhost:$Port/api/health").ok } catch { }
+}
+if ($ok) {
+  Write-Host "OK: portal is running. Open $AppOrigin from a machine on the KMUTT network or VPN."
+} else {
+  Write-Host "NOT healthy. Read $InstallDir\logs\portal.log" -ForegroundColor Red
+  exit 1
+}

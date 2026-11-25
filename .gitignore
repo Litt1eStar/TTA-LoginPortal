@@ -5,3 +5,6 @@
 # Local design-tool output (Hallmark records and Playwright snapshots)
 /.hallmark/
 /.playwright-mcp/
+
+# KMUTT release output (built by deploy/kmutt/package-release.ps1)
+/deploy/kmutt/release/
