@@ -33,14 +33,14 @@ export const CERT_CSV_HEADERS = [
   'ลำดับ', 'ชื่อ-นามสกุล (สำหรับใบเกียรติบัตร)', 'คำนำหน้า', 'ชื่อ-นามสกุล',
   'กลุ่มผู้รับ', 'บทบาท', 'รายการแข่งขัน (สำหรับใบเกียรติบัตร)', 'ประเภท', 'กลุ่มสาขาวิชา/ประเภทย่อย',
   'มหาวิทยาลัย', 'หน่วยงาน', 'รหัสนักศึกษา', 'ชั้นปี', 'อีเมล', 'เบอร์โทร',
-  'สถานะการส่ง', 'ส่งเมื่อ', 'รหัสอ้างอิง'
+  'ลิงก์รูปถ่าย (Google Drive)', 'สถานะการส่ง', 'ส่งเมื่อ', 'รหัสอ้างอิง'
 ];
 
 const CERT_FIELDS = [
   'index', 'certName', 'title', 'fullName',
   'recipientGroup', 'role', 'certCompetition', 'type', 'subType',
   'university', 'dept', 'studentId', 'year', 'email', 'phone',
-  'status', 'submittedAt', 'hash'
+  'drivePhotoUrl', 'status', 'submittedAt', 'hash'
 ];
 
 export function buildCertificatesCsv(rows) {

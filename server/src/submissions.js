@@ -12,7 +12,16 @@ function checkKey(key) {
 }
 
 // Coordinator routes: the university always comes from request.user, never from the URL or body.
-export default async function submissionsPlugin(app, { db, config }) {
+export default async function submissionsPlugin(app, { db, config, drive }) {
+  const syncPhotos = async (request, key, entry) => {
+    if (!drive) return;
+    try {
+      await drive.syncEntryPhotos(request.user.universityCode, request.user.universityId, key, entry.members);
+    } catch (err) {
+      request.log.warn({ err, key }, 'drive photo sync failed');
+    }
+  };
+
   app.get('/api/submissions', { preHandler: app.requireCoordinator }, async (request) => {
     return { submissions: listEntries(db, request.user.universityId) };
   });
@@ -32,7 +41,9 @@ export default async function submissionsPlugin(app, { db, config }) {
     const { key } = request.params;
     checkKey(key);
     const { data, version } = request.body;
-    return { entry: saveDraft(db, request.user.universityId, key, data, version) };
+    const entry = saveDraft(db, request.user.universityId, key, data, version);
+    await syncPhotos(request, key, entry);
+    return { entry };
   });
 
   app.post('/api/submissions/:key/submit', {
@@ -42,6 +53,8 @@ export default async function submissionsPlugin(app, { db, config }) {
     assertBeforeDeadline(config);
     const { key } = request.params;
     checkKey(key);
-    return { entry: submitEntry(db, request.user.universityId, key) };
+    const entry = submitEntry(db, request.user.universityId, key);
+    await syncPhotos(request, key, entry);
+    return { entry };
   });
 }

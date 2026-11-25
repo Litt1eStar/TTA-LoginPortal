@@ -47,6 +47,23 @@ export function fakeGoogle() {
       return json(200, { user: { emailAddress: 'lead@gmail.com' },
         storageQuota: { limit: '16106127360', usage: '1048576' } });
     }
+    if (where === 'https://www.googleapis.com/drive/v3/files' && method === 'GET') {
+      const q = url.searchParams.get('q') || '';
+      const nameMatch = /name = '((?:\\'|[^'])*)'/.exec(q);
+      const mimeMatch = /mimeType = '([^']*)'/.exec(q);
+      const parentMatch = /'((?:\\'|[^'])*)' in parents/.exec(q);
+      const wantName = nameMatch ? nameMatch[1].replace(/\\'/g, "'").replace(/\\\\/g, '\\') : null;
+      const wantMime = mimeMatch ? mimeMatch[1] : null;
+      const wantParent = parentMatch ? parentMatch[1].replace(/\\'/g, "'").replace(/\\\\/g, '\\') : null;
+      const matched = [...files.values()].filter(f => {
+        if (f.trashed) return false;
+        if (wantMime && f.mimeType !== wantMime) return false;
+        if (wantName !== null && f.name !== wantName) return false;
+        if (wantParent !== null && !(f.parents || []).includes(wantParent)) return false;
+        return true;
+      });
+      return json(200, { files: matched });
+    }
     if (where === 'https://www.googleapis.com/drive/v3/files' && method === 'POST') {
       const body = JSON.parse(init.body);
       const id = `folder-${String(++seq).padStart(4, "0")}`;
@@ -54,6 +71,21 @@ export function fakeGoogle() {
       return json(200, { id });
     }
     if (where === 'https://www.googleapis.com/upload/drive/v3/files' && method === 'POST') {
+      if (url.searchParams.get('uploadType') === 'multipart') {
+        const raw = Buffer.isBuffer(init.body) ? init.body.toString('utf8') : String(init.body || '');
+        const jsonMatch = /\{[\s\S]*?\}/.exec(raw);
+        const meta = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
+        const id = `file-${String(++seq).padStart(4, "0")}`;
+        const entry = {
+          id,
+          name: meta.name || 'file',
+          mimeType: meta.mimeType || 'application/octet-stream',
+          parents: meta.parents || [],
+          size: String(Buffer.isBuffer(init.body) ? init.body.length : raw.length)
+        };
+        files.set(id, entry);
+        return json(200, entry);
+      }
       return new Response(null, { status: 200, headers: {
         location: `https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&upload_id=fake-${++seq}` } });
     }
@@ -64,6 +96,12 @@ export function fakeGoogle() {
       if (method === 'DELETE') {
         files.delete(id);
         return new Response(null, { status: 204 });
+      }
+      if (method === 'PATCH') {
+        const patch = JSON.parse(init.body || '{}');
+        const next = { ...files.get(id), ...patch };
+        files.set(id, next);
+        return json(200, { ...next, trashed: false });
       }
       return json(200, { ...files.get(id), trashed: false });
     }

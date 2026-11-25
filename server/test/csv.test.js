@@ -55,6 +55,7 @@ describe('buildCertificatesCsv', () => {
         year: '3',
         email: 's@kmutt.ac.th',
         phone: '0899999999',
+        drivePhotoUrl: 'https://drive.google.com/file/d/1AbCdEf/view',
         status: 'ส่งแล้ว',
         submittedAt: '2026-11-04 10:15:00',
         hash: 'abcdefabcdef'
@@ -64,5 +65,6 @@ describe('buildCertificatesCsv', () => {
     const lines = csv.slice(1).split('\r\n').filter(Boolean);
     expect(lines[0]).toBe(CERT_CSV_HEADERS.join(','));
     expect(lines[1].startsWith('1,นายสมชาย ใจดี,นาย,สมชาย ใจดี,ผู้แข่งขัน,ผู้สอนหลัก,สอนทฤษฎี (กลุ่มสาขาวิชาไฟฟ้า),')).toBe(true);
+    expect(lines[1]).toContain(',https://drive.google.com/file/d/1AbCdEf/view,ส่งแล้ว,2026-11-04 10:15:00,abcdefabcdef');
   });
 });

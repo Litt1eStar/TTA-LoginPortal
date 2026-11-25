@@ -1,4 +1,7 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import { getTrack, parseEntryKey } from '../../src/data/tracks.js';
 import { httpError } from './errors.js';
 import { getSetting, setSetting, deleteSetting, deleteSettingsLike } from './settings.js';
 import { encrypt, decrypt, isValidTokenKey } from './crypto.js';
@@ -11,8 +14,40 @@ const FOLDER_MIME = 'application/vnd.google-apps.folder';
 const FETCH_TIMEOUT_MS = 20000;
 export const FOLDER_MIME_TYPE = FOLDER_MIME;
 export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
-export const ROOT_FOLDER_NAME = 'TTA 2027 วิดีโอ';
+export const ROOT_FOLDER_NAME = 'TTA2027';
 export const DRIVE_DOWN = 'Google Drive ขัดข้อง กรุณาลองใหม่';
+
+const PHOTO_MIME_EXT = {
+  'image/webp': 'webp',
+  'image/jpeg': 'jpg',
+  'image/png': 'png'
+};
+
+const safeDriveName = (s) => String(s || '').replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_').trim().slice(0, 100);
+const escapeDriveQ = (s) => String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
+export function entryDriveFolderName(key) {
+  const track = getTrack(key);
+  const { groupIdx } = parseEntryKey(key);
+  return groupIdx != null ? `${track.th} - ${track.subjectGroups[groupIdx]}` : track.th;
+}
+
+export function memberDrivePhotoName(member, ext = 'webp', fallbackName = '') {
+  const full = `${String(member?.title || '').trim()}${String(member?.fullName || '').trim()}`.trim();
+  const base = safeDriveName(full || fallbackName || member?.id || 'photo') || 'photo';
+  return `${base}.${ext}`;
+}
+
+function uniqueDriveName(used, wanted) {
+  if (!used.has(wanted)) { used.add(wanted); return wanted; }
+  const dot = wanted.lastIndexOf('.');
+  const [base, ext] = dot > 0 ? [wanted.slice(0, dot), wanted.slice(dot)] : [wanted, ''];
+  let n = 2;
+  while (used.has(`${base}-${n}${ext}`)) n += 1;
+  const name = `${base}-${n}${ext}`;
+  used.add(name);
+  return name;
+}
 
 export const driveUnavailable = (message = 'ยังไม่ได้เชื่อมต่อ Google Drive') =>
   httpError(503, 'drive_unavailable', message);
@@ -104,7 +139,7 @@ export function createDrive({ db, config, fetch = globalThis.fetch }) {
     return cached.token;
   }
 
-  async function call(method, url, { json, headers = {} } = {}) {
+  async function call(method, url, { json, rawBody, headers = {} } = {}) {
     const attempt = async () => {
       const token = await accessToken();
       return send(url, {
@@ -114,7 +149,7 @@ export function createDrive({ db, config, fetch = globalThis.fetch }) {
           ...(json ? { 'content-type': 'application/json; charset=UTF-8' } : {}),
           ...headers
         },
-        body: json ? JSON.stringify(json) : undefined
+        body: json ? JSON.stringify(json) : rawBody
       });
     };
     const res = await attempt();
@@ -170,19 +205,32 @@ export function createDrive({ db, config, fetch = globalThis.fetch }) {
     };
   }
 
-  function ensureFolder(key, name, parent) {
+  async function findFolder(name, parent) {
+    const q = [
+      `mimeType = '${FOLDER_MIME}'`,
+      'trashed = false',
+      `name = '${escapeDriveQ(name)}'`,
+      ...(parent ? [`'${escapeDriveQ(parent)}' in parents`] : [])
+    ].join(' and ');
+    const res = await callJson('GET', `${API}/files?q=${encodeURIComponent(q)}&fields=files(id,name,parents)&pageSize=10`);
+    return res.files?.[0]?.id || null;
+  }
+
+  function ensureFolder(key, name, parent, parentKind = 'root') {
     const existing = getSetting(db, key);
     if (existing) return Promise.resolve(existing);
     if (creating.has(key)) return creating.get(key);
     const job = (async () => {
-      let id;
-      try {
-        ({ id } = await callJson('POST', `${API}/files?fields=id`, {
-          json: { name, mimeType: FOLDER_MIME, ...(parent ? { parents: [parent] } : {}) }
-        }));
-      } catch (err) {
-        if (parent && err.status === 404) { err.parentMissing = true; err.parentKind = 'root'; }
-        throw err;
+      let id = await findFolder(name, parent);
+      if (!id) {
+        try {
+          ({ id } = await callJson('POST', `${API}/files?fields=id`, {
+            json: { name, mimeType: FOLDER_MIME, ...(parent ? { parents: [parent] } : {}) }
+          }));
+        } catch (err) {
+          if (parent && err.status === 404) { err.parentMissing = true; err.parentKind = parentKind; }
+          throw err;
+        }
       }
       setSetting(db, key, id);
       return id;
@@ -195,7 +243,24 @@ export function createDrive({ db, config, fetch = globalThis.fetch }) {
 
   async function ensureUniversityFolder(code) {
     const root = await ensureRootFolder();
-    return ensureFolder(`drive.folder.${code}`, code, root);
+    return ensureFolder(`drive.folder.${code}`, code, root, 'root');
+  }
+
+  async function ensureEntryFolder(code, entryKey) {
+    const uni = await ensureUniversityFolder(code);
+    return ensureFolder(`drive.folder.${code}.${entryKey}`, entryDriveFolderName(entryKey), uni, 'university');
+  }
+
+  function clearStaleFolder(code, entryKey, parentKind) {
+    if (parentKind === 'root') {
+      deleteSetting(db, 'drive.root_folder');
+      deleteSettingsLike(db, 'drive.folder.');
+    } else if (parentKind === 'university') {
+      deleteSetting(db, `drive.folder.${code}`);
+      deleteSettingsLike(db, `drive.folder.${code}.`);
+    } else if (entryKey) {
+      deleteSetting(db, `drive.folder.${code}.${entryKey}`);
+    }
   }
 
   // Returns the one-time session URL the browser uploads to.
@@ -225,14 +290,55 @@ export function createDrive({ db, config, fetch = globalThis.fetch }) {
         return await createResumableSession({ ...opts, parent });
       } catch (err) {
         if (!err.parentMissing || attempt >= 2) throw err;
-        if (err.parentKind === 'root') {
-          deleteSetting(db, 'drive.root_folder');
-          deleteSettingsLike(db, 'drive.folder.');
-        } else {
-          deleteSetting(db, `drive.folder.${code}`);
-        }
+        clearStaleFolder(code, null, err.parentKind);
       }
     }
+  }
+
+  async function uploadFile({ name, mime, bytes, parent }) {
+    const boundary = `tta_${randomBytes(12).toString('hex')}`;
+    const meta = JSON.stringify({ name, mimeType: mime, ...(parent ? { parents: [parent] } : {}) });
+    const head = Buffer.from(
+      `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n` +
+      `--${boundary}\r\nContent-Type: ${mime}\r\n\r\n`,
+      'utf8'
+    );
+    const tail = Buffer.from(`\r\n--${boundary}--`, 'utf8');
+    const body = Buffer.concat([head, Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes), tail]);
+    const res = await call('POST', `${UPLOAD_URL}?uploadType=multipart&fields=id,name,size,mimeType`, {
+      headers: {
+        'content-type': `multipart/related; boundary=${boundary}`,
+        'content-length': String(body.length)
+      },
+      rawBody: body
+    });
+    if (!res.ok) {
+      const err = driveDown();
+      if (res.status === 404) { err.parentMissing = true; err.parentKind = 'entry'; }
+      throw err;
+    }
+    return readJson(res);
+  }
+
+  async function uploadEntryFile(code, entryKey, { name, mime, bytes }) {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const parent = await ensureEntryFolder(code, entryKey);
+        return await uploadFile({ name, mime, bytes, parent });
+      } catch (err) {
+        if (!err.parentMissing || attempt >= 3) throw err;
+        clearStaleFolder(code, entryKey, err.parentKind);
+      }
+    }
+  }
+
+  async function renameFile(id, name) {
+    const res = await call('PATCH', `${API}/files/${encodeURIComponent(id)}?fields=id,name`, {
+      json: { name }
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) throw driveDown();
+    return readJson(res);
   }
 
   async function getFileMeta(id) {
@@ -247,9 +353,108 @@ export function createDrive({ db, config, fetch = globalThis.fetch }) {
     if (!res.ok && res.status !== 404) throw driveDown();
   }
 
+  const photoSyncing = new Map(); // `${code}:${entryKey}` -> Promise
+
+  function syncEntryPhotos(code, universityId, entryKey, members) {
+    if (!code || !isConnected()) return Promise.resolve();
+    const lockKey = `${code}:${entryKey}`;
+    const prevJob = photoSyncing.get(lockKey) || Promise.resolve();
+    const job = prevJob.catch(() => {}).then(async () => {
+      if (!isConnected()) return;
+      const settingKey = `drive.photos.${code}.${entryKey}`;
+      let prevMap = {};
+      try {
+        const raw = getSetting(db, settingKey);
+        if (raw) prevMap = JSON.parse(raw) || {};
+      } catch {
+        prevMap = {};
+      }
+
+      const fileStmt = db.prepare(
+        'SELECT id, sha256, mime, original_name FROM files WHERE id = ? AND university_id = ? AND entry_key = ? AND kind = 0'
+      );
+      const usedNames = new Set();
+      const desired = [];
+      for (const m of members || []) {
+        if (!m?.id || !m?.photo?.fileId) continue;
+        const row = fileStmt.get(Number(m.photo.fileId), universityId, entryKey);
+        if (!row) continue;
+        const diskPath = path.resolve(config.uploadDir, row.sha256);
+        if (!fs.existsSync(diskPath)) continue;
+        const ext = PHOTO_MIME_EXT[row.mime] || path.extname(row.original_name).slice(1) || 'webp';
+        const fallback = path.basename(row.original_name, path.extname(row.original_name));
+        const wanted = memberDrivePhotoName(m, ext, fallback);
+        const fileName = uniqueDriveName(usedNames, wanted);
+        desired.push({
+          memberId: m.id,
+          fileId: row.id,
+          sha256: row.sha256,
+          mime: row.mime,
+          fileName,
+          diskPath
+        });
+      }
+
+      const prevIds = Object.keys(prevMap);
+      if (desired.length === 0 && prevIds.length === 0) return;
+
+      const desiredByMember = new Map(desired.map(d => [d.memberId, d]));
+      const nextMap = { ...prevMap };
+
+      for (const memberId of prevIds) {
+        const prev = prevMap[memberId];
+        const cur = desiredByMember.get(memberId);
+        if (!cur || cur.sha256 !== prev.sha256) {
+          if (prev?.driveFileId) await deleteFile(prev.driveFileId);
+          delete nextMap[memberId];
+        }
+      }
+
+      for (const item of desired) {
+        const prev = nextMap[item.memberId];
+        if (prev && prev.sha256 === item.sha256 && prev.driveFileId) {
+          if (prev.name !== item.fileName) {
+            const renamed = await renameFile(prev.driveFileId, item.fileName);
+            if (renamed) {
+              nextMap[item.memberId] = { ...prev, fileId: item.fileId, name: item.fileName };
+              continue;
+            }
+          } else {
+            nextMap[item.memberId] = { ...prev, fileId: item.fileId };
+            continue;
+          }
+        }
+        const bytes = await fs.promises.readFile(item.diskPath);
+        const uploaded = await uploadEntryFile(code, entryKey, {
+          name: item.fileName,
+          mime: item.mime,
+          bytes
+        });
+        nextMap[item.memberId] = {
+          fileId: item.fileId,
+          sha256: item.sha256,
+          name: item.fileName,
+          driveFileId: uploaded.id
+        };
+      }
+
+      if (Object.keys(nextMap).length > 0) {
+        setSetting(db, settingKey, JSON.stringify(nextMap));
+      } else {
+        deleteSetting(db, settingKey);
+      }
+    }).finally(() => {
+      if (photoSyncing.get(lockKey) === job) photoSyncing.delete(lockKey);
+    });
+    photoSyncing.set(lockKey, job);
+    return job;
+  }
+
   return {
     isConfigured, isConnected, assertConfigured, authUrl, exchangeCode, getAbout,
-    ensureRootFolder, ensureUniversityFolder, createResumableSession, createUniversitySession, getFileMeta, deleteFile
+    ensureRootFolder, ensureUniversityFolder, ensureEntryFolder,
+    createResumableSession, createUniversitySession,
+    uploadFile, uploadEntryFile, renameFile, getFileMeta, deleteFile, syncEntryPhotos
   };
 }
 
@@ -315,13 +520,15 @@ export default async function driveRoutes(app, { db, config, drive }) {
   });
 
   app.get('/admin/google/status', { preHandler: app.requireAdmin }, async () => {
-    if (!drive.isConnected()) return { connected: false, email: null, quota: null };
+    if (!drive.isConnected()) return { connected: false, email: null, quota: null, folderUrl: null };
     let quota = null;
     try {
       quota = (await drive.getAbout()).quota;
     } catch {
       // revoked token (now forgotten) or Google down: report what we know
     }
-    return { connected: drive.isConnected(), email: getSetting(db, 'google.email'), quota };
+    const folderId = getSetting(db, 'drive.root_folder');
+    const folderUrl = folderId ? `https://drive.google.com/drive/folders/${encodeURIComponent(folderId)}` : null;
+    return { connected: drive.isConnected(), email: getSetting(db, 'google.email'), quota, folderUrl };
   });
 }
