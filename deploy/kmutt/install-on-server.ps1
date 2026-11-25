@@ -27,9 +27,30 @@ Write-Host "Node $ver at $nodeExe"
 if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) {
   Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
 }
+# End the run.cmd restart loop first, so it can't start node again
+Get-CimInstance Win32_Process -Filter "Name='cmd.exe'" |
+  Where-Object { $_.CommandLine -like "*$InstallDir\server\run.cmd*" } |
+  ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue |
   ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }
 Start-Sleep -Seconds 2
+
+# Update: snapshot the database and uploads before touching any file
+if (Test-Path "$InstallDir\server\data\portal.db") {
+  Push-Location "$InstallDir\server"
+  try {
+    & $nodeExe scripts\backup.js
+    if ($LASTEXITCODE) { throw 'pre-update backup failed; nothing was changed' }
+    Write-Host 'Pre-update backup written to server\backups'
+  } finally { Pop-Location }
+}
+
+if (Test-Path "$InstallDir\RELEASE.txt") {
+  $prev = "$InstallDir-previous"
+  if (Test-Path $prev) { Remove-Item $prev -Recurse -Force }
+  New-Item -ItemType Directory -Force $prev | Out-Null
+  robocopy "$InstallDir" $prev /E /XD "$InstallDir\server\data" "$InstallDir\server\backups" "$InstallDir\server\node_modules" "$InstallDir\logs" /XF .env /NFL /NDL /NJH /NJS | Out-Null; Check-Robocopy
+}
 
 # 3. Copy files (never touches .env, data\, backups\)
 New-Item -ItemType Directory -Force $InstallDir, "$InstallDir\logs" | Out-Null
@@ -37,6 +58,7 @@ robocopy "$src\dist" "$InstallDir\dist" /MIR /NFL /NDL /NJH /NJS | Out-Null; Che
 robocopy "$src\server" "$InstallDir\server" /E /XD data backups node_modules /XF .env /NFL /NDL /NJH /NJS | Out-Null; Check-Robocopy
 robocopy "$src\src" "$InstallDir\src" /MIR /NFL /NDL /NJH /NJS | Out-Null; Check-Robocopy
 Copy-Item "$src\package.json" "$InstallDir\package.json" -Force
+Copy-Item "$src\RELEASE.txt" "$InstallDir\RELEASE.txt" -Force
 
 # 4. Dependencies
 Push-Location "$InstallDir\server"
@@ -83,7 +105,11 @@ finally { Pop-Location }
 @(
   '@echo off',
   'cd /d "%~dp0"',
-  "`"$nodeExe`" src\index.js >> ..\logs\portal.log 2>&1"
+  ':loop',
+  "`"$nodeExe`" src\index.js >> ..\logs\portal.log 2>&1",
+  'echo %date% %time% portal exited with %errorlevel%, restarting in 5 s >> ..\logs\portal.log',
+  'timeout /t 5 /nobreak > nul',
+  'goto loop'
 ) | Set-Content -Path "$InstallDir\server\run.cmd" -Encoding ASCII
 @(
   '@echo off',
@@ -113,7 +139,7 @@ for ($i = 0; $i -lt 20 -and -not $ok; $i++) {
   try { $ok = (Invoke-RestMethod "http://localhost:$Port/api/health").ok } catch { }
 }
 if ($ok) {
-  Write-Host "OK: portal is running. Open $AppOrigin from a machine on the KMUTT network or VPN."
+  Write-Host "OK: portal is running ($((Get-Content "$InstallDir\RELEASE.txt") -join ', ')). Open $AppOrigin from a machine on the KMUTT network or VPN."
 } else {
   Write-Host "NOT healthy. Read $InstallDir\logs\portal.log" -ForegroundColor Red
   exit 1
