@@ -16,11 +16,11 @@
 
 | Phase | What | Owner | Due | State |
 |---|---|---|---|---|
-| 0 | Code ready: release built from a tag (branch `deploy/kmutt`) | Dev (laptop) | Wed 25 Nov | ✅ Done (tag `v2026.11.27`; push waits for the owner) |
+| 0 | Code ready: release built from a tag (branch `deploy/kmutt`) | Dev (laptop) | Wed 25 Nov | ✅ Done (tag `v2026.11.27`; branch + tag pushed 25 Nov) |
 | D | Domain placeholder `tta.cmm.works` → KMUTT | Owner (GoDaddy) | Wed 25 Nov | ⬜ Not started |
 | 1 | CITES: web port, outside access, domain | Owner → CITES | Ask Wed 25, need by Thu 26 12:00 | ⬜ Not started |
-| 2 | Install on `CIT_TTA2027` | Owner (VPN + RDP) | Thu 26 Nov AM | ⬜ Not started |
-| 3 | Verify on the server | Owner | Thu 26 Nov AM | ⬜ Not started |
+| 2 | Install on `CIT_TTA2027` | Owner (VPN + RDP) | Thu 26 Nov AM | ✅ Done 25 Nov (cloned `deploy/kmutt` and built on the server; `5b8ae42`) |
+| 3 | Verify on the server | Owner | Thu 26 Nov AM | 🟨 From the laptop over VPN on 25 Nov: `/api/health` OK, page and assets 200, `/dashboard` 200, no `upgrade-insecure-requests`, wrong-password login gives 401. Still to do: a real login from a browser, restart test, outside access (3.9) |
 | 4 | Go / no-go | Owner | **Thu 26 Nov 12:00** | ⬜ Not started |
 | 5 | Launch | Owner | Fri 27 Nov | ⬜ Not started |
 | 6 | After launch | Owner | Week of 30 Nov | ⬜ Not started |
