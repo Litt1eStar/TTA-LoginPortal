@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { publicUrl } from '../../utils/publicUrl';
+import { useParams, useNavigate } from 'react-router-dom';
+import { publicUrl, isSubmitUrl } from '../../utils/publicUrl';
 import { usePortal } from '../../context/PortalContext';
 import { useSwapTransition } from '../../hooks/useSwapTransition';
 import { TRACKS, isGrouped, entryKey, getTypeOfTrack, hasSubTypes } from '../../data/tracks';
@@ -27,8 +27,6 @@ const ENTRY_ORDER = new Map(ALL_ENTRY_KEYS.map((k, idx) => [k, idx]));
 export const SubmitView = () => {
   const { trackId, groupIdx: groupParam } = useParams();
   const navigate = useNavigate();
-  // Router path, without the base path ('/portal' on KMUTT), unlike window.location.pathname
-  const onSubmitPage = useLocation().pathname.startsWith('/submit');
   const { activeTrackId, setActiveTrackId, submissions, saveDraft, confirmSubmit, showToast } = usePortal();
 
   const validTrack = TRACKS.find(t => t.id === trackId);
@@ -44,7 +42,9 @@ export const SubmitView = () => {
 
   // Keep URL and active track in sync; fix invalid track or group in the URL
   useEffect(() => {
-    if (!onSubmitPage) return;
+    // The browser's real URL, not the router's: while the page swap animates out, this view still
+    // renders with the old (displayed) location, and fixing that URL would pull the user back here.
+    if (typeof window !== 'undefined' && !isSubmitUrl(window.location.pathname)) return;
     if (!validTrack) {
       navigate(`/submit/${activeTrackId || 'theory'}`, { replace: true });
       return;
@@ -55,7 +55,7 @@ export const SubmitView = () => {
       const has = groupParam == null ? `/submit/${validTrack.id}` : `/submit/${validTrack.id}/${groupParam}`;
       if (want !== has) navigate(want, { replace: true });
     }
-  }, [onSubmitPage, validTrack, activeTrackId, setActiveTrackId, navigate, liveGrouped, liveGroup, groupParam]);
+  }, [validTrack, activeTrackId, setActiveTrackId, navigate, liveGrouped, liveGroup, groupParam]);
 
   // Track whether the active swap crossed top-level types ('type') or stayed within one type ('entry')
   const swapScopeRef = useRef('type');

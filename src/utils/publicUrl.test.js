@@ -1,5 +1,20 @@
 import { describe, it, expect } from 'vitest';
-import { publicUrl } from './publicUrl.js';
+import { publicUrl, isSubmitUrl } from './publicUrl.js';
+
+describe('isSubmitUrl', () => {
+  it('matches the submit pages under the base path', () => {
+    expect(isSubmitUrl('/portal/submit/theory/0', '/portal/')).toBe(true);
+    expect(isSubmitUrl('/portal/submit', '/portal/')).toBe(true);
+    expect(isSubmitUrl('/submit/theory', '/')).toBe(true);
+  });
+
+  it('does not match other pages, or submit without the base path', () => {
+    expect(isSubmitUrl('/portal/history', '/portal/')).toBe(false);
+    expect(isSubmitUrl('/portal/dashboard', '/portal/')).toBe(false);
+    expect(isSubmitUrl('/submit/theory', '/portal/')).toBe(false);
+    expect(isSubmitUrl('/history', '/')).toBe(false);
+  });
+});
 
 describe('publicUrl', () => {
   it('prefixes root-relative public files with the base path', () => {
