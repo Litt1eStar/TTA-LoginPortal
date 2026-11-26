@@ -228,14 +228,16 @@ unlikely to bite, but ask IT to add the header.
 ```powershell
 cd C:\nginx
 .\nginx.exe -t                       # check the config after editing conf\nginx.conf
-.\nginx.exe -s reload                # apply it, no downtime
+powershell -NoProfile -ExecutionPolicy Bypass -File C:\temp\TTA-LoginPortal\deploy\kmutt\nginx\restart-nginx.ps1   # apply it (~5 s); `-s reload` is refused, see below
 Get-Content logs\access.log -Tail 20 # recent requests
 Get-Content logs\error.log -Tail 20  # errors (e.g. "connect() failed" = the portal is down)
 Get-ScheduledTask TTA-Nginx | Select-Object TaskName, State
 ```
 
 Change the config in the repo (`deploy/kmutt/nginx/nginx.conf`), push, then on the server `git pull`,
-copy it to `C:\nginx\conf\nginx.conf`, `-t`, `-s reload`.
+copy it to `C:\nginx\conf\nginx.conf`, then run `restart-nginx.ps1` (it runs `-t` first and does not restart if the test fails).
+
+> `nginx.exe -s reload` does **not** work here: nginx runs as SYSTEM and Windows answers `OpenEvent("Global\ngx_reload_...") failed (5: Access is denied)`. Use `restart-nginx.ps1`.
 
 Stop nginx completely (e.g. to replace it):
 
@@ -324,7 +326,7 @@ Copy-Item C:\nginx\conf\nginx.conf C:\nginx\conf\nginx.conf.before-landing -Forc
 Copy-Item C:\temp\TTA-LoginPortal\deploy\kmutt\nginx\nginx.conf C:\nginx\conf\nginx.conf -Force
 cd C:\nginx
 .\nginx.exe -t            # must say "syntax is ok" and "test is successful"
-.\nginx.exe -s reload
+powershell -NoProfile -ExecutionPolicy Bypass -File C:\temp\TTA-LoginPortal\deploy\kmutt\nginx\restart-nginx.ps1
 ```
 
 If `-t` fails, do **not** reload; send me the message. nginx keeps serving the old config.
@@ -355,7 +357,7 @@ Then on the laptop or a phone:
 
 ```powershell
 Copy-Item C:\nginx\conf\nginx.conf.before-landing C:\nginx\conf\nginx.conf -Force
-cd C:\nginx; .\nginx.exe -t; .\nginx.exe -s reload
+powershell -NoProfile -ExecutionPolicy Bypass -File C:\temp\TTA-LoginPortal\deploy\kmutt\nginx\restart-nginx.ps1
 ```
 
 The portal then answers at `https://tta2027.kmutt.ac.th/portal/` only (its pages are built for

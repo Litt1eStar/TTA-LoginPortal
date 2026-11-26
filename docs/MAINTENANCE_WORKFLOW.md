@@ -146,7 +146,7 @@ git pull
 Copy-Item .\deploy\kmutt\nginx\nginx.conf C:\nginx\conf\nginx.conf -Force
 cd C:\nginx
 .\nginx.exe -t            # must say "test is successful"; if not, don't reload
-.\nginx.exe -s reload
+powershell -NoProfile -ExecutionPolicy Bypass -File C:\temp\TTA-LoginPortal\deploy\kmutt\nginx\restart-nginx.ps1
 ```
 
 ---
