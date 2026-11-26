@@ -16,10 +16,11 @@ How a change goes from your laptop to the KMUTT server. For the first install on
 |---|---|---|
 | Laptop folder | `TeachingAcademy\TTA-LoginPortal` | `TeachingAcademy\TTA-LandingPage` |
 | GitHub | `Litt1eStar/TTA-LoginPortal` | `Litt1eStar/TTA-LandingPage` |
-| Branch the server builds | `deploy/kmutt` (switch to `main` once it is merged, see §6) | `main` |
+| Branch the server builds | `main` | `main` |
 | Source on the server | `C:\temp\TTA-LoginPortal` (git clone) | `C:\temp\TTA-LandingPage` (git clone) |
-| Installed and running from | `C:\tta-portal` | `C:\tta-landing\site` |
-| Served by | Node, Scheduled Task `TTA-Portal`, port **3001** | IIS website `TTA-Landing`, port **80** |
+| Installed and running from | `C:\tta-portal` | `C:\sites\tta-landing\site` |
+| Served by | Node (Task `TTA-Portal`, port 3001) behind nginx (Task `TTA-Nginx`, port 80) | nginx (Task `TTA-Nginx`, port 80) |
+| Address | `https://tta2027.kmutt.ac.th` | `https://<landing-domain>` |
 | Data | `C:\tta-portal\server\data\` (`portal.db`, `uploads\`) | none |
 | Settings | `C:\tta-portal\server\.env` (never in git) | none (the portal link is in `src\App.jsx`) |
 
@@ -130,11 +131,23 @@ git pull
 git log -1 --oneline
 npm.cmd ci
 npm.cmd run build
-robocopy .\dist C:\tta-landing\site /MIR /XF web.config
+robocopy C:\sites\tta-landing\site C:\sites\tta-landing\site-previous /MIR /NFL /NDL /NJH /NJS   # keep the old version
+robocopy .\dist C:\sites\tta-landing\site /MIR /NFL /NDL /NJH /NJS
+"robocopy exit code: $LASTEXITCODE  (0-7 = OK)"
 ```
 
-`/XF web.config` keeps the IIS settings file that is not in the build. Robocopy exit codes 0–7 are
-success. IIS serves the new files at once; no restart.
+nginx serves the new files at once; no restart, no reload.
+
+### 4.3 nginx config (only when `deploy/kmutt/nginx/nginx.conf` changed)
+
+```powershell
+cd C:\temp\TTA-LoginPortal
+git pull
+Copy-Item .\deploy\kmutt\nginx\nginx.conf C:\nginx\conf\nginx.conf -Force
+cd C:\nginx
+.\nginx.exe -t            # must say "test is successful"; if not, don't reload
+.\nginx.exe -s reload
+```
 
 ---
 
@@ -148,11 +161,11 @@ Get-Content C:\tta-portal\RELEASE.txt                                          #
 Get-Content C:\tta-portal\logs\portal.log -Tail 20                              # no errors
 ```
 
-Then in a browser, `http://localhost:3001/` on the server (or `http://10.2.15.250:3001/` from the
-laptop on VPN): log in, look at what you changed, log out.
+Then open `https://tta2027.kmutt.ac.th/` on the laptop: log in, look at what you changed, log out.
 
-Landing Page: open `http://localhost/` on the server (or `http://10.2.15.250/` from the laptop),
-press **Ctrl+F5**, and click the Login button.
+Landing Page: open `https://<landing-domain>/` on the laptop, press **Ctrl+F5**, and click the Login
+button. On the server, before the domain exists:
+`curl.exe -s -H "Host: <landing-domain>" http://localhost/ | Select-String 'Thailand Teaching Academy Award'`.
 
 ---
 
@@ -178,12 +191,20 @@ Then fix the problem on the laptop, push, and update again.
 
 ### Roll back the Landing Page
 
+The previous version was kept by §4.2:
+
+```powershell
+robocopy C:\sites\tta-landing\site-previous C:\sites\tta-landing\site /MIR /NFL /NDL /NJH /NJS
+```
+
+Or rebuild an older commit:
+
 ```powershell
 cd C:\temp\TTA-LandingPage
 git log --oneline -5                 # pick the last good commit
 git checkout <good-commit>
 npm.cmd ci; npm.cmd run build
-robocopy .\dist C:\tta-landing\site /MIR /XF web.config
+robocopy .\dist C:\sites\tta-landing\site /MIR /NFL /NDL /NJH /NJS
 git checkout main                    # back to normal for the next update
 ```
 
@@ -196,7 +217,9 @@ git checkout main                    # back to normal for the next update
 | Installer: `port 3001 is still in use` | `Get-NetTCPConnection -LocalPort 3001 \| Select OwningProcess`, end that process, run the installer again. |
 | Installer: health check failed | `Get-Content C:\tta-portal\logs\portal.log -Tail 40`; fix, push, update again, or roll back. |
 | Portal page is blank over http | `COOKIE_SECURE=true` in `.env` without HTTPS. Set it to `false` and restart. |
-| Landing page still shows the old version | Browser cache: Ctrl+F5. Check `C:\tta-landing\site\index.html` changed. |
+| Landing page still shows the old version | Browser cache: Ctrl+F5. Check `C:\sites\tta-landing\site\index.html` changed. |
+| A domain shows the portal instead of the Landing Page | Its `server_name` in nginx doesn't match the domain (the portal is the default). Check `deploy/kmutt/nginx/nginx.conf`, §4.3. |
+| `502 Bad Gateway` on `tta2027.kmutt.ac.th` | nginx is fine, the portal is down: `Get-Content C:\tta-portal\logs\portal.log -Tail 40`. |
 
 ### Restart the portal (after editing `.env`)
 
@@ -208,12 +231,12 @@ Start-ScheduledTask TTA-Portal
 
 ---
 
-## 7. One-time clean-up still to do
+## 7. Notes
 
-- **Merge `deploy/kmutt` into `main`** of the Login Portal and push. Then on the server:
-  `cd C:\temp\TTA-LoginPortal; git checkout main; git pull`, and use `main` from then on. Until
-  that merge, do **not** push `main`: its old `.github/workflows/deploy.yml` deploys to the CMM
-  droplet on every push.
+- Pushing the Login Portal's `main` no longer deploys to the CMM droplet: that workflow only runs by
+  hand (GitHub → Actions → Deploy → *Run workflow*).
+- Pushing the **Landing Page's** `main` still deploys it to the CMM droplet (`https://tta.cmm.works`)
+  through its own workflow, in addition to the KMUTT copy you update by hand (§4.2).
 - Optionally move the server copies out of `C:\temp` (e.g. to `C:\src\`) so they are not deleted by
   accident, and use the new paths above.
 

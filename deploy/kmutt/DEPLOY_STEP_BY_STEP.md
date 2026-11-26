@@ -7,12 +7,13 @@ For updating them later, see [`docs/MAINTENANCE_WORKFLOW.md`](../../docs/MAINTEN
 |---|---|---|
 | What it is | React website **+** Node API **+** SQLite database | React website only (static files) |
 | Repo | `Litt1eStar/TTA-LoginPortal` | `Litt1eStar/TTA-LandingPage` |
-| Runs as | Node, started by Scheduled Task `TTA-Portal` | IIS website `TTA-Landing` |
-| Port | 3001 | 80 |
-| Address | `http://10.2.15.250:3001/` | `http://10.2.15.250/` |
-| Needs on the server | Node.js 22.13+, Git | Node.js (to build), Git, IIS |
+| Runs as | Node, started by Scheduled Task `TTA-Portal` | Files served by nginx (Scheduled Task `TTA-Nginx`) |
+| Port | 3001, reached through nginx on 80 | 80 (nginx, chosen by domain name) |
+| Address | `https://tta2027.kmutt.ac.th/` | `https://<landing-domain>/` |
+| Needs on the server | Node.js 22.13+, Git | Node.js (to build), Git, nginx |
 
-Do Part 0 once, then Variant 1, Variant 2, or both. Every command block goes into **PowerShell as
+Do Part 0 once, then Variant 1, then nginx and the domain
+([`NGINX_DOMAIN_SETUP.md`](NGINX_DOMAIN_SETUP.md)), then Variant 2 if you want the Landing Page here too. Every command block goes into **PowerShell as
 Administrator** on the server. Copy each block whole and press Enter.
 
 ---
@@ -162,28 +163,42 @@ Never share `.env`; it holds `SESSION_SECRET`.
 
 ## Variant 2: Landing Page (static website)
 
-The Landing Page is plain files (HTML, JS, images) after `npm run build`. On Windows Server the
-built-in web server **IIS** serves them, as a Windows service that starts at boot. No Node process
-runs for it.
+The Landing Page is plain files (HTML, JS, images) after `npm run build`. On this server they are
+served by the **nginx** that already sits on port 80 for the Login Portal
+([`NGINX_DOMAIN_SETUP.md`](NGINX_DOMAIN_SETUP.md)). No Node process and no IIS run for it.
+
+Every domain the university gives us arrives on port 80, so nginx tells the sites apart by name:
+
+```
+https://tta2027.kmutt.ac.th    ─▶ university proxy ─http:80─▶ nginx ─▶ Login Portal (127.0.0.1:3001)
+https://<landing-domain>       ─▶ university proxy ─http:80─▶ nginx ─▶ C:\sites\tta-landing\site
+```
+
+`<landing-domain>` is the Landing Page's own name, for example `<something>.kmutt.ac.th` (2.2).
+Everything below can be done before IT has created it; only the last check needs it.
+
+Prerequisite: nginx is installed and running (`NGINX_DOMAIN_SETUP.md`, Parts A–D).
 
 ### 2.1 Before you start (on the laptop)
 
-1. The **Login button** points at `PORTAL_URL` in `src\App.jsx` (now
-   `https://tta.portal.cmm.works/`). Change it to the KMUTT portal address, e.g.
-   `http://10.2.15.250:3001/`, then commit.
-2. Make sure everything you want to publish is on **`main`** and pushed
-   (`git checkout main; git merge <your-branch>; git push`). The server builds `main`.
+1. The **Login button** points at `PORTAL_URL` in `TTA-LandingPage\src\App.jsx`. Set it to:
+   ```js
+   const PORTAL_URL = 'https://tta2027.kmutt.ac.th/';
+   ```
+2. Check it builds (`npm.cmd run build`), commit, and make sure everything you want to publish is on
+   **`main`** and pushed (`git checkout main; git merge <your-branch>; git push`). The server builds
+   `main`.
 
-### 2.2 Install IIS (once)
+### 2.2 Ask KMUTT IT for the domain
 
-```powershell
-Install-WindowsFeature Web-Server -IncludeManagementTools
-Import-Module WebAdministration
-```
+Send IT (the same people who set up `tta2027.kmutt.ac.th`):
 
-Expected: `Success : True`. No restart is needed.
+> Please add `<landing-domain>` on the university reverse proxy (`mainwebreverse.kmutt.ac.th`) with
+> HTTPS, forwarding to `http://10.2.15.250:80`, the same way as `tta2027.kmutt.ac.th`.
 
-### 2.3 Download and build
+Nothing changes on their side for port 80: nginx on our server picks the site by its name.
+
+### 2.3 Download and build (server)
 
 ```powershell
 git clone https://github.com/Litt1eStar/TTA-LandingPage.git C:\temp\TTA-LandingPage
@@ -191,80 +206,74 @@ cd C:\temp\TTA-LandingPage
 git log -1 --oneline
 npm.cmd ci
 npm.cmd run build
+Test-Path .\dist\index.html          # must print True
 ```
 
-The build ends with `✓ built in ...` and creates `C:\temp\TTA-LandingPage\dist`.
+If the folder already exists, run `git pull` inside it instead of `git clone`.
 
-### 2.4 Copy the site and add the IIS settings file
+### 2.4 Copy the files to the live folder
 
 ```powershell
-New-Item -ItemType Directory -Force C:\tta-landing\site | Out-Null
-robocopy C:\temp\TTA-LandingPage\dist C:\tta-landing\site /MIR /XF web.config
-@'
-<?xml version="1.0" encoding="UTF-8"?>
-<configuration>
-  <system.webServer>
-    <staticContent>
-      <remove fileExtension=".webp" />
-      <mimeMap fileExtension=".webp" mimeType="image/webp" />
-      <clientCache cacheControlMode="UseMaxAge" cacheControlMaxAge="7.00:00:00" />
-    </staticContent>
-    <defaultDocument enabled="true">
-      <files><clear /><add value="index.html" /></files>
-    </defaultDocument>
-  </system.webServer>
-  <location path="static">
-    <system.webServer>
-      <staticContent>
-        <clientCache cacheControlMode="UseMaxAge" cacheControlMaxAge="365.00:00:00" />
-      </staticContent>
-    </system.webServer>
-  </location>
-  <location path="index.html">
-    <system.webServer>
-      <staticContent>
-        <clientCache cacheControlMode="DisableCache" />
-      </staticContent>
-    </system.webServer>
-  </location>
-</configuration>
-'@ | Set-Content C:\tta-landing\site\web.config -Encoding UTF8
+New-Item -ItemType Directory -Force C:\sites\tta-landing\site | Out-Null
+robocopy C:\temp\TTA-LandingPage\dist C:\sites\tta-landing\site /MIR /NFL /NDL /NJH /NJS
+"robocopy exit code: $LASTEXITCODE  (0-7 = OK)"
 ```
 
-`web.config` makes IIS serve `.webp` images, cache the hashed bundles in `/static/` for a year and
-images for a week, and always re-check `index.html` so updates show at once (the same caching as the
-`nginx.conf` used on the CMM droplet). Robocopy exit codes 0–7 mean success.
+`/MIR` makes the live folder an exact copy of the build (old files are removed).
 
-### 2.5 Create the website on port 80
+### 2.5 Add the site to nginx
 
-IIS comes with a "Default Web Site" on port 80; stop it and create ours in its place:
+The nginx config lives in the **Login Portal** repo (`deploy/kmutt/nginx/nginx.conf`), so it is
+changed on the laptop and pulled, like code.
+
+On the laptop, in `TTA-LoginPortal\deploy\kmutt\nginx\nginx.conf`, find the block that starts with
+`# TTA Landing Page`, remove the `#` at the start of each of its lines, and replace
+`<landing-domain>` with the real name. It looks like this when done:
+
+```nginx
+    server {
+        listen       80;
+        server_name  tta-landing.example.kmutt.ac.th;     # <landing-domain>
+        root         C:/sites/tta-landing/site;
+        index        index.html;
+        ...
+    }
+```
+
+Commit and push (`git add deploy/kmutt/nginx/nginx.conf; git commit -m "nginx: landing page"; git push`).
+
+On the server:
 
 ```powershell
-Import-Module WebAdministration
-Stop-Website 'Default Web Site'
-Set-ItemProperty 'IIS:\Sites\Default Web Site' -Name serverAutoStart -Value $false
-New-Website -Name 'TTA-Landing' -Port 80 -PhysicalPath C:\tta-landing\site -Force
-Set-ItemProperty 'IIS:\Sites\TTA-Landing' -Name serverAutoStart -Value $true
-Start-Website 'TTA-Landing'
-if (-not (Get-NetFirewallRule -DisplayName 'TTA Landing' -ErrorAction SilentlyContinue)) {
-  New-NetFirewallRule -DisplayName 'TTA Landing' -Direction Inbound -Protocol TCP -LocalPort 80 -Action Allow | Out-Null
-}
-Get-Website | Select-Object Name, State, PhysicalPath
+cd C:\temp\TTA-LoginPortal
+git pull
+Copy-Item .\deploy\kmutt\nginx\nginx.conf C:\nginx\conf\nginx.conf -Force
+cd C:\nginx
+.\nginx.exe -t                  # must say: syntax is ok / test is successful
+.\nginx.exe -s reload           # applies it; the portal is not interrupted
 ```
 
-Expected: `TTA-Landing  Started  C:\tta-landing\site` and `Default Web Site  Stopped`.
+If `-t` reports an error, do **not** reload: nginx keeps running with the old config. Fix the file,
+push, pull and copy again.
 
 ### 2.6 Check
 
+On the server, ask nginx for the Landing Page by name (works before the domain exists):
+
 ```powershell
-(Invoke-WebRequest http://localhost/ -UseBasicParsing).Content -match 'Thailand Teaching Academy Award'   # True
+curl.exe -s -H "Host: <landing-domain>" http://localhost/ | Select-String 'Thailand Teaching Academy Award'
+curl.exe -s http://localhost/api/health          # the portal still answers: {"ok":true,...}
 ```
 
-In Edge on the server open `http://localhost/`; from the laptop on VPN open `http://10.2.15.250/`.
-Click the Login button: it must open the portal. If the laptop can't reach port 80 but the server
-can, ask CITES to allow TCP 80 to `10.2.15.250` from the VPN.
+The first line must print a line of the page. Once IT has created the domain, open
+`https://<landing-domain>/` on the laptop or a phone, press Ctrl+F5, and click the **Login** button:
+it must open `https://tta2027.kmutt.ac.th/`.
 
-IIS starts by itself at boot (service `W3SVC`); nothing else to schedule.
+Nothing else to schedule: nginx already starts at boot (Task `TTA-Nginx`) and serves the folder.
+
+> The Landing Page also still runs on the CMM droplet (`https://tta.cmm.works`, deployed by its own
+> GitHub workflow on every push to `main`). Both can run side by side; decide which address you
+> announce.
 
 ---
 
@@ -279,9 +288,12 @@ Restart-Computer
 Wait 3–5 minutes, reconnect, and check both without doing anything else:
 
 ```powershell
-(Invoke-WebRequest http://localhost:3001/api/health -UseBasicParsing).StatusCode   # 200
-(Invoke-WebRequest http://localhost/ -UseBasicParsing).StatusCode                  # 200
+(Invoke-WebRequest http://localhost:3001/api/health -UseBasicParsing).StatusCode   # 200: portal
+(Invoke-WebRequest http://localhost/api/health -UseBasicParsing).StatusCode        # 200: nginx -> portal
+curl.exe -s -o NUL -w "%{http_code}" -H "Host: <landing-domain>" http://localhost/  # 200: Landing Page (if installed)
 ```
+
+Then open `https://tta2027.kmutt.ac.th/` from the laptop.
 
 Do this when CITES can help, in case Remote Desktop hangs after the restart.
 
@@ -294,13 +306,9 @@ HTTPS certificate and forwards to **port 80** on this server.
 The portal's domain is **`tta2027.kmutt.ac.th`**. Its full setup (nginx on port 80 → portal on 3001,
 `.env` switch to HTTPS, Google Drive) is in [`NGINX_DOMAIN_SETUP.md`](NGINX_DOMAIN_SETUP.md).
 
-Because every domain arrives on port 80, a second site (e.g. the Landing Page) on this server is
-added as another `server { }` block in nginx with its own domain, not as a separate IIS site on
-port 80. Variant 2 above (IIS on port 80) is only for a server **without** nginx; with nginx, give
-IIS another port (e.g. 8081) or let nginx serve the files (example in `nginx\nginx.conf`).
-
-Landing Page: set `PORTAL_URL` in `src\App.jsx` to `https://tta2027.kmutt.ac.th/`, push, and redeploy
-it wherever it runs.
+Because every domain arrives on port 80, each further site (the Landing Page, or another project)
+gets its own domain from IT and its own `server { }` block in nginx, as in Variant 2. Don't put IIS
+or anything else on port 80: nginx needs it.
 
 ### 3.3 Where everything is
 
@@ -312,6 +320,7 @@ it wherever it runs.
 | Portal settings | `C:\tta-portal\server\.env` |
 | Portal log | `C:\tta-portal\logs\portal.log` |
 | Portal version | `C:\tta-portal\RELEASE.txt` |
-| Landing Page files | `C:\tta-landing\site` |
-| Landing Page settings | IIS Manager → Sites → TTA-Landing; `C:\tta-landing\site\web.config` |
+| nginx (port 80) | `C:\nginx` (config `conf\nginx.conf`, logs `logs\`), Task `TTA-Nginx` |
+| Landing Page files | `C:\sites\tta-landing\site` |
+| Landing Page settings | Its `server { }` block in `C:\nginx\conf\nginx.conf` (from `deploy/kmutt/nginx/nginx.conf`) |
 | Source code (for updates) | `C:\temp\TTA-LoginPortal`, `C:\temp\TTA-LandingPage` |
