@@ -4,6 +4,17 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as sqlite from 'node:sqlite';
+import { loadConfig, resolveServerPath, SERVER_DIR } from '../src/config.js';
+
+export function resolveBackupOptions(env = process.env) {
+  const config = loadConfig(env);
+  return {
+    dbPath: resolveServerPath(config.dbPath),
+    uploadDir: resolveServerPath(config.uploadDir),
+    backupDir: resolveServerPath(env.BACKUP_DIR || 'backups'),
+    keepDays: Number(env.BACKUP_KEEP_DAYS || 14)
+  };
+}
 
 export async function runBackup({ dbPath, uploadDir, backupDir, keepDays = 14, now = new Date() }) {
   const dbDir = path.join(backupDir, 'db');
@@ -54,14 +65,8 @@ export async function runBackup({ dbPath, uploadDir, backupDir, keepDays = 14, n
 
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) {
-  if (fs.existsSync('.env')) process.loadEnvFile('.env');
-  const { loadConfig } = await import('../src/config.js');
-  const config = loadConfig(process.env);
-  const res = await runBackup({
-    dbPath: config.dbPath,
-    uploadDir: config.uploadDir,
-    backupDir: process.env.BACKUP_DIR || 'backups',
-    keepDays: Number(process.env.BACKUP_KEEP_DAYS || 14)
-  });
+  const envFile = path.join(SERVER_DIR, '.env');
+  if (fs.existsSync(envFile)) process.loadEnvFile(envFile);
+  const res = await runBackup(resolveBackupOptions(process.env));
   console.log(`[backup] ${new Date().toISOString()} db=${res.dest} uploadsCopied=${res.copied} pruned=${res.pruned.length}`);
 }

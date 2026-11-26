@@ -47,6 +47,17 @@ describe('saveDraft', () => {
     expect(err.statusCode).toBe(409);
     expect(err.extra.entry).toMatchObject({ projectName: 'first', version: 2 });
   });
+
+  it('prunes unreferenced photo rows from files table on saveDraft so replaced photos never hit the 40-file cap', () => {
+    addFile(10, 'hardware');
+    addFile(11, 'hardware');
+    addFile(12, 'hardware');
+    saveDraft(db, 1, 'hardware', {
+      members: [{ id: 's1', type: 'student', fullName: 'สมชาย', photo: photo(12) }]
+    }, 1);
+    const remaining = db.prepare("SELECT id FROM files WHERE university_id = 1 AND entry_key = 'hardware' ORDER BY id").all();
+    expect(remaining.map(r => r.id)).toEqual([12]);
+  });
 });
 
 describe('submitEntry', () => {

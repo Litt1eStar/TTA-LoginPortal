@@ -1,19 +1,18 @@
-// id -> { user: PublicUser, sessionVersion, disabled }
-const cache = new Map();
+// Reads directly from SQLite so out-of-band updates (e.g. `npm run seed` or admin SQL)
+// take effect immediately without stale in-memory sessionVersion / disabled state.
 
 export function clearUserCache() {
-  cache.clear();
+  // kept for backward compatibility with tests and callers
 }
 
 export function getUserAuth(db, id) {
-  if (cache.has(id)) return cache.get(id);
   const row = db.prepare(`
     SELECT u.id, u.username, u.name, u.role, u.university_id, u.session_version, u.disabled,
            un.name AS university_name, un.code AS university_code
     FROM users u LEFT JOIN universities un ON un.id = u.university_id
     WHERE u.id = ?`).get(id);
   if (!row) return null;
-  const record = {
+  return {
     user: {
       id: row.id,
       username: row.username,
@@ -26,8 +25,6 @@ export function getUserAuth(db, id) {
     sessionVersion: row.session_version,
     disabled: row.disabled === 1
   };
-  cache.set(id, record);
-  return record;
 }
 
 export function getUserById(db, id) {

@@ -1,7 +1,7 @@
 import { httpError } from './errors.js';
 import { writableEntry, extOf, cleanName } from './files.js';
 import { FOLDER_MIME_TYPE } from './drive.js';
-import { nowSec } from './entries.js';
+import { nowSec, getEntryRow, rowToEntry } from './entries.js';
 import { getSetting, listSettings } from './settings.js';
 
 const CLIP_KEY = 'clip';
@@ -78,6 +78,15 @@ export default async function videoRoutes(app, { db, config, drive }) {
       await drive.deleteFile(driveFileId);
       throw tooLarge();
     }
+    const previous = db.prepare('SELECT drive_file_id FROM video_confirmations WHERE university_id = ? AND drive_file_id <> ?')
+      .all(request.user.universityId, meta.id);
+    for (const old of previous) {
+      if (!isProtectedId(old.drive_file_id)) {
+        await drive.deleteFile(old.drive_file_id).catch(() => {});
+      }
+      db.prepare('DELETE FROM video_confirmations WHERE university_id = ? AND drive_file_id = ?')
+        .run(request.user.universityId, old.drive_file_id);
+    }
     db.prepare('INSERT OR IGNORE INTO video_confirmations (university_id, drive_file_id, created_at) VALUES (?, ?, ?)')
       .run(request.user.universityId, meta.id, nowSec());
     return { video: { driveFileId: meta.id, name: meta.name, size, mime: meta.mimeType } };
@@ -97,12 +106,13 @@ export default async function videoRoutes(app, { db, config, drive }) {
     writableEntry(db, config, request.user.universityId, CLIP_KEY);
     const folder = getSetting(db, `drive.folder.${request.user.universityCode}`);
     const meta = await drive.getFileMeta(driveFileId);
-    if (!meta) return { ok: true }; // already gone
-    if (meta.mimeType === FOLDER_MIME_TYPE || isProtectedId(driveFileId)
-      || !folder || !(meta.parents || []).includes(folder)) {
-      throw httpError(403, 'forbidden', 'ไม่มีสิทธิ์เข้าถึง');
+    if (meta) {
+      if (meta.mimeType === FOLDER_MIME_TYPE || isProtectedId(driveFileId)
+        || !folder || !(meta.parents || []).includes(folder)) {
+        throw httpError(403, 'forbidden', 'ไม่มีสิทธิ์เข้าถึง');
+      }
+      await drive.deleteFile(driveFileId);
     }
-    await drive.deleteFile(driveFileId);
     db.exec('BEGIN IMMEDIATE');
     try {
       db.prepare('DELETE FROM video_confirmations WHERE university_id = ? AND drive_file_id = ?')
@@ -115,6 +125,7 @@ export default async function videoRoutes(app, { db, config, drive }) {
       db.exec('ROLLBACK');
       throw err;
     }
-    return { ok: true };
+    const row = getEntryRow(db, request.user.universityId, CLIP_KEY);
+    return { ok: true, entry: row ? rowToEntry(row) : null };
   });
 }

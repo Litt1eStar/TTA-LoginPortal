@@ -23,6 +23,14 @@ describe('deliverables rule (clip)', () => {
 
   it('passes with a YouTube link', () => {
     expect(deliverables({ links: { video: 'https://youtu.be/x' } }).ok).toBe(true);
+    expect(deliverables({ links: { video: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' } }).ok).toBe(true);
+  });
+
+  it('rejects a non-URL placeholder in links.video such as "-" or "ไม่มี"', () => {
+    expect(deliverables({ links: { video: '-' } }).ok).toBe(false);
+    expect(deliverables({ links: { video: 'ไม่มี' } }).ok).toBe(false);
+    expect(deliverables({ links: { video: 'not a url' } }).ok).toBe(false);
+    expect(deliverables({ links: { video: 'javascript:alert(1)' } }).ok).toBe(false);
   });
 
   it('no longer counts an uploaded work file: the file section was removed', () => {

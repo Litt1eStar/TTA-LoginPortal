@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { usePortal } from './context/PortalContext';
 import { useSwapTransition } from './hooks/useSwapTransition';
@@ -6,11 +6,12 @@ import { LoginView } from './components/auth/LoginView';
 import { Navbar } from './components/layout/Navbar';
 import { Toast } from './components/layout/Toast';
 import { FullPageLoader } from './components/layout/FullPageLoader';
-import { DashboardView } from './components/dashboard/DashboardView';
-import { SubmitView } from './components/submit/SubmitView';
-import { HistoryView } from './components/history/HistoryView';
-import { CertificatesView } from './components/certificates/CertificatesView';
-import { AdminView } from './components/admin/AdminView';
+
+const DashboardView = lazy(() => import('./components/dashboard/DashboardView').then(m => ({ default: m.DashboardView })));
+const SubmitView = lazy(() => import('./components/submit/SubmitView').then(m => ({ default: m.SubmitView })));
+const HistoryView = lazy(() => import('./components/history/HistoryView').then(m => ({ default: m.HistoryView })));
+const CertificatesView = lazy(() => import('./components/certificates/CertificatesView').then(m => ({ default: m.CertificatesView })));
+const AdminView = lazy(() => import('./components/admin/AdminView').then(m => ({ default: m.AdminView })));
 
 const homeFor = (user) => (user?.role === 'admin' ? '/admin' : '/dashboard');
 
@@ -68,16 +69,18 @@ function ProtectedLayout() {
           className={swap.className}
           style={{ ...swap.style, '--swap-in-ms': '260ms' }}
         >
-          <Routes location={swap.displayed}>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/dashboard" element={<DashboardView />} />
-            <Route path="/submit" element={<SubmitRedirect />} />
-            <Route path="/submit/:trackId" element={<SubmitView />} />
-            <Route path="/submit/:trackId/:groupIdx" element={<SubmitView />} />
-            <Route path="/history" element={<HistoryView />} />
-            <Route path="/certificates" element={<CertificatesView />} />
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
-          </Routes>
+          <Suspense fallback={<FullPageLoader />}>
+            <Routes location={swap.displayed}>
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/dashboard" element={<DashboardView />} />
+              <Route path="/submit" element={<SubmitRedirect />} />
+              <Route path="/submit/:trackId" element={<SubmitView />} />
+              <Route path="/submit/:trackId/:groupIdx" element={<SubmitView />} />
+              <Route path="/history" element={<HistoryView />} />
+              <Route path="/certificates" element={<CertificatesView />} />
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
+          </Suspense>
         </div>
       </main>
 
@@ -102,7 +105,9 @@ function AdminLayout() {
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Navbar />
       <main style={{ flex: 1 }} className="swap-stage swap-in">
-        <AdminView />
+        <Suspense fallback={<FullPageLoader />}>
+          <AdminView />
+        </Suspense>
       </main>
       <Toast />
     </div>

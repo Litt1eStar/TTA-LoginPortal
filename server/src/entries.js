@@ -220,15 +220,23 @@ export function saveDraft(db, universityId, key, data, version) {
       clean.video = stored?.driveFileId === id ? stored : null; // keep the stored meta, never the client's
     }
   }
-  const res = db.prepare(`
-    UPDATE submissions SET data = ?, status = 1, draft_at = ?, version = version + 1
-    WHERE university_id = ? AND entry_key = ? AND version = ? AND status <> 2`
-  ).run(JSON.stringify(clean), nowSec(), universityId, key, version);
-  if (res.changes !== 1) {
-    const current = getEntryRow(db, universityId, key);
-    if (current.status === 2) throw httpError(423, 'locked');
-    throw httpError(409, 'version_conflict', undefined, { entry: rowToEntry(current) });
-  }
+  const keptPhotoIds = new Set((clean.members || []).map(m => m.photo?.fileId).filter(Boolean));
+  tx(db, () => {
+    const res = db.prepare(`
+      UPDATE submissions SET data = ?, status = 1, draft_at = ?, version = version + 1
+      WHERE university_id = ? AND entry_key = ? AND version = ? AND status <> 2`
+    ).run(JSON.stringify(clean), nowSec(), universityId, key, version);
+    if (res.changes !== 1) {
+      const current = getEntryRow(db, universityId, key);
+      if (current.status === 2) throw httpError(423, 'locked');
+      throw httpError(409, 'version_conflict', undefined, { entry: rowToEntry(current) });
+    }
+    const existingPhotos = db.prepare('SELECT id FROM files WHERE university_id = ? AND entry_key = ? AND kind = 0').all(universityId, key);
+    const delStmt = db.prepare('DELETE FROM files WHERE id = ?');
+    for (const f of existingPhotos) {
+      if (!keptPhotoIds.has(f.id)) delStmt.run(f.id);
+    }
+  });
   return rowToEntry(getEntryRow(db, universityId, key));
 }
 

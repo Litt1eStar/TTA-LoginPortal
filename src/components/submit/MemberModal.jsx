@@ -3,7 +3,7 @@ import { usePortal } from '../../context/PortalContext';
 import { TITLE_PREFIXES, DEPT_BY_UNIVERSITY, departmentForUniversity, PHOTO_RULES } from '../../data/referenceData';
 import { getTrack, trackRoles, defaultRole, hasMultipleRoles } from '../../data/tracks';
 import { processPhoto, dataUrlToFile } from '../../utils/photo';
-import { uploadFile } from '../../api';
+import { api, uploadFile } from '../../api';
 import { X, ChalkboardTeacher, Student, Plus, Buildings, WarningCircle, Camera, Trash } from '@phosphor-icons/react';
 
 const FieldError = ({ msg }) => msg ? (
@@ -43,7 +43,21 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
   const [errors, setErrors] = useState({});
   const [photoBusy, setPhotoBusy] = useState(false);
   const photoInput = useRef(null);
+  const uploadedPhotoIds = useRef(new Set());
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+
+  const deleteUncommittedPhoto = (fileId) => {
+    if (!fileId || !uploadedPhotoIds.current.has(fileId)) return;
+    uploadedPhotoIds.current.delete(fileId);
+    api.del(`/files/${fileId}`).catch(() => {});
+  };
+
+  const cleanupAllUncommittedPhotos = (keepFileId = null) => {
+    for (const id of [...uploadedPhotoIds.current]) {
+      if (id !== keepFileId) deleteUncommittedPhoto(id);
+    }
+    uploadedPhotoIds.current.clear();
+  };
   const lockedDept = DEPT_BY_UNIVERSITY[user?.universityCode] || departmentForUniversity(user?.university) || '';
   // Snapshot of the form when it opened (or was cleared), to know if anything was typed
   const snapshot = useRef('');
@@ -89,15 +103,21 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
     }
     setErrors({});
     setConfirmDiscard(false);
+    uploadedPhotoIds.current.clear();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialMember, initialType, isOpen, trackId]);
 
   const isDirty = formState(current) !== snapshot.current;
 
+  const discardAndClose = () => {
+    cleanupAllUncommittedPhotos(initialMember?.photo?.fileId ?? null);
+    onClose();
+  };
+
   // Close, but ask first if something was typed
   const requestClose = () => {
     if (photoBusy) return;
-    if (isDirty) setConfirmDiscard(true); else onClose();
+    if (isDirty) setConfirmDiscard(true); else discardAndClose();
   };
 
   useEffect(() => {
@@ -163,6 +183,7 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
       photo
     });
     if (saved === false) return;
+    cleanupAllUncommittedPhotos(photo?.fileId ?? null);
 
     if (addAnother && !isAdvisor) {
       const nextCounts = { ...roleCounts, [role]: (roleCounts[role] || 0) + 1 };
@@ -198,6 +219,10 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
         || 'photo';
       const upload = dataUrlToFile(res.photo.dataUrl, `${rawBase}.${res.photo.ext}`);
       const { file: ref } = await uploadFile(`/submissions/${trackId}/files?kind=photo`, upload);
+      if (photo?.fileId && photo.fileId !== ref.fileId) {
+        deleteUncommittedPhoto(photo.fileId);
+      }
+      if (ref?.fileId) uploadedPhotoIds.current.add(ref.fileId);
       setPhoto(ref);
     } catch (err) {
       setErrors(prev => ({ ...prev, photo: err.message || 'อัปโหลดรูปไม่สำเร็จ กรุณาลองใหม่' }));
@@ -314,7 +339,7 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
                     <span>{photoBusy ? 'กำลังอัปโหลด…' : photo ? 'เปลี่ยนรูป' : 'อัปโหลดรูป'}</span>
                   </button>
                   {photo && !photoBusy && (
-                    <button type="button" className="btn btn-sm btn-danger" onClick={() => setPhoto(null)}>
+                    <button type="button" className="btn btn-sm btn-danger" onClick={() => { deleteUncommittedPhoto(photo.fileId); setPhoto(null); }}>
                       <Trash size={16} weight="bold" />
                       <span>ลบรูป</span>
                     </button>
@@ -497,7 +522,7 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
             </div>
             <div className="modal-footer">
               <button type="button" className="btn" onClick={() => setConfirmDiscard(false)} autoFocus>กลับไปกรอกต่อ</button>
-              <button type="button" className="btn btn-danger" onClick={() => { setConfirmDiscard(false); onClose(); }}>
+              <button type="button" className="btn btn-danger" onClick={() => { setConfirmDiscard(false); discardAndClose(); }}>
                 ปิดโดยไม่บันทึก
               </button>
             </div>

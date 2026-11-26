@@ -52,6 +52,15 @@ describe('seed', () => {
     const db = openDb(':memory:');
     expect(() => seed(db, { coordinators: [{ username: 'xyz', password: 'p' }], admins: [] }, 4)).toThrow(/xyz/);
   });
+
+  it('bumps session_version when re-seeding an existing user so old sessions are revoked', () => {
+    const db = openDb(':memory:');
+    seed(db, parseAccounts(MD), 4);
+    const v1 = db.prepare("SELECT session_version FROM users WHERE username = 'kmutt'").get().session_version;
+    seed(db, parseAccounts(MD), 4);
+    const v2 = db.prepare("SELECT session_version FROM users WHERE username = 'kmutt'").get().session_version;
+    expect(v2).toBe(v1 + 1);
+  });
 });
 
 import { validateAccounts } from '../scripts/seed.js';

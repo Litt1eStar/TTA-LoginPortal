@@ -11,7 +11,7 @@ import { VideoCamera, UploadSimple, Trash, CheckCircle, WarningCircle, X } from 
 // 2. PUT the file to Drive in 8 MB chunks, resuming after drops
 // 3. POST /confirm, which gives a VideoRef; it is stored in entry.video and autosaved
 export const VideoUploader = ({ trackId, isLocked, number }) => {
-  const { submissions, updateField, flushEntry, syncVersion } = usePortal();
+  const { submissions, updateField, flushEntry, syncVersion, applyVideoRemoval } = usePortal();
   const video = submissions[trackId]?.video || null;
 
   const [progress, setProgress] = useState(null); // null when idle, 0–100 while uploading
@@ -55,13 +55,16 @@ export const VideoUploader = ({ trackId, isLocked, number }) => {
     setError('');
     try {
       // The server clears entry.video itself and bumps the entry's version:
-      // save what is pending first, and take the new version afterwards.
+      // save what is pending first, and take the new version atomically from the DELETE response.
       await flushEntry(trackId);
-      await api.del(`/submissions/clip/video/${encodeURIComponent(video.driveFileId)}`);
-      updateField(trackId, 'video', null);
-      await syncVersion(trackId);
+      const res = await api.del(`/submissions/clip/video/${encodeURIComponent(video.driveFileId)}`);
+      if (res?.entry) applyVideoRemoval(trackId, res.entry);
+      else {
+        applyVideoRemoval(trackId);
+        await syncVersion(trackId);
+      }
     } catch (err) {
-      if (err.status === 404) updateField(trackId, 'video', null);
+      if (err.status === 404) applyVideoRemoval(trackId);
       else setError(err.message);
     } finally {
       setBusy(false);

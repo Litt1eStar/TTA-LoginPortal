@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell($b=\"C:\\\\Users\\\\krittin pragopdee\\\\OneDrive\\\\Desktop\\\\University\\\\TeachingAcademy\"; foreach\\($p in 'TTA-LoginPortal','TTA-LandingPage','TTA-Presentation-Order-Simulation'\\){ \"== $p [$\\(git -C \"$b\\\\$p\" branch --show-current\\)]\"; git -C \"$b\\\\$p\" log --oneline --since=2026-11-17 | Select-Object -First 15; git -C \"$b\\\\$p\" status --short | Select-Object -First 10; Select-String -Path \"$b\\\\$p\\\\FEEDBACK.md\" -Pattern '^\\\\| \\(P|L|O\\)-\\\\d' | ForEach-Object { $c=$_.Line.Split\\('|'\\); \"{0} {1} -> {2}\" -f $c[1].Trim\\(\\),$c[2].Trim\\(\\),$c[-2].Trim\\(\\) } })",
+      "PowerShell($b=\"C:\\\\Users\\\\krittin pragopdee\\\\OneDrive\\\\Desktop\\\\University\\\\TeachingAcademy\"; \\(Get-Content \"$b\\\\TTA-LandingPage\\\\package.json\" -Raw | ConvertFrom-Json\\).scripts | Format-List | Out-String; \"sharp in leaderboard: $\\(Test-Path \"$b\\\\TTA-Leaderboard-Simulation\\\\node_modules\\\\sharp\"\\)\"; \"python: $\\(\\(Get-Command python -ErrorAction SilentlyContinue\\).Source\\)\"; \"magick: $\\(\\(Get-Command magick -ErrorAction SilentlyContinue\\).Source\\)\"; Select-String -Path \"$b\\\\TTA-LandingPage\\\\src\\\\components\\\\Topics.jsx\" -Pattern 'positions|POS|left:|top:|\\\\.slice|length' | Select-Object -First 12 | ForEach-Object { \"$\\($_.LineNumber\\): $\\($_.Line.Trim\\(\\)\\)\" })",
+      "Read(//c/Users/krittin pragopdee/Downloads/tta-mascot/\\\\\\(Mascot\\\\\\) Thailand Teaching Academy Award 2027 13th/1. การแข่งขันการสอนวิชาทฤษฎี/png/**)",
+      "PowerShell($b=\"C:\\\\Users\\\\krittin pragopdee\\\\OneDrive\\\\Desktop\\\\University\\\\TeachingAcademy\"; foreach\\($p in 'TTA-LoginPortal','TTA-LandingPage'\\){ git -C \"$b\\\\$p\" commit -q FEEDBACK.md -m \"docs: transparent mascot PNGs received; deadline decision\" -m \"Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\"; \"$p -> $\\(git -C \"$b\\\\$p\" log --oneline -1\\)\" })",
+      "Bash(wc -l src/components/submit/*.jsx src/components/layout/Navbar.jsx src/components/admin/*.jsx src/components/history/*.jsx src/components/certificates/*.jsx)",
+      "PowerShell(npx.cmd vitest run 2>&1)",
+      "PowerShell(npm.cmd run build 2>&1)",
+      "Bash(netstat -ano)",
+      "mcp__plugin_playwright_playwright__browser_fill_form",
+      "mcp__plugin_playwright_playwright__browser_click",
+      "mcp__plugin_playwright_playwright__browser_wait_for",
+      "PowerShell($p = \\(Get-NetTCPConnection -LocalPort 3101 -State Listen -ErrorAction SilentlyContinue\\).OwningProcess; if \\($p\\) { Stop-Process -Id $p -Force -Confirm:$false }; Set-Location \"c:\\\\Users\\\\krittin pragopdee\\\\OneDrive\\\\Desktop\\\\University\\\\TeachingAcademy\\\\TTA-LoginPortal\"; Get-ChildItem -Recurse -Directory -Filter .playwright-mcp -Depth 2 | ForEach-Object { Remove-Item -Recurse -Force $_.FullName -Confirm:$false; $_.FullName }; git status --short)",
+      "PowerShell(npx.cmd vitest run 2>&1 | Select-Object -Last 4; $S=\"C:\\\\Users\\\\KRITTI~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\b704414098f565cd\\\\b9e67a1e-b582-4192-9eda-22794ba1d85f\\\\scratchpad\\\\anim\"; npx.cmd vite build --outDir \"$S\\\\dist\" --emptyOutDir 2>&1 | Select-String \"built|error\" ; git status --short dist)",
+      "mcp__plugin_playwright_playwright__browser_snapshot"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\krittin pragopdee\\OneDrive\\Desktop\\University\\TeachingAcademy"
+    ]
+  }
+}

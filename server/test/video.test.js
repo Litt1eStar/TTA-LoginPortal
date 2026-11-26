@@ -111,6 +111,20 @@ describe('POST /api/submissions/clip/video/confirm', () => {
     expect((await post('/confirm', { driveFileId: 'nope-nope-01' })).statusCode).toBe(404);
     expect((await post('/confirm', { driveFileId: '../x' })).statusCode).toBe(400);
   });
+
+  it('deletes previously confirmed videos for the same university when confirming a new video', async () => {
+    const folder = await kmuttFolder();
+    google.addFile({ id: 'vid-old-0001', name: 'old.mp4', size: String(5 * MB), mimeType: 'video/mp4', parents: [folder] });
+    google.addFile({ id: 'vid-new-0002', name: 'new.mp4', size: String(6 * MB), mimeType: 'video/mp4', parents: [folder] });
+    expect((await post('/confirm', { driveFileId: 'vid-old-0001' })).statusCode).toBe(200);
+    expect(google.files.has('vid-old-0001')).toBe(true);
+
+    expect((await post('/confirm', { driveFileId: 'vid-new-0002' })).statusCode).toBe(200);
+    expect(google.files.has('vid-old-0001')).toBe(false);
+    expect(google.files.has('vid-new-0002')).toBe(true);
+    const rows = t.db.prepare('SELECT drive_file_id FROM video_confirmations WHERE university_id = 1').all();
+    expect(rows.map(r => r.drive_file_id)).toEqual(['vid-new-0002']);
+  });
 });
 
 describe('DELETE /api/submissions/clip/video/:driveFileId', () => {
@@ -118,11 +132,13 @@ describe('DELETE /api/submissions/clip/video/:driveFileId', () => {
   const del = (id, cookie = kmutt) =>
     t.app.inject({ method: 'DELETE', url: `/api/submissions/clip/video/${id}`, headers: { cookie } });
 
-  it('deletes own video while draft, refuses when submitted', async () => {
+  it('deletes own video while draft, returns updated entry, and refuses when submitted', async () => {
     const folder = await kmuttFolder();
     google.addFile({ id: 'vid-del-001', name: 'a.mp4', size: '1', mimeType: 'video/mp4', parents: [folder] });
     google.addFile({ id: 'vid-del-002', name: 'b.mp4', size: '1', mimeType: 'video/mp4', parents: [folder] });
-    expect((await del('vid-del-001')).json()).toEqual({ ok: true });
+    const res = await del('vid-del-001');
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ ok: true, entry: { video: null } });
     expect(google.files.has('vid-del-001')).toBe(false);
 
     t.db.prepare("UPDATE submissions SET status = 2 WHERE university_id = 1 AND entry_key = 'clip'").run();

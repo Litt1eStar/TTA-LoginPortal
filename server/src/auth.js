@@ -9,8 +9,8 @@ const MAX_AGE = 7 * 24 * 3600;
 const MAX_FUTURE_SKEW = 60;
 const IP_LOGIN_MAX = 30;
 const IP_LOGIN_WINDOW_MS = 60_000;
-// Compared when the username is unknown, so timing does not reveal it. Computed once, same cost as real users.
-let dummyHash = null;
+// Compared when the username is unknown, so timing does not reveal it. Precomputed cost-12 bcrypt hash.
+const DUMMY_HASH = '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj4tbQJ.7/O2';
 
 function cookieOptions(config) {
   return { signed: true, httpOnly: true, sameSite: 'lax', secure: config.cookieSecure, path: '/', maxAge: MAX_AGE };
@@ -21,7 +21,6 @@ function submissionsFor(db, user) {
 }
 
 async function authPlugin(app, { db, config }) {
-  dummyHash ??= bcrypt.hashSync('dummy-password', 12);
   app.decorateRequest('user', null);
 
   async function requireUser(request) {
@@ -81,7 +80,7 @@ async function authPlugin(app, { db, config }) {
     const { username, password } = request.body;
     const row = getUserByUsername(db, username.trim().toLowerCase());
     if (!row) {
-      await bcrypt.compare(password, dummyHash);
+      await bcrypt.compare(password, DUMMY_HASH);
       throw httpError(401, 'bad_credentials');
     }
     const ok = await bcrypt.compare(password, row.password_hash);

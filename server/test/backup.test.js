@@ -4,7 +4,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { openDb } from '../src/db.js';
-import { runBackup } from '../scripts/backup.js';
+import { SERVER_DIR } from '../src/config.js';
+import { runBackup, resolveBackupOptions } from '../scripts/backup.js';
 
 function setup() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tta-bk-'));
@@ -45,5 +46,20 @@ describe('runBackup', () => {
     const res = await runBackup({ ...s, keepDays: 14, now: new Date('2026-11-04T00:00:00Z') });
     expect(res.pruned).toEqual(['portal-2026-10-01T00-00-00.db']);
     expect(fs.existsSync(old)).toBe(false);
+  });
+
+  it('resolves relative dbPath, uploadDir and backupDir against SERVER_DIR regardless of cwd', () => {
+    const opts = resolveBackupOptions({
+      DB_PATH: 'data/portal.db',
+      UPLOAD_DIR: 'data/uploads',
+      BACKUP_DIR: 'backups',
+      BACKUP_KEEP_DAYS: '7'
+    });
+    expect(opts).toEqual({
+      dbPath: path.resolve(SERVER_DIR, 'data/portal.db'),
+      uploadDir: path.resolve(SERVER_DIR, 'data/uploads'),
+      backupDir: path.resolve(SERVER_DIR, 'backups'),
+      keepDays: 7
+    });
   });
 });

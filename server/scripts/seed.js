@@ -63,7 +63,8 @@ export function seed(db, { coordinators, admins }, cost = 12) {
   const upsertUser = db.prepare(`
     INSERT INTO users (username, password_hash, name, university_id, role) VALUES (?, ?, ?, ?, ?)
     ON CONFLICT(username) DO UPDATE SET password_hash = excluded.password_hash, name = excluded.name,
-      university_id = excluded.university_id, role = excluded.role`);
+      university_id = excluded.university_id, role = excluded.role,
+      session_version = users.session_version + 1`);
   const hashed = [
     ...coordinators.map(c => ({ ...c, role: 0 })),
     ...admins.map(a => ({ ...a, role: 1 }))

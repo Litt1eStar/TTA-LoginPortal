@@ -1,5 +1,16 @@
 import { trackRoles, defaultRole, usesLeader } from '../data/tracks.js';
 
+export const isValidHttpUrl = (value) => {
+  const s = String(value || '').trim();
+  if (!s) return false;
+  try {
+    const u = new URL(s);
+    return (u.protocol === 'http:' || u.protocol === 'https:') && Boolean(u.hostname && u.hostname.includes('.'));
+  } catch {
+    return false;
+  }
+};
+
 // Submission rules shared by the submit button and the readiness checklist.
 // Each requirement: { key, section, label, ok, error, detail? }
 // `detail` names the people still missing something (shown under the checklist item).
@@ -112,14 +123,19 @@ export const getRequirements = (track, sub = {}) => {
 
   if (track.needsWorkInfo) {
     // The work-file upload was removed: a clip is delivered as a Drive video or a YouTube link
-    const hasLinks = !!sub.links?.video;
+    const rawLink = (sub.links?.video || '').trim();
+    const hasLinks = isValidHttpUrl(rawLink);
     const hasVideo = !!sub.video?.driveFileId;
+    const invalidLinkOnly = !hasVideo && rawLink.length > 0 && !hasLinks;
     reqs.push({
       key: 'deliverables',
       section: 'links',
       label: 'อัปโหลดวิดีโอ หรือแนบลิงก์ YouTube',
       ok: hasLinks || hasVideo,
-      error: 'กรุณาอัปโหลดวิดีโอ หรือแนบลิงก์ YouTube อย่างน้อย 1 รายการ'
+      detail: invalidLinkOnly ? 'รูปแบบลิงก์ไม่ถูกต้อง (ต้องขึ้นต้นด้วย https://)' : '',
+      error: invalidLinkOnly
+        ? 'รูปแบบลิงก์ YouTube ไม่ถูกต้อง กรุณาระบุ URL ที่ขึ้นต้นด้วย https://'
+        : 'กรุณาอัปโหลดวิดีโอ หรือแนบลิงก์ YouTube อย่างน้อย 1 รายการ'
     });
   }
 

@@ -1,5 +1,8 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { makeTestApp, loginAs } from './helpers.js';
+import { connectDrive, GOOGLE_ENV } from './fakeGoogle.js';
 
 const asKmutt = async (overrides) => {
   const t = await makeTestApp(overrides);
@@ -83,6 +86,38 @@ describe('PUT /api/submissions/:key', () => {
     const rows = db.prepare("SELECT university_id, data FROM submissions WHERE entry_key = 'hardware' ORDER BY university_id").all();
     expect(JSON.parse(rows[0].data).notes).toBe('kmutt only');
     expect(JSON.parse(rows[1].data).notes).toBe('rmutt');
+  });
+
+  it('does not block PUT /api/submissions/:key when Google Drive photo sync stalls', async () => {
+    let releaseDrive;
+    const stalledDrive = new Promise(resolve => { releaseDrive = resolve; });
+    const t = await makeTestApp(GOOGLE_ENV, {
+      googleFetch: async () => {
+        await stalledDrive;
+        throw new Error('drive timeout');
+      }
+    });
+    try {
+      connectDrive(t.db, t.config);
+      const cookie = await loginAs(t.app, 'kmutt', 'pass-kmutt-1');
+      await req(t.app, cookie, 'GET', '/api/submissions');
+      addFile(t.db, 1, 1, 'hardware');
+      fs.mkdirSync(t.config.uploadDir, { recursive: true });
+      fs.writeFileSync(path.resolve(t.config.uploadDir, 'x'), 'jpg-bytes');
+      let finished = false;
+      const putPromise = req(t.app, cookie, 'PUT', '/api/submissions/hardware', {
+        data: { members: [{ id: 's1', type: 'student', fullName: 'สมชาย', photo: photo(1) }] },
+        version: 1
+      }).then(res => { finished = true; return res; });
+
+      await new Promise(r => setTimeout(r, 50));
+      expect(finished).toBe(true);
+      const res = await putPromise;
+      expect(res.statusCode).toBe(200);
+    } finally {
+      releaseDrive();
+      await t.app.close();
+    }
   });
 });
 

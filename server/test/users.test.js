@@ -29,6 +29,12 @@ describe('users', () => {
     expect(getUserAuth(db, 1).sessionVersion).toBe(1);
   });
 
+  it('getUserAuth reflects out-of-band DB changes (e.g. seed script or disabling user) immediately', () => {
+    expect(getUserAuth(db, 1).sessionVersion).toBe(0);
+    db.prepare('UPDATE users SET session_version = 5, disabled = 1 WHERE id = 1').run();
+    expect(getUserAuth(db, 1)).toMatchObject({ sessionVersion: 5, disabled: true });
+  });
+
   it('toClientUser keeps only username, name, university, universityCode, role', () => {
     expect(toClientUser(getUserById(db, 1))).toEqual({ username: 'kmutt', name: 'ผู้ประสานงาน', university: 'มจธ', universityCode: 'kmutt', role: 'coordinator' });
   });

@@ -132,17 +132,27 @@ export const PortalProvider = ({ children }) => {
   };
 
   // Some server routes change an entry's stored data themselves and bump its version
-  // (deleting the clip video). Take the server's version but keep what is typed here:
+  // (deleting the clip video). Take the server's version and video state while keeping what is typed here:
   // the baseline is the server's data, so any difference is autosaved afterwards.
+  const applyVideoRemoval = (key, serverEntry = null) => {
+    setSubmissions(prev => {
+      const cur = prev[key];
+      if (!cur) return prev;
+      const nextVersion = serverEntry?.version ?? cur.version;
+      const nextStatus = serverEntry?.status ?? cur.status;
+      const nextEntry = { ...cur, video: null, version: nextVersion, status: nextStatus };
+      const baselineEntry = serverEntry || nextEntry;
+      autosaver.setBaseline(key, entryData(baselineEntry), nextVersion);
+      return { ...prev, [key]: nextEntry };
+    });
+  };
+
   const syncVersion = async (key) => {
     try {
       const { submissions: all } = await api.get('/submissions');
       const server = all[key];
       if (!server) return;
-      autosaver.setBaseline(key, entryData(server), server.version);
-      setSubmissions(prev => (prev[key]
-        ? { ...prev, [key]: { ...prev[key], version: server.version, status: server.status } }
-        : prev));
+      applyVideoRemoval(key, server);
     } catch {
       // a later save that hits a version conflict reloads the entry anyway
     }
@@ -491,6 +501,7 @@ export const PortalProvider = ({ children }) => {
         removeFile,
         flushEntry,
         syncVersion,
+        applyVideoRemoval,
         saveDraft,
         confirmSubmit,
         toast,

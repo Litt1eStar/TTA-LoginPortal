@@ -1,5 +1,7 @@
 import { httpError } from './errors.js';
 import { isValidEntryKey, listEntries, saveDraft, submitEntry, assertBeforeDeadline } from './entries.js';
+import { sweepOrphanBlobs } from './files.js';
+import path from 'node:path';
 
 const keyParams = {
   type: 'object',
@@ -13,13 +15,17 @@ function checkKey(key) {
 
 // Coordinator routes: the university always comes from request.user, never from the URL or body.
 export default async function submissionsPlugin(app, { db, config, drive }) {
-  const syncPhotos = async (request, key, entry) => {
+  const uploadDir = path.resolve(config.uploadDir);
+  const syncPhotos = (request, key, entry) => {
     if (!drive) return;
-    try {
-      await drive.syncEntryPhotos(request.user.universityCode, request.user.universityId, key, entry.members);
-    } catch (err) {
-      request.log.warn({ err, key }, 'drive photo sync failed');
-    }
+    Promise.resolve()
+      .then(() => drive.syncEntryPhotos(request.user.universityCode, request.user.universityId, key, entry.members))
+      .catch(err => request.log.warn({ err, key }, 'drive photo sync failed'));
+  };
+  const scheduleSweep = (request) => {
+    setImmediate(() => {
+      sweepOrphanBlobs(db, uploadDir).catch(err => request.log.error({ err }, 'orphan sweep failed'));
+    });
   };
 
   app.get('/api/submissions', { preHandler: app.requireCoordinator }, async (request) => {
@@ -42,7 +48,8 @@ export default async function submissionsPlugin(app, { db, config, drive }) {
     checkKey(key);
     const { data, version } = request.body;
     const entry = saveDraft(db, request.user.universityId, key, data, version);
-    await syncPhotos(request, key, entry);
+    syncPhotos(request, key, entry);
+    scheduleSweep(request);
     return { entry };
   });
 
@@ -54,7 +61,7 @@ export default async function submissionsPlugin(app, { db, config, drive }) {
     const { key } = request.params;
     checkKey(key);
     const entry = submitEntry(db, request.user.universityId, key);
-    await syncPhotos(request, key, entry);
+    syncPhotos(request, key, entry);
     return { entry };
   });
 }
