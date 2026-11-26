@@ -1,4 +1,5 @@
 import React from 'react';
+import { publicUrl } from '../../utils/publicUrl';
 
 // Shown while GET /api/me decides whether a session exists
 export const FullPageLoader = () => (
@@ -18,7 +19,7 @@ export const FullPageLoader = () => (
     }}
   >
     <img
-      src="/assets/ttaa13-logo.png"
+      src={publicUrl('/assets/ttaa13-logo.png')}
       alt=""
       style={{ height: '48px', width: 'auto', animation: 'ttaa-pulse 1.4s ease-in-out infinite' }}
     />

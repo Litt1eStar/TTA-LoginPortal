@@ -18,8 +18,26 @@ const BODY_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const UPLOAD_PATH = /^\/api\/submissions\/[^/]+\/files$/;
 
 // Unknown options (e.g. googleFetch, added by later plans) are ignored.
+// With BASE_PATH=/portal, '/portal', '/portal/x' and '/portal?q' are routed as '/', '/x' and '/?q'.
+// Unprefixed URLs keep working (nginx also forwards /api/..., and stored photo links are /api/files/...).
+function stripBasePath(basePath) {
+  if (!basePath) return undefined;
+  return (req) => {
+    const url = req.url;
+    if (url === basePath) return '/';
+    if (url.startsWith(`${basePath}/`)) return url.slice(basePath.length);
+    if (url.startsWith(`${basePath}?`)) return `/${url.slice(basePath.length)}`;
+    return url;
+  };
+}
+
 export function buildApp({ db, config, logger = false, googleFetch = globalThis.fetch }) {
-  const app = Fastify({ logger, trustProxy: config.trustProxy, bodyLimit: 1024 * 1024 });
+  const app = Fastify({
+    logger,
+    trustProxy: config.trustProxy,
+    bodyLimit: 1024 * 1024,
+    rewriteUrl: stripBasePath(config.basePath)
+  });
   app.setErrorHandler(errorHandler);
   app.setNotFoundHandler(spaNotFoundHandler(config));
 

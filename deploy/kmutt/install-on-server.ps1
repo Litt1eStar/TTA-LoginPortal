@@ -92,11 +92,18 @@ try {
       "APP_ORIGIN=$AppOrigin",
       'DB_PATH=data/portal.db',
       'UPLOAD_DIR=data/uploads',
-      'BACKUP_DIR=backups'
+      'BACKUP_DIR=backups',
+      '# The website is built for /portal/ (package-release.ps1); the Landing Page owns /.',
+      'BASE_PATH=/portal'
     ) | Set-Content -Path $envFile -Encoding ASCII
     Write-Host "Created $envFile"
   } else {
     Write-Host '.env already exists, kept as is'
+    # Releases are built for /portal/: an older .env without BASE_PATH would serve a blank page.
+    if (-not (Select-String -Path $envFile -Pattern '^\s*BASE_PATH\s*=' -Quiet)) {
+      Add-Content -Path $envFile -Value @('', '# Added by install-on-server.ps1: the website is built for /portal/', 'BASE_PATH=/portal') -Encoding ASCII
+      Write-Host 'Added BASE_PATH=/portal to .env'
+    }
   }
 
   # 6. Accounts (bcrypt hashes only; the note itself is not copied anywhere)
@@ -142,11 +149,11 @@ Start-ScheduledTask -TaskName $taskName
 $ok = $false
 for ($i = 0; $i -lt 20 -and -not $ok; $i++) {
   Start-Sleep -Seconds 1
-  try { $ok = (Invoke-RestMethod "http://127.0.0.1:$Port/api/health").ok } catch { }
+  try { $ok = (Invoke-RestMethod "http://127.0.0.1:$Port/portal/api/health").ok } catch { }
 }
 if ($ok) {
   Remove-Item "$InstallDir\UPDATING" -Force -ErrorAction SilentlyContinue
-  Write-Host "OK: portal is running ($((Get-Content "$InstallDir\RELEASE.txt") -join ', ')). Open $AppOrigin from a machine on the KMUTT network or VPN."
+  Write-Host "OK: portal is running ($((Get-Content "$InstallDir\RELEASE.txt") -join ', ')). Open $AppOrigin/portal/"
 } else {
   Write-Host "NOT healthy. Read $InstallDir\logs\portal.log" -ForegroundColor Red
   exit 1

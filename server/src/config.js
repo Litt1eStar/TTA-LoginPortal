@@ -9,6 +9,11 @@ export function resolveServerPath(p) {
   return path.isAbsolute(p) ? p : path.resolve(SERVER_DIR, p);
 }
 
+function normaliseBasePath(p) {
+  const trimmed = String(p || '').trim().replace(/^\/+|\/+$/g, '');
+  return trimmed ? `/${trimmed}` : '';
+}
+
 export function loadConfig(env = process.env) {
   if (env.NODE_ENV === 'production' && (!env.SESSION_SECRET || env.SESSION_SECRET.length < 32)) {
     throw new Error('SESSION_SECRET must be at least 32 characters in production');
@@ -31,6 +36,8 @@ export function loadConfig(env = process.env) {
       redirectUri: env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/api/admin/google/callback'
     },
     appOrigin: env.APP_ORIGIN || 'http://localhost:3000',
+    // Path prefix the app is served under, e.g. '/portal' (KMUTT: the Landing Page owns '/'). '' = root.
+    basePath: normaliseBasePath(env.BASE_PATH),
     serveStatic: env.SERVE_STATIC === 'true',          // production: serve ../dist from the API
     staticDir: env.STATIC_DIR || '../dist'             // relative to server/
   };

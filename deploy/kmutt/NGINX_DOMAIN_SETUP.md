@@ -1,5 +1,9 @@
 # Putting the Login Portal on `https://tta2027.kmutt.ac.th` (nginx on the KMUTT server)
 
+> **Final layout (Part H):** the Landing Page at `https://tta2027.kmutt.ac.th/` and the Login Portal
+> at `https://tta2027.kmutt.ac.th/portal/`. Parts A–E (done on 26 Nov) first put the portal at `/`;
+> a server already through Part E only needs **Part H**.
+
 ## How it fits together
 
 ```
@@ -188,7 +192,7 @@ Needs the HTTPS domain, so do it after Part E.
    Keep `TOKEN_KEY` unchanged afterwards: changing it makes the stored Google connection unreadable
    (you would have to connect Drive again).
 4. **Restart the portal** (the block in Part E).
-5. Log in as **admin** at https://tta2027.kmutt.ac.th/admin and click **connect Google Drive**. Sign in
+5. Log in as **admin** at https://tta2027.kmutt.ac.th/portal/admin and click **connect Google Drive**. Sign in
    with the Google account that owns the Drive folder and allow access. You return to the admin page
    with Drive shown as connected.
 
@@ -253,9 +257,115 @@ Start it again with `Start-ScheduledTask TTA-Nginx`.
 
 ---
 
+## Part H: Landing Page at `/`, Login Portal at `/portal/`
+
+```
+https://tta2027.kmutt.ac.th/           ─▶ nginx ─▶ Landing Page files   C:\sites\tta-landing\site
+https://tta2027.kmutt.ac.th/portal/    ─▶ nginx ─▶ Login Portal         127.0.0.1:3001
+https://tta2027.kmutt.ac.th/api/...    ─▶ nginx ─▶ Login Portal API     (photo links, downloads, Google)
+```
+
+How it works:
+
+- The portal's website is built for `/portal/` (`package-release.ps1` sets it), and `BASE_PATH=/portal`
+  in its `.env` makes the server answer under that prefix. The installer adds the line if it is missing.
+- The portal's API still also answers at `/api/...`: photo links saved in the database
+  (`/api/files/...`), the export/download buttons and the Google callback use that path. So `/api` on
+  this domain belongs to the portal; the Landing Page must not use it.
+- The Landing Page's Login button opens `https://tta2027.kmutt.ac.th/portal/`.
+
+Do the steps **in this order**; the site stays up except for about 20 seconds in H2. Every block goes
+into PowerShell as Administrator on the server.
+
+### H1. Prerequisites
+
+- On GitHub: the Login Portal `main` with the `/portal` change, and the Landing Page `main` with its
+  Login button pointing at `https://tta2027.kmutt.ac.th/portal/`.
+- On the server: Node, Git and nginx (Parts C–D) are installed.
+
+### H2. Update the Login Portal
+
+```powershell
+cd C:\temp\TTA-LoginPortal
+git pull
+powershell -NoProfile -ExecutionPolicy Bypass -File .\deploy\kmutt\package-release.ps1
+cd .\deploy\kmutt\release\tta-portal
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install-on-server.ps1
+Select-String C:\tta-portal\server\.env -Pattern 'BASE_PATH'     # BASE_PATH=/portal
+Get-Content C:\tta-portal\RELEASE.txt                             # shows "base /portal/"
+```
+
+The installer must print `Added BASE_PATH=/portal to .env` (the first time) and
+`OK: portal is running`. Until H4, `https://tta2027.kmutt.ac.th/portal/` already works; the bare
+`https://tta2027.kmutt.ac.th/` shows a blank page for a few minutes, which H4 fixes.
+
+### H3. Build and copy the Landing Page
+
+```powershell
+if (Test-Path C:\temp\TTA-LandingPage) { cd C:\temp\TTA-LandingPage; git pull }
+else { git clone https://github.com/Litt1eStar/TTA-LandingPage.git C:\temp\TTA-LandingPage; cd C:\temp\TTA-LandingPage }
+git log -1 --oneline
+npm.cmd ci
+npm.cmd run build
+Select-String .\dist\static\*.js -Pattern 'tta2027.kmutt.ac.th/portal/' -List | Select-Object -First 1   # the Login link is in the build
+New-Item -ItemType Directory -Force C:\sites\tta-landing\site | Out-Null
+robocopy .\dist C:\sites\tta-landing\site /MIR /NFL /NDL /NJH /NJS
+"robocopy exit code: $LASTEXITCODE  (0-7 = OK)"
+Test-Path C:\sites\tta-landing\site\index.html     # True
+```
+
+If the `Select-String` line prints nothing, the Landing Page on GitHub still has the old Login link:
+push it from the laptop first (H1), then run H3 again.
+
+### H4. Switch nginx
+
+```powershell
+Copy-Item C:\nginx\conf\nginx.conf C:\nginx\conf\nginx.conf.before-landing -Force    # for undo
+Copy-Item C:\temp\TTA-LoginPortal\deploy\kmutt\nginx\nginx.conf C:\nginx\conf\nginx.conf -Force
+cd C:\nginx
+.\nginx.exe -t            # must say "syntax is ok" and "test is successful"
+.\nginx.exe -s reload
+```
+
+If `-t` fails, do **not** reload; send me the message. nginx keeps serving the old config.
+
+### H5. Check
+
+On the server:
+
+```powershell
+curl.exe -s -o NUL -w "landing %{http_code}`n" http://localhost/
+curl.exe -s -o NUL -w "portal  %{http_code}`n" http://localhost/portal/
+curl.exe -s http://localhost/portal/api/health; ""
+curl.exe -s http://localhost/api/health; ""
+curl.exe -s -o NUL -w "redirect %{http_code} -> %{redirect_url}`n" http://localhost/portal
+```
+
+Expected: `landing 200`, `portal 200`, two `{"ok":true,...}`, and `redirect 301 -> .../portal/`.
+
+Then on the laptop or a phone:
+
+1. `https://tta2027.kmutt.ac.th/`: the Landing Page. Press Ctrl+F5 once (the browser may have the
+   portal's page cached at that address).
+2. Click **Login**: opens `https://tta2027.kmutt.ac.th/portal/` with the login page.
+3. Log in as a coordinator, press F5 on the dashboard, open a submission page, log out.
+4. Log in as an admin: `https://tta2027.kmutt.ac.th/portal/admin` loads; a member photo shows.
+
+### Undo H4 (back to the portal at `/`)
+
+```powershell
+Copy-Item C:\nginx\conf\nginx.conf.before-landing C:\nginx\conf\nginx.conf -Force
+cd C:\nginx; .\nginx.exe -t; .\nginx.exe -s reload
+```
+
+The portal then answers at `https://tta2027.kmutt.ac.th/portal/` only (its pages are built for
+`/portal/`); to go fully back, also roll the portal back (`docs/MAINTENANCE_WORKFLOW.md`, §6).
+
+---
+
 ## Updating the portal later
 
 Nothing changes: `git pull` → `package-release.ps1` → `install-on-server.ps1` as in
 `docs/MAINTENANCE_WORKFLOW.md`. The installer keeps `.env`, so the HTTPS settings stay. nginx does
-not need to be touched; during the ~20 seconds the portal restarts, visitors see `502` and a refresh
-fixes it.
+not need to be touched; during the ~20 seconds the portal restarts, visitors see `502` on `/portal/`
+and a refresh fixes it. Landing Page updates: `docs/MAINTENANCE_WORKFLOW.md` §4.2.

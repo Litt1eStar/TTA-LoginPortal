@@ -1,4 +1,5 @@
 import React from 'react';
+import { publicUrl } from '../../utils/publicUrl';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { usePortal } from '../../context/PortalContext';
 import { initials } from '../../utils/formatters';
@@ -99,7 +100,7 @@ export const Navbar = () => {
         >
           <span style={{ background: '#FFFFFF', borderRadius: '12px', padding: '5px 8px', display: 'flex' }}>
             <img
-              src="/assets/ttaa13-logo.png"
+              src={publicUrl('/assets/ttaa13-logo.png')}
               alt="Thailand Teaching Academy Award 2027"
               style={{ height: '34px', width: 'auto', display: 'block' }}
             />

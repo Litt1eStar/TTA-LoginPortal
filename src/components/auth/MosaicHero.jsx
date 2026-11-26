@@ -1,4 +1,5 @@
 import React from 'react';
+import { publicUrl } from '../../utils/publicUrl';
 import {
   ChalkboardTeacher,
   Robot,
@@ -107,7 +108,7 @@ export const MosaicHero = () => {
                 }}
               >
                 <img
-                  src="/assets/ttaa13-logo.png"
+                  src={publicUrl('/assets/ttaa13-logo.png')}
                   alt="Thailand Teaching Academy Award 2027"
                   style={{ width: '100%', height: 'auto', display: 'block' }}
                 />

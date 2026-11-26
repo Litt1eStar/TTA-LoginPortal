@@ -508,15 +508,15 @@ export default async function driveRoutes(app, { db, config, drive }) {
     if (!state || !cookie.valid || !sameText(cookie.value, state) || !fresh) {
       throw httpError(400, 'bad_request', 'ข้อมูลไม่ถูกต้อง');
     }
-    if (error) return reply.redirect(`${config.appOrigin}/admin?google=denied`);
+    if (error) return reply.redirect(`${config.appOrigin}${config.basePath}/admin?google=denied`);
     if (!code) throw httpError(400, 'bad_request', 'ข้อมูลไม่ถูกต้อง');
     try {
       drive.assertConfigured();
       await drive.exchangeCode(code);
     } catch {
-      return reply.redirect(`${config.appOrigin}/admin?google=error`);
+      return reply.redirect(`${config.appOrigin}${config.basePath}/admin?google=error`);
     }
-    return reply.redirect(`${config.appOrigin}/admin?google=connected`);
+    return reply.redirect(`${config.appOrigin}${config.basePath}/admin?google=connected`);
   });
 
   app.get('/admin/google/status', { preHandler: app.requireAdmin }, async () => {

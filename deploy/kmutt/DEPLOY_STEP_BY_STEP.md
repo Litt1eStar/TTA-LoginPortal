@@ -8,8 +8,8 @@ For updating them later, see [`docs/MAINTENANCE_WORKFLOW.md`](../../docs/MAINTEN
 | What it is | React website **+** Node API **+** SQLite database | React website only (static files) |
 | Repo | `Litt1eStar/TTA-LoginPortal` | `Litt1eStar/TTA-LandingPage` |
 | Runs as | Node, started by Scheduled Task `TTA-Portal` | Files served by nginx (Scheduled Task `TTA-Nginx`) |
-| Port | 3001, reached through nginx on 80 | 80 (nginx, chosen by domain name) |
-| Address | `https://tta2027.kmutt.ac.th/` | `https://<landing-domain>/` |
+| Port | 3001, reached through nginx on 80 (`/portal/`, `/api/`) | 80 (nginx, `/`) |
+| Address | `https://tta2027.kmutt.ac.th/portal/` | `https://tta2027.kmutt.ac.th/` |
 | Needs on the server | Node.js 22.13+, Git | Node.js (to build), Git, nginx |
 
 Do Part 0 once, then Variant 1, then nginx and the domain
@@ -163,117 +163,59 @@ Never share `.env`; it holds `SESSION_SECRET`.
 
 ## Variant 2: Landing Page (static website)
 
-The Landing Page is plain files (HTML, JS, images) after `npm run build`. On this server they are
-served by the **nginx** that already sits on port 80 for the Login Portal
-([`NGINX_DOMAIN_SETUP.md`](NGINX_DOMAIN_SETUP.md)). No Node process and no IIS run for it.
-
-Every domain the university gives us arrives on port 80, so nginx tells the sites apart by name:
+The Landing Page is plain files (HTML, JS, images) after `npm run build`. It shares the portal's
+domain and is served by the **nginx** that sits on port 80 ([`NGINX_DOMAIN_SETUP.md`](NGINX_DOMAIN_SETUP.md)).
+No Node process and no IIS run for it.
 
 ```
-https://tta2027.kmutt.ac.th    ─▶ university proxy ─http:80─▶ nginx ─▶ Login Portal (127.0.0.1:3001)
-https://<landing-domain>       ─▶ university proxy ─http:80─▶ nginx ─▶ C:\sites\tta-landing\site
+https://tta2027.kmutt.ac.th/          ─▶ nginx ─▶ Landing Page files   C:\sites\tta-landing\site
+https://tta2027.kmutt.ac.th/portal/   ─▶ nginx ─▶ Login Portal         127.0.0.1:3001
+https://tta2027.kmutt.ac.th/api/...   ─▶ nginx ─▶ Login Portal API
 ```
 
-`<landing-domain>` is the Landing Page's own name, for example `<something>.kmutt.ac.th` (2.2).
-Everything below can be done before IT has created it; only the last check needs it.
-
-Prerequisite: nginx is installed and running (`NGINX_DOMAIN_SETUP.md`, Parts A–D).
+Prerequisites: Variant 1 installed, and nginx running (`NGINX_DOMAIN_SETUP.md`, Parts A–D). No extra
+domain or request to IT is needed.
 
 ### 2.1 Before you start (on the laptop)
 
-1. The **Login button** points at `PORTAL_URL` in `TTA-LandingPage\src\App.jsx`. Set it to:
+1. The **Login button** points at `PORTAL_URL` in `TTA-LandingPage\src\App.jsx`:
    ```js
-   const PORTAL_URL = 'https://tta2027.kmutt.ac.th/';
+   const PORTAL_URL = 'https://tta2027.kmutt.ac.th/portal/';
    ```
-2. Check it builds (`npm.cmd run build`), commit, and make sure everything you want to publish is on
-   **`main`** and pushed (`git checkout main; git merge <your-branch>; git push`). The server builds
-   `main`.
+2. `npm.cmd test` and `npm.cmd run build` pass; commit; everything to publish is on **`main`** and
+   pushed. The server builds `main`.
 
-### 2.2 Ask KMUTT IT for the domain
+> Pushing the Landing Page's `main` also deploys it to the CMM droplet (`https://tta.cmm.works`)
+> through its own GitHub workflow. That copy's Login button then opens the KMUTT portal too.
 
-Send IT (the same people who set up `tta2027.kmutt.ac.th`):
+### 2.2 Build, copy, and switch nginx on the server
 
-> Please add `<landing-domain>` on the university reverse proxy (`mainwebreverse.kmutt.ac.th`) with
-> HTTPS, forwarding to `http://10.2.15.250:80`, the same way as `tta2027.kmutt.ac.th`.
+Follow `NGINX_DOMAIN_SETUP.md` **Part H**:
 
-Nothing changes on their side for port 80: nginx on our server picks the site by its name.
+| Step | What it does |
+|---|---|
+| H2 | Updates the portal to the `/portal/` build (adds `BASE_PATH=/portal` to its `.env`) |
+| H3 | Clones and builds the Landing Page, copies it to `C:\sites\tta-landing\site` |
+| H4 | Installs the nginx config that serves `/` from those files and `/portal/` + `/api/` from the portal |
+| H5 | Checks both, on the server and from outside |
 
-### 2.3 Download and build (server)
+### 2.3 Updating the Landing Page later
+
+On the laptop: edit → test → push `main`. On the server (`docs/MAINTENANCE_WORKFLOW.md` §4.2):
 
 ```powershell
-git clone https://github.com/Litt1eStar/TTA-LandingPage.git C:\temp\TTA-LandingPage
 cd C:\temp\TTA-LandingPage
-git log -1 --oneline
+git pull
 npm.cmd ci
 npm.cmd run build
-Test-Path .\dist\index.html          # must print True
+robocopy C:\sites\tta-landing\site C:\sites\tta-landing\site-previous /MIR /NFL /NDL /NJH /NJS
+robocopy .\dist C:\sites\tta-landing\site /MIR /NFL /NDL /NJH /NJS
 ```
 
-If the folder already exists, run `git pull` inside it instead of `git clone`.
+nginx serves the new files at once; no restart, no reload.
 
-### 2.4 Copy the files to the live folder
-
-```powershell
-New-Item -ItemType Directory -Force C:\sites\tta-landing\site | Out-Null
-robocopy C:\temp\TTA-LandingPage\dist C:\sites\tta-landing\site /MIR /NFL /NDL /NJH /NJS
-"robocopy exit code: $LASTEXITCODE  (0-7 = OK)"
-```
-
-`/MIR` makes the live folder an exact copy of the build (old files are removed).
-
-### 2.5 Add the site to nginx
-
-The nginx config lives in the **Login Portal** repo (`deploy/kmutt/nginx/nginx.conf`), so it is
-changed on the laptop and pulled, like code.
-
-On the laptop, in `TTA-LoginPortal\deploy\kmutt\nginx\nginx.conf`, find the block that starts with
-`# TTA Landing Page`, remove the `#` at the start of each of its lines, and replace
-`<landing-domain>` with the real name. It looks like this when done:
-
-```nginx
-    server {
-        listen       80;
-        server_name  tta-landing.example.kmutt.ac.th;     # <landing-domain>
-        root         C:/sites/tta-landing/site;
-        index        index.html;
-        ...
-    }
-```
-
-Commit and push (`git add deploy/kmutt/nginx/nginx.conf; git commit -m "nginx: landing page"; git push`).
-
-On the server:
-
-```powershell
-cd C:\temp\TTA-LoginPortal
-git pull
-Copy-Item .\deploy\kmutt\nginx\nginx.conf C:\nginx\conf\nginx.conf -Force
-cd C:\nginx
-.\nginx.exe -t                  # must say: syntax is ok / test is successful
-.\nginx.exe -s reload           # applies it; the portal is not interrupted
-```
-
-If `-t` reports an error, do **not** reload: nginx keeps running with the old config. Fix the file,
-push, pull and copy again.
-
-### 2.6 Check
-
-On the server, ask nginx for the Landing Page by name (works before the domain exists):
-
-```powershell
-curl.exe -s -H "Host: <landing-domain>" http://localhost/ | Select-String 'Thailand Teaching Academy Award'
-curl.exe -s http://localhost/api/health          # the portal still answers: {"ok":true,...}
-```
-
-The first line must print a line of the page. Once IT has created the domain, open
-`https://<landing-domain>/` on the laptop or a phone, press Ctrl+F5, and click the **Login** button:
-it must open `https://tta2027.kmutt.ac.th/`.
-
-Nothing else to schedule: nginx already starts at boot (Task `TTA-Nginx`) and serves the folder.
-
-> The Landing Page also still runs on the CMM droplet (`https://tta.cmm.works`, deployed by its own
-> GitHub workflow on every push to `main`). Both can run side by side; decide which address you
-> announce.
+> The Landing Page must not have its own `/portal/` or `/api/` paths: on this domain they belong to
+> the Login Portal.
 
 ---
 
@@ -290,10 +232,11 @@ Wait 3–5 minutes, reconnect, and check both without doing anything else:
 ```powershell
 (Invoke-WebRequest http://localhost:3001/api/health -UseBasicParsing).StatusCode   # 200: portal
 (Invoke-WebRequest http://localhost/api/health -UseBasicParsing).StatusCode        # 200: nginx -> portal
-curl.exe -s -o NUL -w "%{http_code}" -H "Host: <landing-domain>" http://localhost/  # 200: Landing Page (if installed)
+curl.exe -s -o NUL -w "%{http_code}" http://localhost/portal/                      # 200: nginx -> portal page
+curl.exe -s -o NUL -w "%{http_code}" http://localhost/                             # 200: Landing Page
 ```
 
-Then open `https://tta2027.kmutt.ac.th/` from the laptop.
+Then open `https://tta2027.kmutt.ac.th/` and `https://tta2027.kmutt.ac.th/portal/` from the laptop.
 
 Do this when CITES can help, in case Remote Desktop hangs after the restart.
 

@@ -20,7 +20,7 @@ How a change goes from your laptop to the KMUTT server. For the first install on
 | Source on the server | `C:\temp\TTA-LoginPortal` (git clone) | `C:\temp\TTA-LandingPage` (git clone) |
 | Installed and running from | `C:\tta-portal` | `C:\sites\tta-landing\site` |
 | Served by | Node (Task `TTA-Portal`, port 3001) behind nginx (Task `TTA-Nginx`, port 80) | nginx (Task `TTA-Nginx`, port 80) |
-| Address | `https://tta2027.kmutt.ac.th` | `https://<landing-domain>` |
+| Address | `https://tta2027.kmutt.ac.th/portal/` | `https://tta2027.kmutt.ac.th/` |
 | Data | `C:\tta-portal\server\data\` (`portal.db`, `uploads\`) | none |
 | Settings | `C:\tta-portal\server\.env` (never in git) | none (the portal link is in `src\App.jsx`) |
 
@@ -161,11 +161,11 @@ Get-Content C:\tta-portal\RELEASE.txt                                          #
 Get-Content C:\tta-portal\logs\portal.log -Tail 20                              # no errors
 ```
 
-Then open `https://tta2027.kmutt.ac.th/` on the laptop: log in, look at what you changed, log out.
+Then open `https://tta2027.kmutt.ac.th/portal/` on the laptop: log in, look at what you changed, log out.
 
-Landing Page: open `https://<landing-domain>/` on the laptop, press **Ctrl+F5**, and click the Login
+Landing Page: open `https://tta2027.kmutt.ac.th/` on the laptop, press **Ctrl+F5**, and click the Login
 button. On the server, before the domain exists:
-`curl.exe -s -H "Host: <landing-domain>" http://localhost/ | Select-String 'Thailand Teaching Academy Award'`.
+`curl.exe -s http://localhost/ | Select-String 'Thailand Teaching Academy Award'`.
 
 ---
 
@@ -218,8 +218,9 @@ git checkout main                    # back to normal for the next update
 | Installer: health check failed | `Get-Content C:\tta-portal\logs\portal.log -Tail 40`; fix, push, update again, or roll back. |
 | Portal page is blank over http | `COOKIE_SECURE=true` in `.env` without HTTPS. Set it to `false` and restart. |
 | Landing page still shows the old version | Browser cache: Ctrl+F5. Check `C:\sites\tta-landing\site\index.html` changed. |
-| A domain shows the portal instead of the Landing Page | Its `server_name` in nginx doesn't match the domain (the portal is the default). Check `deploy/kmutt/nginx/nginx.conf`, §4.3. |
-| `502 Bad Gateway` on `tta2027.kmutt.ac.th` | nginx is fine, the portal is down: `Get-Content C:\tta-portal\logs\portal.log -Tail 40`. |
+| `https://tta2027.kmutt.ac.th/` is blank or shows the portal | nginx still has the old config (portal at `/`): `deploy/kmutt/NGINX_DOMAIN_SETUP.md`, Part H4. |
+| `/portal/` loads but looks broken (no styles) | The portal was built without the `/portal/` base or `.env` lacks `BASE_PATH=/portal`: rebuild with `package-release.ps1` and reinstall (it adds the line). |
+| `502 Bad Gateway` on `/portal/` | nginx is fine, the portal is down: `Get-Content C:\tta-portal\logs\portal.log -Tail 40`. |
 
 ### Restart the portal (after editing `.env`)
 

@@ -2,6 +2,9 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
+  // Where the app is served. KMUTT: '/portal/' (the Landing Page owns '/'); set by
+  // deploy/kmutt/package-release.ps1. Dev, tests and the CMM image use the root.
+  base: process.env.PORTAL_BASE || '/',
   plugins: [react()],
   optimizeDeps: {
     include: ['react', 'react-dom', 'react-router-dom', '@phosphor-icons/react', 'canvas-confetti']

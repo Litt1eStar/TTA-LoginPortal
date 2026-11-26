@@ -1,4 +1,5 @@
 import React from 'react';
+import { publicUrl } from '../../utils/publicUrl';
 import { useNavigate } from 'react-router-dom';
 import { usePortal } from '../../context/PortalContext';
 import { trackPointer } from '../../hooks/useMotion';
@@ -103,7 +104,7 @@ export const TrackCard = ({ type, index = 0 }) => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
         {type.image ? (
           <img
-            src={type.image}
+            src={publicUrl(type.image)}
             alt=""
             className="track-mascot"
             width="52"

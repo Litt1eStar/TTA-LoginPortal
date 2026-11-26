@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { publicUrl } from '../../utils/publicUrl';
 import { ArrowRight, LockSimple, CheckCircle } from '@phosphor-icons/react';
 
 // Full-screen moment after a successful submit: mascot, a "ส่งแล้ว" stamp and the
@@ -22,7 +23,7 @@ export const SubmitCelebration = ({ track, groupName, hash, onClose, onNext }) =
         <div className="celebrate-hero" aria-hidden="true">
           <span className="celebrate-rays" />
           {track.image ? (
-            <img className="celebrate-mascot" src={track.image} alt="" width="112" height="112" decoding="async" />
+            <img className="celebrate-mascot" src={publicUrl(track.image)} alt="" width="112" height="112" decoding="async" />
           ) : (
             <CheckCircle className="celebrate-mascot" size={112} weight="fill" color="#FFFFFF" />
           )}

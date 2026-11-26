@@ -34,10 +34,13 @@ Push-Location $work
 try {
   npm.cmd ci
   if ($LASTEXITCODE) { throw 'npm ci failed' }
+  # KMUTT serves the portal at https://tta2027.kmutt.ac.th/portal/ (the Landing Page owns '/').
+  # The server side matches it with BASE_PATH=/portal in server\.env (install-on-server.ps1 adds it).
+  $env:PORTAL_BASE = '/portal/'
   npm.cmd run build
   if ($LASTEXITCODE) { throw 'npm run build failed' }
 }
-finally { Pop-Location }
+finally { Pop-Location; Remove-Item Env:PORTAL_BASE -ErrorAction SilentlyContinue }
 
 # Production server dependencies (pure JS, portable to the Windows x64 server): shipped so the server needs no npm registry
 Push-Location "$work\server"
@@ -53,7 +56,7 @@ robocopy "$work\src\data" "$out\src\data" /E /NFL /NDL /NJH /NJS | Out-Null; Che
 robocopy "$work\src\utils" "$out\src\utils" /E /NFL /NDL /NJH /NJS | Out-Null; Check-Robocopy
 Copy-Item "$work\package.json" "$out\package.json"   # only so ../../src/*.js are treated as ES modules
 Copy-Item "$work\deploy\kmutt\install-on-server.ps1" "$out\install-on-server.ps1"
-"commit $sha`ntag $tag`nbuilt $(Get-Date -Format s)" | Set-Content "$out\RELEASE.txt" -Encoding ASCII
+"commit $sha`ntag $tag`nbase /portal/`nbuilt $(Get-Date -Format s)" | Set-Content "$out\RELEASE.txt" -Encoding ASCII
 Remove-Item $work -Recurse -Force
 
 $zip = Join-Path $releaseDir 'tta-portal.zip'

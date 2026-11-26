@@ -1,4 +1,5 @@
 import React from 'react';
+import { publicUrl } from '../../utils/publicUrl';
 
 export const ClassicHero = () => {
   return (
@@ -67,7 +68,7 @@ export const ClassicHero = () => {
           }}
         >
           <img
-            src="/assets/ttaa13-logo.png"
+            src={publicUrl('/assets/ttaa13-logo.png')}
             alt="Thailand Teaching Academy Award 2027"
             style={{ display: 'block', width: '100%', height: 'auto' }}
           />
