@@ -3,7 +3,8 @@ import { makeTestApp, loginAs } from './helpers.js';
 import { fakeGoogle, connectDrive, GOOGLE_ENV, GOOD_CODE, REFRESH_TOKEN } from './fakeGoogle.js';
 import { getSetting, setSetting } from '../src/settings.js';
 import { decrypt } from '../src/crypto.js';
-import { ROOT_FOLDER_NAME } from '../src/drive.js';
+import { ROOT_FOLDER_NAME, googleSetupProblems } from '../src/drive.js';
+import { loadConfig } from '../src/config.js';
 
 let t, google, admin;
 beforeEach(async () => {
@@ -83,11 +84,51 @@ describe('Google OAuth', () => {
 
   it('status reports disconnected, then connected with quota', async () => {
     const get = () => t.app.inject({ method: 'GET', url: '/api/admin/google/status', headers: { cookie: admin } });
-    expect((await get()).json()).toEqual({ connected: false, email: null, quota: null, folderUrl: null });
+    expect((await get()).json()).toEqual({ connected: false, email: null, quota: null, folderUrl: null, setupProblems: [] });
     connectDrive(t.db, t.config);
     expect((await get()).json()).toEqual({
-      connected: true, email: 'lead@gmail.com', quota: { limit: 16106127360, usage: 1048576 }, folderUrl: null
+      connected: true, email: 'lead@gmail.com', quota: { limit: 16106127360, usage: 1048576 }, folderUrl: null, setupProblems: []
     });
+  });
+
+  it('status lists setup problems, such as a callback under the /portal base path', async () => {
+    const bad = await makeTestApp({
+      ...GOOGLE_ENV,
+      APP_ORIGIN: 'https://tta2027.kmutt.ac.th',
+      BASE_PATH: '/portal',
+      GOOGLE_REDIRECT_URI: 'https://tta2027.kmutt.ac.th/portal/api/admin/google/callback'
+    }, { googleFetch: google.fetch });
+    const c = await loginAs(bad.app, 'admin1', 'pass-admin-1');
+    const res = await bad.app.inject({ method: 'GET', url: '/api/admin/google/status', headers: { cookie: c } });
+    expect(res.json().setupProblems).toEqual([
+      'GOOGLE_REDIRECT_URI must be https://tta2027.kmutt.ac.th/api/admin/google/callback (now "https://tta2027.kmutt.ac.th/portal/api/admin/google/callback")'
+    ]);
+    await bad.app.close();
+  });
+});
+
+describe('googleSetupProblems', () => {
+  const cfg = (env) => loadConfig({ ...GOOGLE_ENV, ...env });
+  const domain = { APP_ORIGIN: 'https://tta2027.kmutt.ac.th', GOOGLE_REDIRECT_URI: 'https://tta2027.kmutt.ac.th/api/admin/google/callback' };
+
+  it('accepts the KMUTT domain setup', () => {
+    expect(googleSetupProblems(cfg({ ...domain, BASE_PATH: '/portal' }))).toEqual([]);
+  });
+  it('says when Google is not set at all', () => {
+    expect(googleSetupProblems(loadConfig({}))).toEqual(['GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are not set']);
+  });
+  it('flags a missing secret and a bad token key', () => {
+    expect(googleSetupProblems(cfg({ ...domain, GOOGLE_CLIENT_SECRET: '', TOKEN_KEY: 'abc' }))).toEqual([
+      'GOOGLE_CLIENT_SECRET is not set', 'TOKEN_KEY must be 64 hex characters'
+    ]);
+  });
+  it('flags an APP_ORIGIN with a path or trailing slash', () => {
+    expect(googleSetupProblems(cfg({ ...domain, APP_ORIGIN: 'https://tta2027.kmutt.ac.th/' }))[0]).toMatch(/^APP_ORIGIN must be/);
+    expect(googleSetupProblems(cfg({ ...domain, APP_ORIGIN: 'https://tta2027.kmutt.ac.th/portal' }))[0]).toMatch(/^APP_ORIGIN must be/);
+  });
+  it('flags a callback on another origin, such as the old IP address', () => {
+    expect(googleSetupProblems(cfg({ ...domain, GOOGLE_REDIRECT_URI: 'http://10.2.15.250:3001/api/admin/google/callback' }))[0])
+      .toMatch(/^GOOGLE_REDIRECT_URI must be https:\/\/tta2027\.kmutt\.ac\.th\/api\/admin\/google\/callback/);
   });
 
   it('status links to the root Drive folder once it exists', async () => {

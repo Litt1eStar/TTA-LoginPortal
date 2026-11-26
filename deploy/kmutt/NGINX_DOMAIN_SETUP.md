@@ -177,7 +177,14 @@ Needs the HTTPS domain, so do it after Part E.
      existing one:
      - *Authorized JavaScript origins*: `https://tta2027.kmutt.ac.th`
      - *Authorized redirect URIs*: `https://tta2027.kmutt.ac.th/api/admin/google/callback`
+     Not `/portal/api/...`: the callback lives at `/api/` even though the pages are under `/portal/`.
    - Copy the **Client ID** and **Client secret**.
+   - **Audience** (older consoles: *OAuth consent screen → Publishing status*): click **Publish app**
+     so the status is **In production**. While it says *Testing*, Google revokes the stored token
+     after **7 days** and Drive silently disconnects. The portal only asks for `drive.file` (files it
+     created itself), which needs no Google review; if Google shows a "Google hasn't verified this
+     app" screen when you connect, click **Advanced → Go to … (unsafe)**: that is expected for your
+     own unreviewed app.
 2. **Make an encryption key** for the stored Google token (64 hex characters), on the server:
    ```powershell
    $b = New-Object byte[] 32; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b); ($b | ForEach-Object { $_.ToString('x2') }) -join ''
@@ -191,10 +198,28 @@ Needs the HTTPS domain, so do it after Part E.
    ```
    Keep `TOKEN_KEY` unchanged afterwards: changing it makes the stored Google connection unreadable
    (you would have to connect Drive again).
-4. **Restart the portal** (the block in Part E).
-5. Log in as **admin** at https://tta2027.kmutt.ac.th/portal/admin and click **connect Google Drive**. Sign in
-   with the Google account that owns the Drive folder and allow access. You return to the admin page
-   with Drive shown as connected.
+   `APP_ORIGIN` must already be `https://tta2027.kmutt.ac.th` (Part E): no trailing `/`, no `/portal`.
+   Video uploads go from the browser straight to Google, and Google only allows them from that exact origin.
+4. **Restart the portal** (the block in Part E). Then check the log for setup mistakes:
+   ```powershell
+   Select-String C:\tta-portal\logs\portal.log -Pattern '\[google\]' | Select-Object -Last 5
+   ```
+   No lines from the latest start = the settings look right. Each line otherwise names the setting to fix.
+5. Log in as **admin** at https://tta2027.kmutt.ac.th/portal/admin and open the Google Drive card. If
+   it lists setup problems in red, fix those lines in `.env` and restart. Otherwise click
+   **เชื่อมต่อ Google Drive**, sign in with the Google account whose Drive should hold the files, and
+   allow access. You return to the admin page with **เชื่อมต่อแล้ว**, the account's free space, and an
+   **เปิดโฟลเดอร์ใน Google Drive** button to the portal's folder.
+6. **Test once end to end**: log in as a coordinator, open สื่อสร้างสรรค์, upload a short video, then open
+   the Drive folder and check that it arrived under the university's folder. Remove the test video afterwards.
+
+| Problem after connecting | Cause |
+|---|---|
+| Google shows `Error 400: redirect_uri_mismatch` | `GOOGLE_REDIRECT_URI` and the URI in the OAuth client differ (letter for letter, `https`, no trailing `/`) |
+| Back on the admin page with an error toast (`google=error`) | Drive API not enabled in the project, or wrong client secret |
+| A raw `{"error":"bad_request"}` page after Google | Connect was started from another address (e.g. the old IP): start again from `https://tta2027.kmutt.ac.th/portal/admin` |
+| Connected, but disconnected again a week later | The app is still in *Testing*: publish it (step 1), then connect again |
+| Video upload fails in the browser (CORS error in the console) | `APP_ORIGIN` differs from the address in the browser bar |
 
 ---
 

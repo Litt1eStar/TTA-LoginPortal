@@ -49,7 +49,28 @@ function uniqueDriveName(used, wanted) {
   return name;
 }
 
-export const driveUnavailable = (message = 'ยังไม่ได้เชื่อมต่อ Google Drive') =>
+// Setup mistakes that make "connect Google Drive" fail on a real domain. [] = looks right.
+// The callback must be APP_ORIGIN + /api/admin/google/callback (not under BASE_PATH): the state cookie
+// is scoped to /api/admin/google, and Google only accepts the exact URI registered in the OAuth client.
+export function googleSetupProblems(config) {
+  const g = config.google;
+  if (!g.clientId && !g.clientSecret) return ['GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are not set'];
+  const problems = [];
+  if (!g.clientId) problems.push('GOOGLE_CLIENT_ID is not set');
+  if (!g.clientSecret) problems.push('GOOGLE_CLIENT_SECRET is not set');
+  if (!isValidTokenKey(config.tokenKey)) problems.push('TOKEN_KEY must be 64 hex characters');
+  let origin = null;
+  try { origin = new URL(config.appOrigin).origin; } catch { /* reported below */ }
+  if (origin !== config.appOrigin) {
+    problems.push(`APP_ORIGIN must be scheme and host only, e.g. https://tta2027.kmutt.ac.th (now "${config.appOrigin}")`);
+  } else {
+    const expected = `${origin}/api/admin/google/callback`;
+    if (g.redirectUri !== expected) problems.push(`GOOGLE_REDIRECT_URI must be ${expected} (now "${g.redirectUri}")`);
+  }
+  return problems;
+}
+
+export const driveUnavailable =(message = 'ยังไม่ได้เชื่อมต่อ Google Drive') =>
   httpError(503, 'drive_unavailable', message);
 const driveDown = () => driveUnavailable(DRIVE_DOWN);
 
@@ -520,7 +541,8 @@ export default async function driveRoutes(app, { db, config, drive }) {
   });
 
   app.get('/admin/google/status', { preHandler: app.requireAdmin }, async () => {
-    if (!drive.isConnected()) return { connected: false, email: null, quota: null, folderUrl: null };
+    const setupProblems = googleSetupProblems(config);
+    if (!drive.isConnected()) return { connected: false, email: null, quota: null, folderUrl: null, setupProblems };
     let quota = null;
     try {
       quota = (await drive.getAbout()).quota;
@@ -529,6 +551,6 @@ export default async function driveRoutes(app, { db, config, drive }) {
     }
     const folderId = getSetting(db, 'drive.root_folder');
     const folderUrl = folderId ? `https://drive.google.com/drive/folders/${encodeURIComponent(folderId)}` : null;
-    return { connected: drive.isConnected(), email: getSetting(db, 'google.email'), quota, folderUrl };
+    return { connected: drive.isConnected(), email: getSetting(db, 'google.email'), quota, folderUrl, setupProblems };
   });
 }

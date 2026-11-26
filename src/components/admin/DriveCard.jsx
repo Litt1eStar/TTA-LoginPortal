@@ -21,6 +21,7 @@ export const DriveCard = () => {
   useEffect(() => { load(); }, [load]);
 
   const data = state.data;
+  const setupProblems = data?.setupProblems || [];
   const limit = Number(data?.quota?.limit) || 0;
   const usage = Number(data?.quota?.usage) || 0;
   const pct = limit ? Math.min(100, Math.round((usage / limit) * 100)) : 0;
@@ -57,15 +58,24 @@ export const DriveCard = () => {
             </div>
           )}
 
+          {setupProblems.length > 0 && (
+            <div role="alert" className="adm-note adm-note--error">
+              <p>การตั้งค่า Google ในไฟล์ server/.env ยังไม่ถูกต้อง แก้แล้วรีสตาร์ตระบบ:</p>
+              <ul>{setupProblems.map(p => <li key={p}><code>{p}</code></li>)}</ul>
+            </div>
+          )}
+
           <div className="adm-drive-act">
             {data.connected && data.folderUrl && (
               <a className="btn btn-sm" href={data.folderUrl} target="_blank" rel="noopener noreferrer">
                 <ArrowSquareOut size={16} /> เปิดโฟลเดอร์ใน Google Drive
               </a>
             )}
-            <a className={data.connected ? 'btn btn-sm btn-ghost' : 'btn btn-primary btn-sm'} href="/api/admin/google/connect">
-              <GoogleDriveLogo size={16} /> {data.connected ? 'เชื่อมต่อบัญชีอื่น' : 'เชื่อมต่อ Google Drive'}
-            </a>
+            {setupProblems.length === 0 && (
+              <a className={data.connected ? 'btn btn-sm btn-ghost' : 'btn btn-primary btn-sm'} href="/api/admin/google/connect">
+                <GoogleDriveLogo size={16} /> {data.connected ? 'เชื่อมต่อบัญชีอื่น' : 'เชื่อมต่อ Google Drive'}
+              </a>
+            )}
           </div>
         </>
       )}
