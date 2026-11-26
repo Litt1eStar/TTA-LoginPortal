@@ -15,6 +15,8 @@ const FETCH_TIMEOUT_MS = 20000;
 export const FOLDER_MIME_TYPE = FOLDER_MIME;
 export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 export const ROOT_FOLDER_NAME = 'TTA2027';
+export const TEST_FOLDER_NAME = '_ทดสอบอัปโหลด';   // admin upload tests, inside the root folder
+export const TEST_FOLDER_KEY = 'drive.test_folder';  // not under drive.folder.*, which holds university folders
 export const DRIVE_DOWN = 'Google Drive ขัดข้อง กรุณาลองใหม่';
 
 const PHOTO_MIME_EXT = {
@@ -353,6 +355,27 @@ export function createDrive({ db, config, fetch = globalThis.fetch }) {
     }
   }
 
+  async function ensureTestFolder() {
+    const root = await ensureRootFolder();
+    return ensureFolder(TEST_FOLDER_KEY, TEST_FOLDER_NAME, root, 'root');
+  }
+
+  // Runs fn(testFolderId); a folder deleted in Drive is forgotten, recreated and retried (twice at most).
+  async function withTestFolder(fn) {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await fn(await ensureTestFolder());
+      } catch (err) {
+        if (!err.parentMissing || attempt >= 2) throw err;
+        if (err.parentKind === 'root') clearStaleFolder(null, null, 'root');
+        deleteSetting(db, TEST_FOLDER_KEY);
+      }
+    }
+  }
+
+  const createTestSession = (opts) => withTestFolder(parent => createResumableSession({ ...opts, parent }));
+  const uploadTestFile = (opts) => withTestFolder(parent => uploadFile({ ...opts, parent }));
+
   async function renameFile(id, name) {
     const res = await call('PATCH', `${API}/files/${encodeURIComponent(id)}?fields=id,name`, {
       json: { name }
@@ -475,7 +498,8 @@ export function createDrive({ db, config, fetch = globalThis.fetch }) {
     isConfigured, isConnected, assertConfigured, authUrl, exchangeCode, getAbout,
     ensureRootFolder, ensureUniversityFolder, ensureEntryFolder,
     createResumableSession, createUniversitySession,
-    uploadFile, uploadEntryFile, renameFile, getFileMeta, deleteFile, syncEntryPhotos
+    uploadFile, uploadEntryFile, renameFile, getFileMeta, deleteFile, syncEntryPhotos,
+    createTestSession, uploadTestFile
   };
 }
 

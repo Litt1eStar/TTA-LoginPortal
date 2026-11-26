@@ -12,6 +12,7 @@ import { getOverviewItems } from '../../utils/entries';
 import { StatusCell, isIncompleteDraft } from './StatusChip';
 import { EntryDetailModal } from './EntryDetailModal';
 import { DriveCard } from './DriveCard';
+import { DriveTestCard } from './DriveTestCard';
 import './admin.css';
 
 // All 18 submission columns, in the same order as the coordinator dashboard
@@ -651,6 +652,7 @@ export const AdminView = () => {
         </section>
 
         <DriveCard />
+        <DriveTestCard />
       </div>
 
       {selected && (

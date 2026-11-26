@@ -236,6 +236,21 @@ button.adm-pulse-item:active { background: var(--color-none-bg); }
 .adm-note ul { margin: var(--space-2, 0.5rem) 0 0; padding-left: 1.25rem; }
 .adm-note code { overflow-wrap: anywhere; }
 
+/* Drive upload test (DriveTestCard) */
+.adm-dtest-runs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-sm); }
+.adm-dtest-run { display: flex; flex-direction: column; gap: var(--space-2xs); padding: var(--space-sm) var(--space-md); border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-control); background: var(--color-paper-3, transparent); }
+.adm-dtest-runhead { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); flex-wrap: wrap; font-size: var(--text-sm); }
+.adm-dtest-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2xs); font-size: var(--text-sm); }
+.adm-dtest-step { display: flex; align-items: flex-start; gap: var(--space-xs); color: var(--color-ink-2); }
+.adm-dtest-step svg { flex: none; margin-top: 2px; }
+.adm-dtest-step.is-running { color: var(--color-accent); }
+.adm-dtest-step.is-ok { color: var(--color-done); }
+.adm-dtest-step.is-fail { color: var(--color-error); }
+.adm-dtest-msg { font-weight: 600; }
+.adm-spin { animation: adm-spin 0.9s linear infinite; }
+@keyframes adm-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .adm-spin { animation: none; } }
+
 /* Photo preview (inside the app's .modal) */
 .adm-lightbox img { width: 100%; max-height: 60dvh; object-fit: contain; border-radius: var(--radius-control); background: var(--color-paper-3); }
 

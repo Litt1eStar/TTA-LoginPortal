@@ -9,6 +9,7 @@ import submissionsPlugin from './submissions.js';
 import multipart from '@fastify/multipart';
 import filesRoutes from './files.js';
 import videoRoutes from './video.js';
+import driveTestRoutes from './driveTest.js';
 import driveRoutes, { createDrive } from './drive.js';
 import adminPlugin from './admin.js';
 import healthPlugin from './health.js';
@@ -94,5 +95,6 @@ export function buildApp({ db, config, logger = false, googleFetch = globalThis.
   app.register(filesRoutes, { prefix: '/api', db, config });
   app.register(driveRoutes, { prefix: '/api', db, config, drive });
   app.register(videoRoutes, { prefix: '/api', db, config, drive });
+  app.register(driveTestRoutes, { prefix: '/api', db, config, drive });
   return app;
 }
