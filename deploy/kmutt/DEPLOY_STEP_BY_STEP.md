@@ -153,7 +153,7 @@ Edit with `notepad C:\tta-portal\server\.env`, then restart (see the Maintenance
 |---|---|---|
 | `APP_ORIGIN` | `http://10.2.15.250:3001` | The portal gets a domain. Used for photo links in exports and Google Drive. |
 | `COOKIE_SECURE` | `false` | `true` **only** once the portal is reached over HTTPS. On plain http it breaks login. |
-| `TRUST_PROXY` | (not set) | Add `TRUST_PROXY=1` when CITES puts a gateway/reverse proxy in front. |
+| `TRUST_PROXY` | (not set) | `TRUST_PROXY=2` once the portal is reached through the university proxy **and** nginx (see `NGINX_DOMAIN_SETUP.md`). |
 | `DEADLINE` | `2026-12-15T23:59:00+07:00` | The submission deadline moves. |
 
 Never share `.env`; it holds `SESSION_SECRET`.
@@ -287,21 +287,20 @@ Do this when CITES can help, in case Remote Desktop hangs after the restart.
 
 ### 3.2 Domain names and outside access
 
-`10.2.15.250` is a **private** address: it only works on the KMUTT network or VPN. For the other
-universities to reach the sites, ask CITES to publish them on the university's public gateway:
+`10.2.15.250` is a **private** address: it only works on the KMUTT network or VPN. The university
+publishes sites through its own reverse proxy (`mainwebreverse.kmutt.ac.th`, nginx), which holds the
+HTTPS certificate and forwards to **port 80** on this server.
 
-> Please publish `https://<portal-name>.kmutt.ac.th` → `10.2.15.250:3001` and
-> `https://<landing-name>.kmutt.ac.th` → `10.2.15.250:80`, with the university SSL certificate.
+The portal's domain is **`tta2027.kmutt.ac.th`**. Its full setup (nginx on port 80 → portal on 3001,
+`.env` switch to HTTPS, Google Drive) is in [`NGINX_DOMAIN_SETUP.md`](NGINX_DOMAIN_SETUP.md).
 
-Then:
+Because every domain arrives on port 80, a second site (e.g. the Landing Page) on this server is
+added as another `server { }` block in nginx with its own domain, not as a separate IIS site on
+port 80. Variant 2 above (IIS on port 80) is only for a server **without** nginx; with nginx, give
+IIS another port (e.g. 8081) or let nginx serve the files (example in `nginx\nginx.conf`).
 
-1. Portal `.env`: `APP_ORIGIN=https://<portal-name>.kmutt.ac.th`, `COOKIE_SECURE=true`,
-   `TRUST_PROXY=1`; restart the portal.
-2. Landing Page: set `PORTAL_URL` in `src\App.jsx` to the new portal address, push, and update the
-   Landing Page (Maintenance workflow §4.2).
-3. Google Drive (videos, photos): in Google Cloud Console add
-   `https://<portal-name>.kmutt.ac.th/api/drive/callback` as an authorised redirect URI, then connect
-   Drive from the portal's admin page. Drive cannot be connected over plain http.
+Landing Page: set `PORTAL_URL` in `src\App.jsx` to `https://tta2027.kmutt.ac.th/`, push, and redeploy
+it wherever it runs.
 
 ### 3.3 Where everything is
 
