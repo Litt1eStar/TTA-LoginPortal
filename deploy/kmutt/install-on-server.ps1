@@ -51,9 +51,8 @@ if (Test-Path "$InstallDir\server\data\portal.db") {
 
 if ((Test-Path "$InstallDir\RELEASE.txt") -and -not (Test-Path "$InstallDir\UPDATING")) {
   $prev = "$InstallDir-previous"
-  if (Test-Path $prev) { Remove-Item $prev -Recurse -Force }
   New-Item -ItemType Directory -Force $prev | Out-Null
-  robocopy "$InstallDir" $prev /E /XD "$InstallDir\server\data" "$InstallDir\server\backups" "$InstallDir\logs" /XF .env /NFL /NDL /NJH /NJS | Out-Null; Check-Robocopy
+  robocopy "$InstallDir" $prev /MIR /XD "$InstallDir\server\data" "$InstallDir\server\backups" "$InstallDir\logs" /XF .env /NFL /NDL /NJH /NJS | Out-Null; Check-Robocopy
 }
 # Marker: an update is in progress. If it fails and is re-run, the good previous release above is not overwritten.
 New-Item -ItemType Directory -Force $InstallDir | Out-Null

@@ -24,6 +24,8 @@ param(
 $ErrorActionPreference = 'Stop'
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $taskName = 'TTA-Portal'
+# Ensure this shell is not holding a lock inside deploy\kmutt\release\tta-portal from an earlier manual install
+Set-Location $repo
 
 function Step($text) { Write-Host "`n== $text" -ForegroundColor Cyan }
 function Check-Robocopy { if ($LASTEXITCODE -ge 8) { throw "robocopy failed ($LASTEXITCODE)" } }
@@ -96,7 +98,7 @@ try {
 
     # 2. Build the release (a clean export of HEAD, so it never ships stray files)
     Step 'Building the release (a few minutes)'
-    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'package-release.ps1')
+    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'package-release.ps1') -NoZip
     if ($LASTEXITCODE) { throw 'package-release.ps1 failed; the running portal was not touched.' }
     $release = Join-Path $PSScriptRoot 'release\tta-portal'
     if ((Get-Content "$release\RELEASE.txt" | Select-Object -First 1) -ne "commit $target") {
