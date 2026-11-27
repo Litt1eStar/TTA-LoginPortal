@@ -736,6 +736,19 @@ a:hover {
   box-shadow: 0 10px 30px -18px rgba(27, 29, 41, 0.25);
 }
 
+/* Second line of the dashboard greeting: "KMUTT >> <university full name>" */
+.hero-uni {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.62em;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--primary);
+}
+
+/* Keep a Thai phrase on one line (Thai has no spaces, so it can break mid-word) */
+.nowrap { white-space: nowrap; }
+
 .tile-orange {
   background: linear-gradient(140deg, #FF5B18 0%, #FF7A12 55%, #FF9A1F 100%);
   color: var(--ink);

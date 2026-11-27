@@ -155,7 +155,7 @@ Edit with `notepad C:\tta-portal\server\.env`, then restart (see the Maintenance
 | `APP_ORIGIN` | `http://10.2.15.250:3001` | The portal gets a domain. Used for photo links in exports and Google Drive. |
 | `COOKIE_SECURE` | `false` | `true` **only** once the portal is reached over HTTPS. On plain http it breaks login. |
 | `TRUST_PROXY` | (not set) | `TRUST_PROXY=2` once the portal is reached through the university proxy **and** nginx (see `NGINX_DOMAIN_SETUP.md`). |
-| `DEADLINE` | `2026-12-15T23:59:00+07:00` | The submission deadline moves. |
+| `DEADLINE` | `2026-12-30T23:59:00+07:00` | The submission deadline moves. |
 
 Never share `.env`; it holds `SESSION_SECRET`.
 

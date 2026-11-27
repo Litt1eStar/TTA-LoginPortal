@@ -1,5 +1,7 @@
 import React from 'react';
 import { publicUrl } from '../../utils/publicUrl';
+import { FINAL_DEADLINE } from '../../data/tracks';
+import { fmtDate } from '../../utils/formatters';
 
 export const ClassicHero = () => {
   return (
@@ -91,7 +93,7 @@ export const ClassicHero = () => {
         }}>
           <span>ระบบผู้ประสานงานมหาวิทยาลัย</span>
           <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#1B1D29' }} />
-          <span style={{ fontWeight: 600 }}>ปิดรับลงทะเบียน 15 ธ.ค. 2569</span>
+          <span style={{ fontWeight: 600 }}>ปิดรับลงทะเบียน {fmtDate(FINAL_DEADLINE)}</span>
         </div>
       </div>
     </div>

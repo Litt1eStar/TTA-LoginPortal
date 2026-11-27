@@ -88,7 +88,7 @@ try {
       "SESSION_SECRET=$secret",
       '# Must stay false while the site is served over plain http, otherwise login cookies are dropped.',
       'COOKIE_SECURE=false',
-      'DEADLINE=2026-12-15T23:59:00+07:00',
+      'DEADLINE=2026-12-30T23:59:00+07:00',
       "APP_ORIGIN=$AppOrigin",
       'DB_PATH=data/portal.db',
       'UPLOAD_DIR=data/uploads',
@@ -103,6 +103,13 @@ try {
     if (-not (Select-String -Path $envFile -Pattern '^\s*BASE_PATH\s*=' -Quiet)) {
       Add-Content -Path $envFile -Value @('', '# Added by install-on-server.ps1: the website is built for /portal/', 'BASE_PATH=/portal') -Encoding ASCII
       Write-Host 'Added BASE_PATH=/portal to .env'
+    }
+    # The deadline moved from 15 to 30 Dec 2026. Only the old default is replaced: a deadline set by hand is kept.
+    $oldDeadline = 'DEADLINE=2026-12-15T23:59:00+07:00'
+    $lines = Get-Content -Path $envFile
+    if ($lines -contains $oldDeadline) {
+      $lines | ForEach-Object { if ($_ -eq $oldDeadline) { 'DEADLINE=2026-12-30T23:59:00+07:00' } else { $_ } } | Set-Content -Path $envFile -Encoding ASCII
+      Write-Host 'Moved DEADLINE in .env from 15 Dec to 30 Dec 2026'
     }
   }
 

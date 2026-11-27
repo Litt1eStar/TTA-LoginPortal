@@ -1,4 +1,4 @@
-export const FINAL_DEADLINE = '2026-12-15T23:59:00+07:00';
+export const FINAL_DEADLINE = '2026-12-30T23:59:00+07:00';
 
 // Subject groups (กลุ่มสาขาวิชา), names as given by the organisers
 const SUBJECT_GROUPS = [

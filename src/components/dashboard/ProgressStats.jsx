@@ -4,6 +4,7 @@ import { usePortal } from '../../context/PortalContext';
 import { getOverviewItems } from '../../utils/entries';
 import { groupShortName, CULTURE_CATEGORY } from '../../data/tracks';
 import { SegmentTooltip } from './SegmentTooltip';
+import { UNIVERSITIES } from '../../data/referenceData';
 import { useCountUp } from '../../hooks/useMotion';
 import { ArrowRight, CheckCircle } from '@phosphor-icons/react';
 
@@ -35,6 +36,10 @@ export const ProgressStats = () => {
   const next = items.find(it => it.status === 'draft') || items.find(it => it.status === 'not_started');
   const shownSubmitted = useCountUp(counts.submitted, { duration: 1100, delay: 250 });
   const firstName = user?.name ? user.name.split(' ')[0] : '';
+  // Title line under the greeting: "KMUTT >> มหาวิทยาลัยเทคโนโลยีพระจอมเกล้าธนบุรี"
+  const uni = UNIVERSITIES.find(u => u.code === user?.universityCode);
+  const uniCode = (user?.universityCode || '').toUpperCase();
+  const uniName = uni?.full || user?.university || '';
 
   const openItem = (it) => {
     setHover(null);
@@ -55,9 +60,13 @@ export const ProgressStats = () => {
   return (
     <section className="tile tile-hero glow span-7 reveal" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div>
-        <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--on-ink-muted)' }}>{user?.university}</div>
-        <h1 style={{ fontSize: 'clamp(26px, 3vw, 34px)', fontWeight: 700, marginTop: '4px' }}>
-          สวัสดี คุณ{firstName}
+        <h1 style={{ fontSize: 'clamp(26px, 3vw, 34px)', fontWeight: 700 }}>
+          <span className="nowrap">สวัสดี</span> <span className="nowrap">คุณ{firstName}</span>
+          {uniName && (
+            <span className="hero-uni">
+              {uniCode && <span className="nowrap">{uniCode} &gt;&gt;</span>} {uniName}
+            </span>
+          )}
         </h1>
       </div>
 

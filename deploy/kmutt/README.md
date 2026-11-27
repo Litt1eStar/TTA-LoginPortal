@@ -110,7 +110,7 @@ Run through this once, from a machine on the KMUTT network or VPN:
 | Logs | `Get-Content C:\tta-portal\logs\portal.log -Tail 50` |
 | Is it listening | `Get-NetTCPConnection -LocalPort 3001 -State Listen` |
 | Re-seed or reset a password | Copy the accounts file over, then in `C:\tta-portal\server`: `npm.cmd run seed -- C:\temp\TTA-portal-accounts.md`, then delete the file |
-| Change the deadline or other settings | Edit `C:\tta-portal\server\.env`, then restart. Default is `DEADLINE=2026-12-15T23:59:00+07:00`. |
+| Change the deadline or other settings | Edit `C:\tta-portal\server\.env`, then restart. Default is `DEADLINE=2026-12-30T23:59:00+07:00`. |
 | Backup now | `cd C:\tta-portal\server; npm.cmd run backup`. Output in `server\backups` (database snapshots kept 14 days, uploads copied). |
 | Restore | See *Restore* below |
 
