@@ -205,14 +205,12 @@ On the laptop: edit → test → push `main`. On the server (`docs/MAINTENANCE_W
 
 ```powershell
 cd C:\temp\TTA-LandingPage
-git pull
-npm.cmd ci
-npm.cmd run build
-robocopy C:\sites\tta-landing\site C:\sites\tta-landing\site-previous /MIR /NFL /NDL /NJH /NJS
-robocopy .\dist C:\sites\tta-landing\site /MIR /NFL /NDL /NJH /NJS
+powershell -NoProfile -ExecutionPolicy Bypass -File .\deploy\kmutt\redeploy.ps1
 ```
 
-nginx serves the new files at once; no restart, no reload.
+(First time: `git pull` before it, so the clone has the script.) It tests, builds, keeps the live
+version in `site-previous`, publishes and checks the site, and puts the previous version back if the
+check fails. nginx serves the new files at once; no restart, no reload.
 
 > The Landing Page must not have its own `/portal/` or `/api/` paths: on this domain they belong to
 > the Login Portal.

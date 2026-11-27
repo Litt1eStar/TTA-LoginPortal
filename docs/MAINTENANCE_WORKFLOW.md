@@ -110,33 +110,44 @@ administrator*).
 
 ```powershell
 cd C:\temp\TTA-LoginPortal
-git pull
-git log -1 --oneline        # must show the commit you just pushed
-powershell -NoProfile -ExecutionPolicy Bypass -File .\deploy\kmutt\package-release.ps1
-cd .\deploy\kmutt\release\tta-portal
-powershell -NoProfile -ExecutionPolicy Bypass -File .\install-on-server.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\deploy\kmutt\redeploy.ps1
 ```
 
-- **Do not** pass `-AccountsFile` on an update.
-- `package-release.ps1` ends with `Done: ...tta-portal.zip (commit <yours> ...)`.
-- `install-on-server.ps1` stops the portal, backs up the database and uploads, keeps the old version in
-  `C:\tta-portal-previous`, installs the new one and starts it. It ends with
-  `OK: portal is running (commit <yours>, ...)`.
+First time only (the script arrived after the server was set up, and an old clone may still be on the
+`deploy/kmutt` branch): `git fetch; git checkout main; git pull` before the command above.
+
+`redeploy.ps1` pulls the newest `main`, builds the release (`package-release.ps1`), installs it
+(`install-on-server.ps1`: stops the portal, backs up the database and uploads, keeps the old version in
+`C:\tta-portal-previous`, starts it) and checks `/api/health` directly and through nginx. It ends with
+`DONE. Running: commit <yours>, ...`. If that commit is already running it says so and changes nothing.
+Nothing on the running portal changes if the pull or the build fails.
+
+| Option | Use |
+|---|---|
+| `-DryRun` | Pull and build only, to see that the release builds. The portal keeps running untouched. |
+| `-Commit <sha>` | Deploy that commit instead of the newest (going back to a known good version). |
+| `-Force` | Reinstall even if that commit is already running. |
+| `-Rollback` | Put back the previous release (§6); no pull, no build. |
+
+Each run writes a log to `C:\tta-portal\logs\redeploy-<date-time>.log`. By hand, the script's steps are
+`git pull`, `.\deploy\kmutt\package-release.ps1`, then `.\install-on-server.ps1` from
+`deploy\kmutt\release\tta-portal` (never pass `-AccountsFile` on an update).
 
 ### 4.2 Landing Page (about 2 minutes, no downtime)
 
 ```powershell
 cd C:\temp\TTA-LandingPage
-git pull
-git log -1 --oneline
-npm.cmd ci
-npm.cmd run build
-robocopy C:\sites\tta-landing\site C:\sites\tta-landing\site-previous /MIR /NFL /NDL /NJH /NJS   # keep the old version
-robocopy .\dist C:\sites\tta-landing\site /MIR /NFL /NDL /NJH /NJS
-"robocopy exit code: $LASTEXITCODE  (0-7 = OK)"
+powershell -NoProfile -ExecutionPolicy Bypass -File .\deploy\kmutt\redeploy.ps1
 ```
 
-nginx serves the new files at once; no restart, no reload.
+First time only: `git pull` before the command above, so the clone has the script.
+
+`redeploy.ps1` pulls the newest `main`, runs `npm ci`, the tests and the build, checks that every file
+the new `index.html` loads is in the build, keeps the live site in `C:\sites\tta-landing\site-previous`,
+publishes to `C:\sites\tta-landing\site` and checks that `http://127.0.0.1/` serves it. **If that check
+fails it puts the previous version back by itself.** nginx serves the new files at once; no restart.
+Options as for the portal: `-DryRun`, `-Commit <sha>`, `-Force`, `-Rollback`. Logs:
+`C:\sites\tta-landing\logs\`. The live commit: `C:\sites\tta-landing\RELEASE.txt`.
 
 ### 4.3 nginx config (only when `deploy/kmutt/nginx/nginx.conf` changed)
 
@@ -176,6 +187,13 @@ button. On the server, before the domain exists:
 The data stays as it is; only the program goes back.
 
 ```powershell
+cd C:\temp\TTA-LoginPortal
+powershell -NoProfile -ExecutionPolicy Bypass -File .\deploy\kmutt\redeploy.ps1 -Rollback
+```
+
+By hand, the same steps:
+
+```powershell
 Stop-ScheduledTask TTA-Portal; Start-Sleep 3
 Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object CommandLine -like '*src\index.js*' | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
 robocopy C:\tta-portal-previous C:\tta-portal /E /XD C:\tta-portal-previous\server\data C:\tta-portal-previous\server\backups /XF .env
@@ -192,6 +210,13 @@ Then fix the problem on the laptop, push, and update again.
 ### Roll back the Landing Page
 
 The previous version was kept by §4.2:
+
+```powershell
+cd C:\temp\TTA-LandingPage
+powershell -NoProfile -ExecutionPolicy Bypass -File .\deploy\kmutt\redeploy.ps1 -Rollback
+```
+
+By hand:
 
 ```powershell
 robocopy C:\sites\tta-landing\site-previous C:\sites\tta-landing\site /MIR /NFL /NDL /NJH /NJS

@@ -103,7 +103,7 @@ Run through this once, from a machine on the KMUTT network or VPN:
 
 | Task | Command (PowerShell as Administrator) |
 |---|---|
-| Update to a new version | Build a new zip (section 2), copy it over, unzip, run `install-on-server.ps1` again with no `-AccountsFile`. Keeps `.env`, database and uploads. |
+| Update to a new version | `cd C:\temp\TTA-LoginPortal; powershell -NoProfile -ExecutionPolicy Bypass -File .\deploy\kmutt\redeploy.ps1` pulls `main`, builds, installs and checks (`docs/MAINTENANCE_WORKFLOW.md` §4.1; `-Rollback` puts the previous release back). Without internet on the server: build a zip on the laptop (section 2), copy it over, unzip, run `install-on-server.ps1` with no `-AccountsFile`. Both keep `.env`, database and uploads. |
 | Restart | See *Restart* below |
 | Which version is running | `Get-Content C:\tta-portal\RELEASE.txt` |
 | Roll back | See the deploy plan, Phase 6 "Rollback" |
