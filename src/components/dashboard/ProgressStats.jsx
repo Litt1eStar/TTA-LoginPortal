@@ -81,6 +81,8 @@ export const ProgressStats = () => {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {/* On touch screens the bars are display-only (index.css): 17 bars share one row, too narrow to
+            tap reliably, and the track cards below open the same items */}
         <div className="segbar" aria-label="สถานะแต่ละรายการ" onMouseLeave={() => setHover(null)}>
           {CLUSTERS.map((c, ci) => {
             const group = items.filter(c.match);

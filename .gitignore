@@ -8,3 +8,6 @@
 
 # KMUTT release output (built by deploy/kmutt/package-release.ps1)
 /deploy/kmutt/release/
+
+# Responsive audit screenshots
+/audit-shots/

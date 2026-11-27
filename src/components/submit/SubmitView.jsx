@@ -13,6 +13,7 @@ import { ExternalLinksSection } from './ExternalLinksSection';
 import { TeamMembersSection } from './TeamMembersSection';
 import { VideoUploader } from './VideoUploader';
 import { SubmissionChecklist } from './SubmissionChecklist';
+import { MobileSubmitBar } from './MobileSubmitBar';
 import { ConfirmSubmitModal } from './ConfirmSubmitModal';
 import { SubmitCelebration } from './SubmitCelebration';
 import { getRequirements, getFormErrors } from '../../utils/requirements';
@@ -164,7 +165,7 @@ export const SubmitView = () => {
   const innerClass = !isTypeTransition ? entrySwap.className : 'swap-stage';
 
   return (
-    <div className="app-container" style={{ padding: '28px 20px 80px', overflowX: 'clip' }}>
+    <div className={`app-container${entryId && !isLocked ? ' has-submit-bar' : ''}`} style={{ padding: '28px 20px 80px', overflowX: 'clip' }}>
       <TrackSelector />
 
       <div
@@ -217,7 +218,7 @@ export const SubmitView = () => {
           </div>
 
           {entryId && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
+            <div className="submit-head-meta" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
               {isLocked ? (
                 <span className="badge" style={{ fontSize: '15px', padding: '8px 16px', background: 'var(--blue-bg)', color: 'var(--blue-text)' }}>
                   <LockSimple size={16} weight="bold" />
@@ -233,7 +234,7 @@ export const SubmitView = () => {
                   <CalendarBlank size={16} weight="bold" />
                   {deadline.closed
                     ? `ปิดรับลงทะเบียนแล้ว (${fmtDate(activeTrack.deadline)})`
-                    : `ปิดรับลงทะเบียน ${fmtDate(activeTrack.deadline)} (${deadline.label})`}
+                    : <>ปิดรับลงทะเบียน {fmtDate(activeTrack.deadline)} <span className="nowrap">({deadline.label})</span></>}
                 </span>
               )}
               {!activeTrack.participantsOnly && (
@@ -328,6 +329,13 @@ export const SubmitView = () => {
                 />
               </div>
             </div>
+
+            <MobileSubmitBar
+              trackId={entryId}
+              isLocked={isLocked}
+              isClosed={deadline.closed}
+              onAttemptSubmit={handleAttemptSubmit}
+            />
 
             <ConfirmSubmitModal
               isOpen={confirmModalOpen}

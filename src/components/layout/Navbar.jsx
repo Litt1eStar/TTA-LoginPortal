@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { usePortal } from '../../context/PortalContext';
 import { initials } from '../../utils/formatters';
 import { useSlidingIndicator } from '../../hooks/useMotion';
+import { MobileTabBar } from './MobileTabBar';
 import {
   SquaresFour,
   PaperPlaneTilt,
@@ -33,10 +34,11 @@ const SaveIndicator = ({ state }) => {
       className="nav-save pop-in"
       role="status"
       aria-live="polite"
+      title={text}
       style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13.5px', fontWeight: 600, color, whiteSpace: 'nowrap' }}
     >
       <Icon size={18} weight="bold" className={state === 'saving' ? 'save-pulse' : undefined} />
-      <span>{text}</span>
+      <span className="nav-save-text">{text}</span>
     </span>
   );
 };
@@ -50,6 +52,10 @@ export const Navbar = () => {
   if (!user) return null;
 
   const isAdmin = user.role === 'admin';
+  // The navbar shows the university's short code (e.g. KMITL); the full name is in the tooltip
+  // and on the dashboard. A full Thai name pushed the bar wider than laptop screens.
+  const uniCode = (user.universityCode || '').toUpperCase();
+  const userLabel = isAdmin || !uniCode ? user.name : uniCode;
   const homePath = isAdmin ? '/admin' : '/dashboard';
   const navItems = isAdmin ? [
     { id: 'admin', path: '/admin', label: 'ผู้ดูแลระบบ', icon: ShieldCheck, isActive: location.pathname === '/admin' }
@@ -76,7 +82,7 @@ export const Navbar = () => {
   };
 
   return (
-    <header style={{
+    <header className="app-header" style={{
       background: '#FFFFFF',
       borderBottom: '1px solid var(--border-light)',
       position: 'sticky',
@@ -96,7 +102,8 @@ export const Navbar = () => {
           type="button"
           onClick={() => navigate(homePath)}
           aria-label="ไปหน้าหลัก"
-          style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'transparent', padding: 0 }}
+          className="nav-brand"
+          style={{ minHeight: '44px', display: 'flex', alignItems: 'center', gap: '12px', background: 'transparent', padding: 0 }}
         >
           <span style={{ background: '#FFFFFF', borderRadius: '12px', padding: '5px 8px', display: 'flex' }}>
             <img
@@ -114,7 +121,7 @@ export const Navbar = () => {
         </button>
 
         {/* Navigation */}
-        <nav ref={navRef} className="slide-track" style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--bg-main)', padding: '4px', borderRadius: '999px' }}>
+        <nav ref={navRef} className="slide-track nav-top-links" style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--bg-main)', padding: '4px', borderRadius: '999px' }}>
           {pill && (
             <span
               className="slide-pill"
@@ -185,7 +192,7 @@ export const Navbar = () => {
               className="nav-user-text"
               style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-dark)', whiteSpace: 'nowrap' }}
             >
-              {user.name}
+              {userLabel}
             </span>
           </div>
 
@@ -193,6 +200,8 @@ export const Navbar = () => {
             type="button"
             onClick={logout}
             title="ออกจากระบบ"
+            aria-label="ออกจากระบบ"
+            className="nav-logout"
             style={{ ...ghostBtn, padding: '0 14px' }}
           >
             <SignOut size={17} weight="bold" />
@@ -200,6 +209,7 @@ export const Navbar = () => {
           </button>
         </div>
       </div>
+      {!isAdmin && <MobileTabBar items={navItems} />}
     </header>
   );
 };

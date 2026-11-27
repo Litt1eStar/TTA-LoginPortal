@@ -80,6 +80,7 @@ export const TrackSelector = () => {
       <div ref={sentinelRef} style={{ height: '1px', marginTop: '-1px' }} />
 
       <div
+        className="track-selector"
         style={{
           position: 'sticky',
           top: '82px',

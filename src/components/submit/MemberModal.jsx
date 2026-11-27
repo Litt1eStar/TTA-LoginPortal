@@ -289,7 +289,7 @@ export const MemberModal = ({ isOpen, onClose, trackId, initialType = 'student',
         {/* Body */}
         <div className="modal-body">
           {!isEditing && !isParticipants && (
-            <div style={{
+            <div className="member-type-switch" style={{
               display: 'grid',
               gridTemplateColumns: '1fr 1fr',
               background: 'var(--bg-main)',

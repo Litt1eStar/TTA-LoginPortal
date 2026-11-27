@@ -173,6 +173,7 @@ export const LoginView = () => {
                   onClick={() => setShowPassword(!showPassword)}
                   aria-label={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
                   aria-pressed={showPassword}
+                  className="pw-toggle"
                   style={{
                     position: 'absolute',
                     right: '14px',

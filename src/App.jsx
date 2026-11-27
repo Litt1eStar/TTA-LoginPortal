@@ -56,7 +56,7 @@ function ProtectedLayout() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div className="has-tabbar" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Navbar />
       {/* Brand-colour strip that runs under the navbar while the page swaps */}
       {swap.phase !== 'idle' && (

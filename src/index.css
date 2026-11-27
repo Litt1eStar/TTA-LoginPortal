@@ -668,40 +668,57 @@ a:hover {
   }
 }
 
-/* Navbar brand hides on narrow screens to keep nav on one line */
-@media (max-width: 1100px) {
+/* Navbar. Laptops and up (>= 1024px): logo, the four section pills with labels, user, logout.
+   Touch screens below 1024px: the sections move to the bottom tab bar (.mobile-tabbar) and the
+   top bar keeps the logo, save state, user and logout. */
+@media (max-width: 1279px) {
   .nav-brand-text {
     display: none !important;
   }
 }
 
-@media (max-width: 860px) {
-  .nav-label {
-    display: none;
-  }
-  .nav-user-text {
+@media (min-width: 1024px) and (max-width: 1199px) {
+  /* Logout as an icon so the four labelled pills fit at 1024px */
+  .nav-logout .nav-label { display: none; }
+  .nav-logout { width: 44px; padding: 0 !important; }
+}
+
+@media (max-width: 1023px) {
+  .nav-top-links {
     display: none !important;
   }
   .nav-row {
+    height: 64px !important;
     gap: 8px !important;
   }
   .nav-row > div:last-child {
-    gap: 6px !important;
+    gap: 8px !important;
+  }
+  .nav-logout {
+    height: 44px !important;
+    min-width: 44px;
   }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 479px) {
   .nav-row img {
-    height: 34px !important;
+    height: 30px !important;
   }
-  .nav-user,
-  .nav-save {
-    display: none !important;
+  /* Narrow phones: logout and save state as icons (their text is in the tooltip / for screen readers) */
+  .nav-logout .nav-label { display: none; }
+  .nav-save-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
   }
-  /* Four icon-only menu items must fit next to the logo and logout button */
-  .nav-row nav button {
-    padding: 9px 11px !important;
-  }
+  .nav-logout { width: 44px; padding: 0 !important; }
+}
+
+@media (max-width: 359px) {
+  .nav-user-text { display: none; }
 }
 
 /* ================================================================
@@ -1596,4 +1613,221 @@ a:hover {
   0% { opacity: 0; transform: rotate(-12deg) scale(2.6); }
   70% { opacity: 1; transform: rotate(-12deg) scale(0.92); }
   100% { opacity: 1; transform: rotate(-12deg) scale(1); }
+}
+
+/* ================================================================
+   Phone tab bar and sticky submit bar (plan 2026-11-27)
+   Rendered on every screen, shown only below their breakpoints.
+   ================================================================ */
+.mobile-tabbar,
+.mobile-submit-bar { display: none; }
+
+.mobile-tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  grid-template-columns: repeat(4, 1fr);
+  background: #FFFFFF;
+  border-top: 1px solid var(--border-light);
+  box-shadow: 0 -4px 16px rgba(27, 29, 41, 0.06);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.mobile-tabbar button {
+  min-height: 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.mobile-tabbar button[data-active="true"] { color: var(--primary); font-weight: 700; }
+
+.mobile-submit-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 55;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  background: rgba(255, 255, 255, 0.97);
+  border-top: 1px solid var(--border-light);
+  box-shadow: 0 -4px 16px rgba(27, 29, 41, 0.08);
+}
+
+.mobile-submit-bar .msb-ready {
+  min-height: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  background: transparent;
+  padding: 0 4px;
+  color: var(--text-muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.mobile-submit-bar .msb-ready strong { font-size: 18px; color: var(--primary); line-height: 1.1; }
+.mobile-submit-bar .msb-ready[data-done="true"] strong { color: var(--blue); }
+.mobile-submit-bar .btn { flex: 1; min-height: 48px; }
+
+/* Touch screens below laptop size: the sections are in the bottom tab bar */
+@media (max-width: 1023px) {
+  .mobile-tabbar { display: grid; }
+  .has-tabbar { padding-bottom: calc(60px + env(safe-area-inset-bottom)); }
+}
+
+/* Below 980px the readiness panel is at the end of the form: keep submit at hand, above the tab bar */
+@media (max-width: 979px) {
+  .mobile-submit-bar { display: flex; bottom: calc(60px + env(safe-area-inset-bottom)); }
+  .has-submit-bar { padding-bottom: 80px; }
+}
+
+/* ================================================================
+   Touch screens and small screens (plan 2026-11-27)
+   ================================================================ */
+
+/* Submit header: the deadline badges wrap inside the card instead of running off the right edge */
+.submit-head-meta { min-width: 0; max-width: 100%; }
+.submit-head-meta .badge { white-space: normal; line-height: 1.45; }
+
+/* Dashboard status bars: labels wrap (never cut to "สอนปฏิ…"); bars line up at the bottom */
+.seg-cluster { justify-content: flex-end; }
+.seg-cluster-label {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.3;
+}
+
+/* Phones: the four groups in two rows, so each label has room (the culture group has only 2 bars) */
+@media (max-width: 599px) {
+  .segbar { flex-wrap: wrap; row-gap: 12px; }
+  .seg-cluster { flex: 1 1 calc(50% - 7px) !important; }
+}
+
+@media (max-width: 1023px) {
+  /* 44px tap targets. Chips, tabs and small buttons grow; the status bars keep their 16px look
+     inside a 44px button (the colour is clipped to the middle). */
+  .track-selector button,
+  .card [role="tablist"] > button,
+  .seg-control button,
+  .check-item,
+  .btn-sm,
+  .icon-btn {
+    min-height: 44px;
+  }
+  .icon-btn { min-width: 44px; }
+  .track-selector > button:not([role]) { width: 44px !important; height: 44px !important; }
+  .segbar button { pointer-events: none; }
+  .member-type-switch button { min-height: 44px; }
+  .pw-toggle {
+    width: 44px;
+    height: 44px;
+    justify-content: center;
+    right: 2px !important;
+  }
+}
+
+@media (max-width: 767px) {
+  /* 16px inputs: smaller text makes iOS Safari zoom the page on focus */
+  .login-input,
+  .input,
+  input.input,
+  textarea,
+  select { font-size: 16px; }
+
+  /* Modals become a bottom sheet that fits the visible screen (100dvh follows the browser bar) */
+  .modal-overlay { padding: 0; align-items: flex-end; }
+  .modal {
+    width: 100% !important;
+    max-height: calc(100dvh - 12px);
+    border-radius: 24px 24px 0 0;
+  }
+  .modal-footer { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
+  .modal-footer .btn { flex: 1 1 auto; }
+}
+
+/* Landscape phones: dialogs use the full height */
+@media (max-height: 500px) and (orientation: landscape) {
+  .modal-overlay { padding: 8px; }
+  .modal { max-height: calc(100dvh - 16px); }
+}
+
+/* History: cards below 1024px (the table needs 780px and its action column would sit off-screen),
+   two per row on tablets; the table from 1024px */
+.history-cards { display: none; }
+.btn-soft-orange { background: #FFF1EB; border-color: rgba(255, 95, 28, 0.25); color: #C2410C; }
+
+@media (max-width: 1023px) {
+  .history-table { display: none; }
+  .history-cards {
+    display: grid;
+    gap: 12px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .history-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px;
+    background: #FFFFFF;
+    border: 1px solid #ECECF1;
+    border-radius: 20px;
+    box-shadow: 0 2px 8px rgba(27, 29, 41, 0.03);
+  }
+  .history-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .history-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+    flex: none;
+  }
+  .history-card-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: #4F5366; }
+  .history-card .btn { width: 100%; margin-top: auto; }
+}
+
+@media (min-width: 600px) and (max-width: 1023px) {
+  .history-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Toasts sit above the bottom bars (tab bar below 1024px, submit bar below 980px) */
+@media (max-width: 1023px) {
+  .has-tabbar .toast { bottom: calc(76px + env(safe-area-inset-bottom)) !important; }
+}
+@media (max-width: 979px) {
+  body:has(.mobile-submit-bar) .toast { bottom: calc(144px + env(safe-area-inset-bottom)) !important; }
+}
+
+/* Landscape phones: only the two bottom bars stay fixed, so the form keeps most of the short screen */
+@media (max-height: 500px) and (orientation: landscape) {
+  .app-header,
+  .track-selector { position: relative !important; top: auto !important; }
+
+  /* Compact bottom bars: icon and label side by side, a slimmer submit bar */
+  .mobile-tabbar button { min-height: 44px; flex-direction: row; gap: 6px; font-size: 13px; }
+  .has-tabbar { padding-bottom: calc(44px + env(safe-area-inset-bottom)); }
+  .mobile-submit-bar { bottom: calc(44px + env(safe-area-inset-bottom)) !important; padding-top: 6px; padding-bottom: 6px; }
+  .mobile-submit-bar .msb-ready { min-height: 44px; flex-direction: row; align-items: center; gap: 6px; }
+  .mobile-submit-bar .btn { min-height: 44px; }
+  .has-tabbar .toast { bottom: calc(52px + env(safe-area-inset-bottom)) !important; }
+  body:has(.mobile-submit-bar) .toast { bottom: calc(112px + env(safe-area-inset-bottom)) !important; }
 }

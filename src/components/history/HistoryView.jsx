@@ -1,10 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePortal } from '../../context/PortalContext';
-import { TRACKS, trackSubtitle } from '../../data/tracks';
-import { fmtDateTime, statusMeta, teamLabel } from '../../utils/formatters';
-import { submissionSummary } from '../../utils/requirements';
-import { getEntries } from '../../utils/entries';
+import { historyRows } from '../../utils/history';
 import {
   ClockCounterClockwise,
   Receipt,
@@ -19,6 +16,8 @@ import {
 export const HistoryView = () => {
   const { submissions, openTrack, user } = usePortal();
   const navigate = useNavigate();
+  const rows = historyRows(submissions);
+  const open = (r) => (r.groupIdx != null ? navigate(`/submit/${r.track.id}/${r.groupIdx}`) : openTrack(r.track.id));
 
   return (
     <div className="app-container" style={{ padding: '36px 20px 80px 20px' }}>
@@ -48,8 +47,43 @@ export const HistoryView = () => {
         </div>
       </div>
 
-      {/* History Table */}
-      <div style={{
+      {/* Below 1024px: one card per entry (the table needs 780px) */}
+      <ul className="history-cards">
+        {rows.map((r) => (
+          <li key={r.key} className="history-card">
+            <div className="history-card-head">
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: '16px', fontWeight: 800, color: '#1B1D29' }}>{r.title}</div>
+                <div style={{ fontSize: '13px', color: '#4F5366' }}>{r.subtitle}</div>
+              </div>
+              <span className="history-chip" style={{ background: r.meta.badgeBg, color: r.meta.badgeColor, border: r.meta.badgeBorder }}>
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: r.meta.dotColor }} />
+                {r.meta.label}
+              </span>
+            </div>
+            <div style={{ fontSize: '15px', fontWeight: r.summary ? 700 : 500, color: r.summary ? '#1B1D29' : '#9A9DAD' }}>
+              {r.summary || 'ยังไม่มีข้อมูล'}
+            </div>
+            <div className="history-card-meta">
+              <span>{r.timestamp}</span>
+              <span>{r.team}</span>
+              {(r.filesCount > 0 || r.linksCount > 0) && <span>{r.filesCount} ไฟล์ · {r.linksCount} ลิงก์</span>}
+              {r.hash && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#0A65B0', fontWeight: 700, fontFamily: 'monospace' }}>
+                  <Receipt size={13} weight="bold" />#{r.hash}
+                </span>
+              )}
+            </div>
+            <button type="button" className={`btn ${r.isSubmitted ? '' : 'btn-soft-orange'}`} onClick={() => open(r)}>
+              <span>{r.action}</span>
+              <ArrowRight size={14} weight="bold" />
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      {/* History Table (laptops and up) */}
+      <div className="history-table" style={{
         background: '#FFFFFF',
         borderRadius: '24px',
         border: '1px solid #ECECF1',
@@ -69,24 +103,11 @@ export const HistoryView = () => {
               </tr>
             </thead>
             <tbody>
-              {/* One row per entry: grouped tracks get a row for every กลุ่มสาขา */}
-              {TRACKS.flatMap(t => getEntries(t, submissions).map(e => ({ t, e }))).map(({ t, e }) => {
-                const sub = e.sub;
-                const meta = statusMeta(sub.status, 0);
-                const isSubmitted = sub.status === 'submitted';
-                const isDraft = sub.status === 'draft';
-
-                const timestamp = sub.submittedAt
-                  ? fmtDateTime(sub.submittedAt)
-                  : (sub.draftAt ? `${fmtDateTime(sub.draftAt)} (ร่าง)` : '-');
-
-                const filesCount = (sub.files || []).filter(f => f.status === 'done').length;
-                const linksCount = (sub.links?.video ? 1 : 0);
-                const summary = submissionSummary(t, sub);
-
+              {rows.map((r) => {
+                const { meta, isSubmitted, summary, timestamp, filesCount, linksCount } = r;
                 return (
                   <tr
-                    key={e.key}
+                    key={r.key}
                     style={{
                       borderBottom: '1px solid #F0F1F5',
                       transition: 'background 0.15s ease'
@@ -97,10 +118,10 @@ export const HistoryView = () => {
                     {/* Track Title */}
                     <td style={{ padding: '18px 20px' }}>
                       <div style={{ fontSize: '16px', fontWeight: 800, color: '#1B1D29' }}>
-                        {t.th}
+                        {r.title}
                       </div>
                       <div style={{ fontSize: '13px', color: '#4F5366' }}>
-                        {e.group || trackSubtitle(t)}
+                        {r.subtitle}
                       </div>
                     </td>
 
@@ -123,7 +144,7 @@ export const HistoryView = () => {
 
                     {/* Status Badge */}
                     <td style={{ padding: '18px 20px' }}>
-                      <span style={{
+                      <span className="nowrap" style={{
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: '6px',
@@ -142,12 +163,12 @@ export const HistoryView = () => {
 
                     {/* Team Count */}
                     <td style={{ padding: '18px 20px', fontSize: '14px', color: '#4A4E5E', fontWeight: 600 }}>
-                      {teamLabel(sub.members, t)}
+                      {r.team}
                     </td>
 
                     {/* Receipt Hash & Deliverables */}
                     <td style={{ padding: '18px 20px' }}>
-                      {isSubmitted && sub.hash ? (
+                      {r.hash ? (
                         <div>
                           <div style={{
                             display: 'inline-flex',
@@ -162,7 +183,7 @@ export const HistoryView = () => {
                             fontFamily: 'monospace'
                           }}>
                             <Receipt size={13} weight="bold" />
-                            <span>#{sub.hash}</span>
+                            <span>#{r.hash}</span>
                           </div>
                           <div style={{ fontSize: '13px', color: '#4F5366', marginTop: '4px' }}>
                             {filesCount} ไฟล์ · {linksCount} ลิงก์
@@ -178,7 +199,7 @@ export const HistoryView = () => {
                     {/* Actions */}
                     <td style={{ padding: '18px 20px', textAlign: 'right' }}>
                       <button
-                        onClick={() => (e.groupIdx != null ? navigate(`/submit/${t.id}/${e.groupIdx}`) : openTrack(t.id))}
+                        onClick={() => open(r)}
                         style={{
                           background: isSubmitted ? '#FAFAFC' : '#FFF1EB',
                           border: isSubmitted ? '1px solid #ECECF1' : '1px solid rgba(255, 95, 28, 0.25)',
@@ -192,7 +213,7 @@ export const HistoryView = () => {
                           gap: '6px'
                         }}
                       >
-                        <span>{isSubmitted ? 'ดูรายละเอียด' : (isDraft ? 'แก้ไขต่อ' : 'เริ่มส่ง')}</span>
+                        <span>{r.action}</span>
                         <ArrowRight size={13} weight="bold" />
                       </button>
                     </td>
