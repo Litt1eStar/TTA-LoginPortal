@@ -61,6 +61,17 @@ describe('seed', () => {
     const v2 = db.prepare("SELECT session_version FROM users WHERE username = 'kmutt'").get().session_version;
     expect(v2).toBe(v1 + 1);
   });
+
+  it('parses optional ## Devs table and seeds role = 2 users', () => {
+    const mdWithDevs = `${MD}\n## Devs\n\n| Username | Password | Name |\n|---|---|---|\n| dev1 | test-pass-e | นักพัฒนาระบบ |\n`;
+    const parsed = parseAccounts(mdWithDevs);
+    expect(parsed.devs).toEqual([{ username: 'dev1', password: 'test-pass-e', name: 'นักพัฒนาระบบ' }]);
+    const db = openDb(':memory:');
+    const counts = seed(db, parsed, 4);
+    expect(counts.devs).toBe(1);
+    const devRow = db.prepare("SELECT * FROM users WHERE username = 'dev1'").get();
+    expect(devRow).toMatchObject({ role: 2, university_id: null, name: 'นักพัฒนาระบบ' });
+  });
 });
 
 import { validateAccounts } from '../scripts/seed.js';

@@ -9,6 +9,7 @@ import { fileTypeFromFile } from 'file-type';
 import { httpError } from './errors.js';
 import { isValidEntryKey, getEntryRow, ensureRows, nowSec, assertBeforeDeadline } from './entries.js';
 import { ALLOWED_EXTENSIONS } from '../../src/data/tracks.js';
+import { writeAuditLog } from './audit.js';
 
 export const MAX_FILES_PER_ENTRY = 40;
 const KIND = { photo: 0, work: 1 };
@@ -147,39 +148,63 @@ export default async function filesRoutes(app, { db, config }) {
     const { key } = request.params;
     const { kind } = request.query;
     const universityId = request.user.universityId;
+    let uploadedFilename = '';
 
-    writableEntry(db, config, universityId, key);
-    const { n } = db.prepare('SELECT COUNT(*) AS n FROM files WHERE university_id = ? AND entry_key = ?')
-      .get(universityId, key);
-    if (n >= MAX_FILES_PER_ENTRY) throw badRequest(`แนบไฟล์ได้สูงสุด ${MAX_FILES_PER_ENTRY} ไฟล์ต่อรายการ`);
-    if (!request.isMultipart()) throw badRequest();
-
-    const maxBytes = kind === 'photo' ? config.maxPhotoKB * 1024 : config.maxWorkMB * 1024 * 1024;
-    const part = await request.file({ limits: { fileSize: maxBytes } });
-    if (!part || part.fieldname !== 'file') throw badRequest();
-
-    const tmpPath = path.join(tmpDir, randomBytes(16).toString('hex'));
     try {
-      const { sha256, size } = await saveStream(part.file, tmpPath);
-      if (part.file.truncated) throw tooLarge();
-      if (size === 0) throw badRequest();
-      const name = cleanName(part.filename);
-      const { ext, mime } = await checkType(kind, tmpPath, extOf(name));
-      await storeBlob(tmpPath, sha256);
-      const lastInsertRowid = tx(db, () => {
-        const cur = getEntryRow(db, universityId, key);
-        if (cur.status === 2) throw httpError(423, 'locked', 'ส่งผลงานแล้ว แก้ไขไม่ได้');
-        const { n: count } = db.prepare('SELECT COUNT(*) AS n FROM files WHERE university_id = ? AND entry_key = ?')
-          .get(universityId, key);
-        if (count >= MAX_FILES_PER_ENTRY) throw badRequest(`แนบไฟล์ได้สูงสุด ${MAX_FILES_PER_ENTRY} ไฟล์ต่อรายการ`);
-        return db.prepare(
-          `INSERT INTO files (university_id, entry_key, kind, sha256, size, mime, original_name, uploaded_by, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-        ).run(universityId, key, KIND[kind], sha256, size, mime, name, request.user.id, nowSec()).lastInsertRowid;
+      writableEntry(db, config, universityId, key);
+      const { n } = db.prepare('SELECT COUNT(*) AS n FROM files WHERE university_id = ? AND entry_key = ?')
+        .get(universityId, key);
+      if (n >= MAX_FILES_PER_ENTRY) throw badRequest(`แนบไฟล์ได้สูงสุด ${MAX_FILES_PER_ENTRY} ไฟล์ต่อรายการ`);
+      if (!request.isMultipart()) throw badRequest();
+
+      const maxBytes = kind === 'photo' ? config.maxPhotoKB * 1024 : config.maxWorkMB * 1024 * 1024;
+      const part = await request.file({ limits: { fileSize: maxBytes } });
+      if (!part || part.fieldname !== 'file') throw badRequest();
+      uploadedFilename = cleanName(part.filename);
+
+      const tmpPath = path.join(tmpDir, randomBytes(16).toString('hex'));
+      try {
+        const { sha256, size } = await saveStream(part.file, tmpPath);
+        if (part.file.truncated) throw tooLarge();
+        if (size === 0) throw badRequest();
+        const name = uploadedFilename;
+        const { ext, mime } = await checkType(kind, tmpPath, extOf(name));
+        await storeBlob(tmpPath, sha256);
+        const lastInsertRowid = tx(db, () => {
+          const cur = getEntryRow(db, universityId, key);
+          if (cur.status === 2) throw httpError(423, 'locked', 'ส่งผลงานแล้ว แก้ไขไม่ได้');
+          const { n: count } = db.prepare('SELECT COUNT(*) AS n FROM files WHERE university_id = ? AND entry_key = ?')
+            .get(universityId, key);
+          if (count >= MAX_FILES_PER_ENTRY) throw badRequest(`แนบไฟล์ได้สูงสุด ${MAX_FILES_PER_ENTRY} ไฟล์ต่อรายการ`);
+          return db.prepare(
+            `INSERT INTO files (university_id, entry_key, kind, sha256, size, mime, original_name, uploaded_by, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          ).run(universityId, key, KIND[kind], sha256, size, mime, name, request.user.id, nowSec()).lastInsertRowid;
+        });
+        const fileId = Number(lastInsertRowid);
+        writeAuditLog(db, {
+          request,
+          action: 'file.upload',
+          entryKey: key,
+          targetId: String(fileId),
+          summary: `อัปโหลดไฟล์${kind === 'photo' ? 'รูปถ่าย' : 'ผลงาน'} ${name} (${key})`,
+          details: { fileId, kind, name, size, mime, sha256 }
+        });
+        return { file: toRef(kind, fileId, { name, size, ext, mime }) };
+      } finally {
+        await rm(tmpPath, { force: true });
+      }
+    } catch (err) {
+      writeAuditLog(db, {
+        request,
+        action: 'file.upload_failed',
+        entryKey: key,
+        status: 'error',
+        errorCode: err.code || 'server_error',
+        summary: `อัปโหลดไฟล์ไม่สำเร็จ (${key}: ${err.code || 'error'})`,
+        details: { kind, filename: uploadedFilename, errorCode: err.code || 'server_error' }
       });
-      return { file: toRef(kind, Number(lastInsertRowid), { name, size, ext, mime }) };
-    } finally {
-      await rm(tmpPath, { force: true });
+      throw err;
     }
   });
 
@@ -197,7 +222,7 @@ export default async function filesRoutes(app, { db, config }) {
 
   app.get('/files/:id', { preHandler: app.requireUser, schema: { params: idParams } }, async (request, reply) => {
     const row = getFileRow(request.params.id);
-    if (request.user.role !== 'admin' && row.university_id !== request.user.universityId) throw forbidden();
+    if (request.user.role !== 'admin' && request.user.role !== 'dev' && row.university_id !== request.user.universityId) throw forbidden();
     try {
       await stat(blobPath(row.sha256));
     } catch {
@@ -219,6 +244,21 @@ export default async function filesRoutes(app, { db, config }) {
     if (row.university_id !== request.user.universityId) throw forbidden();
     writableEntry(db, config, row.university_id, row.entry_key);
     db.prepare('DELETE FROM files WHERE id = ?').run(row.id);
+    writeAuditLog(db, {
+      request,
+      action: 'file.delete',
+      entryKey: row.entry_key,
+      targetId: String(row.id),
+      summary: `ลบไฟล์ ${row.original_name} (${row.entry_key})`,
+      details: {
+        fileId: row.id,
+        kind: row.kind === KIND.photo ? 'photo' : 'work',
+        name: row.original_name,
+        size: row.size,
+        mime: row.mime,
+        sha256: row.sha256
+      }
+    });
     // Orphaned blobs are swept later, so a concurrent upload of the same bytes is never cut off.
     setImmediate(() => {
       sweepOrphanBlobs(db, uploadDir).catch(err => request.log.error({ err }, 'orphan sweep failed'));

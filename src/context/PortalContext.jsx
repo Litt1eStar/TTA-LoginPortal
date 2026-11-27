@@ -479,6 +479,7 @@ export const PortalProvider = ({ children }) => {
         user,
         isAuthenticated: !!user,
         isAdmin: user?.role === 'admin',
+        isDev: user?.role === 'dev',
         loading,
         saveState,
         login,

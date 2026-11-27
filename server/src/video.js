@@ -3,6 +3,7 @@ import { writableEntry, extOf, cleanName } from './files.js';
 import { FOLDER_MIME_TYPE } from './drive.js';
 import { nowSec, getEntryRow, rowToEntry } from './entries.js';
 import { getSetting, listSettings } from './settings.js';
+import { writeAuditLog } from './audit.js';
 
 const CLIP_KEY = 'clip';
 const VIDEO_MIMES = new Set(['video/mp4', 'video/quicktime']);
@@ -39,8 +40,16 @@ export default async function videoRoutes(app, { db, config, drive }) {
     writableEntry(db, config, request.user.universityId, CLIP_KEY);
     if (!VIDEO_MIMES.has(mime) || !VIDEO_EXTS.has(extOf(name))) throw badType();
     if (size > maxBytes()) throw tooLarge();
+    const clean = cleanName(name);
     const uploadUrl = await drive.createUniversitySession(request.user.universityCode,
-      { name: cleanName(name), size, mime });
+      { name: clean, size, mime });
+    writeAuditLog(db, {
+      request,
+      action: 'video.session',
+      entryKey: CLIP_KEY,
+      summary: `เริ่มอัปโหลดวิดีโอ ${clean} (${CLIP_KEY})`,
+      details: { name: clean, size, mime }
+    });
     return { uploadUrl };
   });
 
@@ -89,6 +98,20 @@ export default async function videoRoutes(app, { db, config, drive }) {
     }
     db.prepare('INSERT OR IGNORE INTO video_confirmations (university_id, drive_file_id, created_at) VALUES (?, ?, ?)')
       .run(request.user.universityId, meta.id, nowSec());
+    writeAuditLog(db, {
+      request,
+      action: 'video.confirm',
+      entryKey: CLIP_KEY,
+      targetId: meta.id,
+      summary: `ยืนยันไฟล์วิดีโอ ${meta.name} บน Google Drive (${meta.id})`,
+      details: {
+        driveFileId: meta.id,
+        name: meta.name,
+        size,
+        mime: meta.mimeType,
+        replacedDriveFileIds: previous.map(p => p.drive_file_id)
+      }
+    });
     return { video: { driveFileId: meta.id, name: meta.name, size, mime: meta.mimeType } };
   });
 
@@ -126,6 +149,14 @@ export default async function videoRoutes(app, { db, config, drive }) {
       throw err;
     }
     const row = getEntryRow(db, request.user.universityId, CLIP_KEY);
+    writeAuditLog(db, {
+      request,
+      action: 'video.delete',
+      entryKey: CLIP_KEY,
+      targetId: driveFileId,
+      summary: `ลบไฟล์วิดีโอ (${driveFileId})`,
+      details: { driveFileId }
+    });
     return { ok: true, entry: row ? rowToEntry(row) : null };
   });
 }

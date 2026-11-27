@@ -12,8 +12,9 @@ const SubmitView = lazy(() => import('./components/submit/SubmitView').then(m =>
 const HistoryView = lazy(() => import('./components/history/HistoryView').then(m => ({ default: m.HistoryView })));
 const CertificatesView = lazy(() => import('./components/certificates/CertificatesView').then(m => ({ default: m.CertificatesView })));
 const AdminView = lazy(() => import('./components/admin/AdminView').then(m => ({ default: m.AdminView })));
+const DevLogsView = lazy(() => import('./components/dev/DevLogsView').then(m => ({ default: m.DevLogsView })));
 
-const homeFor = (user) => (user?.role === 'admin' ? '/admin' : '/dashboard');
+const homeFor = (user) => (user?.role === 'dev' ? '/dev' : user?.role === 'admin' ? '/admin' : '/dashboard');
 
 const PAGE_GROUPS = {
   dashboard: 0,
@@ -53,6 +54,9 @@ function ProtectedLayout() {
   }
   if (user.role === 'admin') {
     return <Navigate to="/admin" replace />;
+  }
+  if (user.role === 'dev') {
+    return <Navigate to="/dev" replace />;
   }
 
   return (
@@ -98,7 +102,7 @@ function AdminLayout() {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
   if (user.role !== 'admin') {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={homeFor(user)} replace />;
   }
 
   return (
@@ -114,13 +118,42 @@ function AdminLayout() {
   );
 }
 
+// Dev routes: guard & layout (strictly role === 'dev')
+function DevLayout() {
+  const { isAuthenticated, user } = usePortal();
+  const location = useLocation();
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+  if (user.role !== 'dev') {
+    return <Navigate to={homeFor(user)} replace />;
+  }
+
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <Navbar />
+      <main style={{ flex: 1 }} className="swap-stage swap-in">
+        <Suspense fallback={<FullPageLoader />}>
+          <DevLogsView />
+        </Suspense>
+      </main>
+      <Toast />
+    </div>
+  );
+}
+
 // Public-only Route Guard (Login page)
 function PublicLoginRoute() {
   const { isAuthenticated, user } = usePortal();
   const location = useLocation();
 
   if (isAuthenticated) {
-    const from = user.role === 'admin' ? '/admin' : (location.state?.from?.pathname || '/dashboard');
+    const from = user.role === 'dev'
+      ? '/dev'
+      : user.role === 'admin'
+        ? '/admin'
+        : (location.state?.from?.pathname || '/dashboard');
     return <Navigate to={from} replace />;
   }
 
@@ -144,6 +177,9 @@ export default function App() {
 
       {/* Admin path: /admin */}
       <Route path="/admin" element={<AdminLayout />} />
+
+      {/* Dev path: /dev */}
+      <Route path="/dev" element={<DevLayout />} />
 
       {/* Coordinator routes (handles directional Out -> In page swaps) */}
       <Route

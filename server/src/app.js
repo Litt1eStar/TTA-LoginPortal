@@ -12,6 +12,7 @@ import videoRoutes from './video.js';
 import driveTestRoutes from './driveTest.js';
 import driveRoutes, { createDrive } from './drive.js';
 import adminPlugin from './admin.js';
+import devPlugin from './dev.js';
 import healthPlugin from './health.js';
 import { registerStatic, spaNotFoundHandler } from './static.js';
 
@@ -89,6 +90,7 @@ export function buildApp({ db, config, logger = false, googleFetch = globalThis.
   const drive = createDrive({ db, config, fetch: googleFetch });
   app.register(submissionsPlugin, { db, config, drive });
   app.register(adminPlugin, { db, config });
+  app.register(devPlugin, { db, config });
   app.register(healthPlugin, { db, config });
   registerStatic(app, config);
   app.register(multipart, { limits: { files: 1, fields: 5 } });

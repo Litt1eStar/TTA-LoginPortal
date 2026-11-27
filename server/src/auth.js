@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { httpError } from './errors.js';
 import { getUserAuth, getUserByUsername, bumpSessionVersion, toClientUser } from './users.js';
 import { listEntries } from './entries.js';
+import { writeAuditLog } from './audit.js';
 
 export const COOKIE_NAME = 'tta_session';
 const MAX_AGE = 7 * 24 * 3600;
@@ -46,9 +47,15 @@ async function authPlugin(app, { db, config }) {
     if (request.user.role !== 'coordinator') throw httpError(403, 'forbidden');
   }
 
+  async function requireDev(request) {
+    await requireUser(request);
+    if (request.user.role !== 'dev') throw httpError(403, 'forbidden');
+  }
+
   app.decorate('requireUser', requireUser);
   app.decorate('requireAdmin', requireAdmin);
   app.decorate('requireCoordinator', requireCoordinator);
+  app.decorate('requireDev', requireDev);
 
   // Second login cap: per IP alone, whatever the username (in-memory, fixed window).
   const ipHits = new Map();
@@ -78,15 +85,47 @@ async function authPlugin(app, { db, config }) {
     }
   }, async (request, reply) => {
     const { username, password } = request.body;
-    const row = getUserByUsername(db, username.trim().toLowerCase());
+    const cleanUsername = username.trim().toLowerCase();
+    const row = getUserByUsername(db, cleanUsername);
     if (!row) {
       await bcrypt.compare(password, DUMMY_HASH);
+      writeAuditLog(db, {
+        request,
+        user: { id: null, username: cleanUsername, role: 'anonymous' },
+        action: 'auth.login_failed',
+        status: 'error',
+        errorCode: 'bad_credentials',
+        summary: `เข้าสู่ระบบไม่สำเร็จ (${cleanUsername})`,
+        details: { attemptedUsername: cleanUsername, reason: 'unknown_user' }
+      });
       throw httpError(401, 'bad_credentials');
     }
     const ok = await bcrypt.compare(password, row.password_hash);
-    if (!ok || row.disabled === 1) throw httpError(401, 'bad_credentials');
+    if (!ok || row.disabled === 1) {
+      writeAuditLog(db, {
+        request,
+        user: {
+          id: row.id,
+          username: row.username,
+          role: row.role === 2 ? 'dev' : row.role === 1 ? 'admin' : 'coordinator',
+          universityId: row.university_id ?? null
+        },
+        action: 'auth.login_failed',
+        status: 'error',
+        errorCode: 'bad_credentials',
+        summary: `เข้าสู่ระบบไม่สำเร็จ (${row.username})`,
+        details: { attemptedUsername: cleanUsername, reason: row.disabled === 1 ? 'disabled' : 'bad_password' }
+      });
+      throw httpError(401, 'bad_credentials');
+    }
     const record = getUserAuth(db, row.id);
     reply.setCookie(COOKIE_NAME, `${row.id}.${record.sessionVersion}.${Math.floor(Date.now() / 1000)}`, cookieOptions(config));
+    writeAuditLog(db, {
+      request,
+      user: record.user,
+      action: 'auth.login',
+      summary: `เข้าสู่ระบบสำเร็จ (${record.user.username})`
+    });
     return { user: toClientUser(record.user), submissions: submissionsFor(db, record.user) };
   });
 
@@ -94,6 +133,11 @@ async function authPlugin(app, { db, config }) {
     bumpSessionVersion(db, request.user.id);
     const { maxAge, ...clearOpts } = cookieOptions(config);
     reply.clearCookie(COOKIE_NAME, clearOpts);
+    writeAuditLog(db, {
+      request,
+      action: 'auth.logout',
+      summary: `ออกจากระบบ (${request.user.username})`
+    });
     return { ok: true };
   });
 

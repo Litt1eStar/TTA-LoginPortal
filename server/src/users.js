@@ -1,6 +1,8 @@
 // Reads directly from SQLite so out-of-band updates (e.g. `npm run seed` or admin SQL)
 // take effect immediately without stale in-memory sessionVersion / disabled state.
 
+const ROLE_NAMES = { 0: 'coordinator', 1: 'admin', 2: 'dev' };
+
 export function clearUserCache() {
   // kept for backward compatibility with tests and callers
 }
@@ -17,7 +19,7 @@ export function getUserAuth(db, id) {
       id: row.id,
       username: row.username,
       name: row.name,
-      role: row.role === 1 ? 'admin' : 'coordinator',
+      role: ROLE_NAMES[row.role] || 'coordinator',
       universityId: row.university_id ?? null,
       university: row.university_name ?? null,
       universityCode: row.university_code ?? null

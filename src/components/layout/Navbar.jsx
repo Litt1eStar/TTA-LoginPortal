@@ -14,7 +14,8 @@ import {
   CloudArrowUp,
   CloudCheck,
   CloudWarning,
-  ShieldCheck
+  ShieldCheck,
+  TerminalWindow
 } from '@phosphor-icons/react';
 
 const SAVE_STATES = {
@@ -52,12 +53,16 @@ export const Navbar = () => {
   if (!user) return null;
 
   const isAdmin = user.role === 'admin';
+  const isDev = user.role === 'dev';
+  const isStaff = isAdmin || isDev;
   // The navbar shows the university's short code (e.g. KMITL); the full name is in the tooltip
   // and on the dashboard. A full Thai name pushed the bar wider than laptop screens.
   const uniCode = (user.universityCode || '').toUpperCase();
-  const userLabel = isAdmin || !uniCode ? user.name : uniCode;
-  const homePath = isAdmin ? '/admin' : '/dashboard';
-  const navItems = isAdmin ? [
+  const userLabel = isStaff || !uniCode ? user.name : uniCode;
+  const homePath = isDev ? '/dev' : isAdmin ? '/admin' : '/dashboard';
+  const navItems = isDev ? [
+    { id: 'dev', path: '/dev', label: 'บันทึกการทำงานระบบ (Dev)', icon: TerminalWindow, isActive: location.pathname === '/dev' }
+  ] : isAdmin ? [
     { id: 'admin', path: '/admin', label: 'ผู้ดูแลระบบ', icon: ShieldCheck, isActive: location.pathname === '/admin' }
   ] : [
     { id: 'dashboard', path: '/dashboard', label: 'หน้าหลัก', icon: SquaresFour, isActive: location.pathname === '/dashboard' || location.pathname === '/' },
@@ -168,7 +173,7 @@ export const Navbar = () => {
 
         {/* User & actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {!isAdmin && <SaveIndicator state={saveState} />}
+          {!isStaff && <SaveIndicator state={saveState} />}
           <div
             className="nav-user"
             title={user.university ? `${user.name} · ${user.university}` : user.name}
@@ -209,7 +214,7 @@ export const Navbar = () => {
           </button>
         </div>
       </div>
-      {!isAdmin && <MobileTabBar items={navItems} />}
+      {!isStaff && <MobileTabBar items={navItems} />}
     </header>
   );
 };

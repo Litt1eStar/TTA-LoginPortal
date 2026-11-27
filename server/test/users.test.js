@@ -38,4 +38,12 @@ describe('users', () => {
   it('toClientUser keeps only username, name, university, universityCode, role', () => {
     expect(toClientUser(getUserById(db, 1))).toEqual({ username: 'kmutt', name: 'ผู้ประสานงาน', university: 'มจธ', universityCode: 'kmutt', role: 'coordinator' });
   });
+
+  it('maps role 2 to dev', () => {
+    db.prepare("INSERT INTO users (id, username, password_hash, name, university_id, role) VALUES (3, 'dev1', 'h', 'System Dev', NULL, 2)").run();
+    expect(getUserById(db, 3)).toEqual({
+      id: 3, username: 'dev1', name: 'System Dev', role: 'dev',
+      universityId: null, university: null, universityCode: null
+    });
+  });
 });

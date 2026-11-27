@@ -10,7 +10,7 @@ const tables = (db) => db.prepare("SELECT name FROM sqlite_master WHERE type='ta
 describe('openDb', () => {
   it('creates the schema in memory', () => {
     const db = openDb(':memory:');
-    expect(tables(db)).toEqual(expect.arrayContaining(['files', 'submissions', 'universities', 'users']));
+    expect(tables(db)).toEqual(expect.arrayContaining(['audit_logs', 'files', 'submissions', 'universities', 'users']));
     expect(db.prepare('PRAGMA user_version').get().user_version).toBe(MIGRATION_COUNT);
     expect(db.prepare('PRAGMA foreign_keys').get().foreign_keys).toBe(1);
   });

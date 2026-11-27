@@ -18,6 +18,7 @@ export async function makeTestApp(overrides = {}, appOptions = {}) {
   addUser.run('kmutt', bcrypt.hashSync('pass-kmutt-1', 4), 'ผู้ประสานงาน มจธ.', 1, 0);
   addUser.run('rmutt', bcrypt.hashSync('pass-rmutt-1', 4), 'ผู้ประสานงาน มทร.ธัญบุรี', 2, 0);
   addUser.run('admin1', bcrypt.hashSync('pass-admin-1', 4), 'Admin', null, 1);
+  addUser.run('dev1', bcrypt.hashSync('pass-dev-1', 4), 'System Dev', null, 2);
   const app = buildApp({ db, config, ...appOptions });
   await app.ready();
   return { app, db, config };

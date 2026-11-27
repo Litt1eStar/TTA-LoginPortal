@@ -7,6 +7,7 @@ import { httpError } from './errors.js';
 import { allEntryKeys, isValidEntryKey, listEntries, unlockEntry } from './entries.js';
 import { buildMembersCsv, buildCertificatesCsv } from './csv.js';
 import { getSetting } from './settings.js';
+import { writeAuditLog } from './audit.js';
 
 const STATUS_TH = { submitted: 'ส่งแล้ว', draft: 'ฉบับร่าง', not_started: 'ยังไม่เริ่ม' };
 
@@ -306,8 +307,25 @@ export default async function adminPlugin(app, { db, config }) {
   app.post('/api/admin/submissions/:universityId/:key/unlock', pre, async (request) => {
     const uni = findUniversity(db, request.params.universityId);
     const key = checkKey(request.params.key);
+    const before = listEntries(db, uni.id)[key];
     const entry = unlockEntry(db, uni.id, key);
     request.log.info({ admin: request.user.username, universityId: uni.id, key }, 'entry unlocked');
+    writeAuditLog(db, {
+      request,
+      universityId: uni.id,
+      universityCode: uni.code,
+      action: 'admin.unlock',
+      entryKey: key,
+      targetId: before?.hash ?? null,
+      summary: `ผู้ดูแลปลดล็อกรายการ ${key} ของ ${uni.code.toUpperCase()} (${uni.name})`,
+      details: {
+        targetUniversityId: uni.id,
+        targetUniversityCode: uni.code,
+        previousHash: before?.hash ?? null,
+        previousSubmittedAt: before?.submittedAt ?? null,
+        versionAfter: entry.version
+      }
+    });
     return { entry };
   });
 
@@ -315,6 +333,13 @@ export default async function adminPlugin(app, { db, config }) {
     const rows = filterMemberRows(collectMemberRows(db, config), request.query);
     const csv = buildMembersCsv(rows);
     const stamp = bangkokStamp();
+    writeAuditLog(db, {
+      request,
+      action: 'admin.export',
+      targetId: 'export.csv',
+      summary: `ส่งออกข้อมูลรายชื่อผู้สมัคร (export.csv, ${rows.length} รายการ)`,
+      details: { format: 'export.csv', rowCount: rows.length, query: request.query }
+    });
     reply
       .header('Content-Type', 'text/csv; charset=utf-8')
       .header('Content-Disposition', `attachment; filename="tta-members-${stamp}.csv"`)
@@ -326,6 +351,13 @@ export default async function adminPlugin(app, { db, config }) {
     const rows = filterMemberRows(collectMemberRows(db, config), request.query);
     const csv = buildCertificatesCsv(rows);
     const stamp = bangkokStamp();
+    writeAuditLog(db, {
+      request,
+      action: 'admin.export',
+      targetId: 'certificates.csv',
+      summary: `ส่งออกข้อมูลใบเกียรติบัตร (certificates.csv, ${rows.length} รายการ)`,
+      details: { format: 'certificates.csv', rowCount: rows.length, query: request.query }
+    });
     reply
       .header('Content-Type', 'text/csv; charset=utf-8')
       .header('Content-Disposition', `attachment; filename="tta-certificates-${stamp}.csv"`)
@@ -352,9 +384,27 @@ export default async function adminPlugin(app, { db, config }) {
 
   app.get('/api/admin/files.zip', pre, async (request, reply) => {
     const trackId = String(request.query.key || '');
-    return sendZip(request, reply, buildZipPlan(db, config, trackId), `tta-${trackId}.zip`);
+    const plan = buildZipPlan(db, config, trackId);
+    writeAuditLog(db, {
+      request,
+      action: 'admin.export',
+      entryKey: trackId,
+      targetId: 'files.zip',
+      summary: `ส่งออกไฟล์แนบรายการแข่งขัน ${trackId} (files.zip)`,
+      details: { format: 'files.zip', trackId, query: request.query }
+    });
+    return sendZip(request, reply, plan, `tta-${trackId}.zip`);
   });
 
-  app.get('/api/admin/members.zip', pre, async (request, reply) =>
-    sendZip(request, reply, buildMembersZipPlan(db, config), `tta-members-${bangkokStamp()}.zip`));
+  app.get('/api/admin/members.zip', pre, async (request, reply) => {
+    const plan = buildMembersZipPlan(db, config);
+    writeAuditLog(db, {
+      request,
+      action: 'admin.export',
+      targetId: 'members.zip',
+      summary: 'ส่งออกโฟลเดอร์รายชื่อและรูปถ่ายสมาชิกทั้งหมด (members.zip)',
+      details: { format: 'members.zip', query: request.query }
+    });
+    return sendZip(request, reply, plan, `tta-members-${bangkokStamp()}.zip`);
+  });
 }

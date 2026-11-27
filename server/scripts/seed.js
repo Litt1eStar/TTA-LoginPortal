@@ -47,7 +47,9 @@ export function parseAccounts(md) {
     .map(([username, password]) => ({ username, password }));
   const admins = tableAfter(lines, '## Admins')
     .map(([username, password, name]) => ({ username, password, name: !name || name === PLACEHOLDER_NAME ? username : name }));
-  return { coordinators, admins };
+  const devs = tableAfter(lines, '## Devs')
+    .map(([username, password, name]) => ({ username, password, name: !name || name === PLACEHOLDER_NAME ? username : name }));
+  return { coordinators, admins, devs };
 }
 
 export function validateAccounts({ coordinators }) {
@@ -57,7 +59,7 @@ export function validateAccounts({ coordinators }) {
   if (bad.length) throw new Error(`Unknown coordinator username(s) (must be a university code): ${bad.join(', ')}`);
 }
 
-export function seed(db, { coordinators, admins }, cost = 12) {
+export function seed(db, { coordinators, admins, devs = [] }, cost = 12) {
   const upsertUni = db.prepare('INSERT INTO universities (code, name) VALUES (?, ?) ON CONFLICT(code) DO UPDATE SET name = excluded.name');
   const uniId = db.prepare('SELECT id FROM universities WHERE code = ?');
   const upsertUser = db.prepare(`
@@ -67,7 +69,8 @@ export function seed(db, { coordinators, admins }, cost = 12) {
       session_version = users.session_version + 1`);
   const hashed = [
     ...coordinators.map(c => ({ ...c, role: 0 })),
-    ...admins.map(a => ({ ...a, role: 1 }))
+    ...admins.map(a => ({ ...a, role: 1 })),
+    ...devs.map(d => ({ ...d, role: 2 }))
   ].map(u => ({ ...u, hash: bcrypt.hashSync(u.password, cost) }));
 
   tx(db, () => {
@@ -78,11 +81,11 @@ export function seed(db, { coordinators, admins }, cost = 12) {
         if (!uni) throw new Error(`Unknown coordinator username (must be a university code): ${u.username}`);
         upsertUser.run(u.username, u.hash, `ผู้ประสานงาน ${uni.name}`, uniId.get(u.username).id, 0);
       } else {
-        upsertUser.run(u.username, u.hash, u.name, null, 1);
+        upsertUser.run(u.username, u.hash, u.name, null, u.role);
       }
     }
   });
-  return { coordinators: coordinators.length, admins: admins.length };
+  return { coordinators: coordinators.length, admins: admins.length, devs: devs.length };
 }
 
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
@@ -102,5 +105,5 @@ if (isMain) {
   const db = openDb(resolveServerPath(config.dbPath));
   const counts = seed(db, accounts);
   db.close();
-  console.log(`Seeded 10 universities, ${counts.coordinators} coordinators, ${counts.admins} admins (passwords not shown).`);
+  console.log(`Seeded 10 universities, ${counts.coordinators} coordinators, ${counts.admins} admins, ${counts.devs} devs (passwords not shown).`);
 }
